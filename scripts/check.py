@@ -19,8 +19,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PY = sys.executable
 
-SOURCE_DIRS = ["packages/contract/src", "packages/contract/tools", "scripts"]
-TEST_DIRS = ["tests", "packages/contract/tests"]
+SOURCE_DIRS = [
+    "packages/contract/src",
+    "packages/contract/tools",
+    "services/stream/src",
+    "scripts",
+    "spikes",
+]
+TEST_DIRS = ["tests", "packages/contract/tests", "services/stream/tests"]
 
 
 def gates(fast: bool) -> list[tuple[str, list[str]]]:
@@ -31,9 +37,10 @@ def gates(fast: bool) -> list[tuple[str, list[str]]]:
         ("ruff lint", [PY, "-m", "ruff", "check", "."]),
         ("ruff format", [PY, "-m", "ruff", "format", "--check", "."]),
         ("mypy sources (strict)", [PY, "-m", "mypy", *SOURCE_DIRS]),
-        (
-            "mypy tests",
-            [PY, "-m", "mypy", *TEST_DIRS, "--allow-untyped-defs", "--allow-incomplete-defs"],
+        *(
+            (f"mypy {d}", [PY, "-m", "mypy", d, "--allow-untyped-defs", "--allow-incomplete-defs"])
+            # one run per directory: every test package has its own conftest module
+            for d in TEST_DIRS
         ),
         (
             "import rules",
