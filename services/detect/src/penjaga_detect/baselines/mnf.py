@@ -41,7 +41,9 @@ class MnfBaseline:
     def __init__(self, house: HouseContext, params: MnfParams | None = None) -> None:
         self.params = params or MnfParams()
         self.house = house
-        self.info = DetectorInfo("l1_mnf_baseline", "L1", "baseline", "1.0.0")
+        self.info = DetectorInfo(
+            "l1_mnf_baseline", "L1", "baseline", "1.0.0", streams=frozenset({FLOW})
+        )
         self.tracker = FindingTracker(house.house_id, self.info.source(), house.zone)
         self.key = f"L1:night_flow_unexplained:{house.index.meter_id}"
         self._samples: dict[date, list[tuple[npt.NDArray[np.int64], npt.NDArray[np.float64]]]] = {}

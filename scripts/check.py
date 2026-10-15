@@ -26,6 +26,7 @@ SOURCE_DIRS = [
     "services/sim/src",
     "services/sim/tools",
     "services/detect/src",
+    "ml/src",
     "scripts",
     "spikes",
 ]
@@ -35,6 +36,7 @@ TEST_DIRS = [
     "services/stream/tests",
     "services/sim/tests",
     "services/detect/tests",
+    "ml/tests",
 ]
 
 

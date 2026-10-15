@@ -1,0 +1,33 @@
+# L1 v0: water faults W1-W5 and fault-free houses, each over two weeks, with legitimate
+# anomalies (natural ones always occur; some episodes also get an imposed one).
+#
+# Splits never share a weather year or a seed, and the test split adds a household archetype
+# the other splits never see. The test manifests are sealed (ml/sealed/l1_v0.json): tune only on
+# train and validation.
+
+name = "l1_v0"
+layers = ["L1"]
+days = 14
+fault_types = ["W1", "W2", "W3", "W4", "W5"]
+fault_start_days = [3.0, 8.0]  # a fault starts at a uniform time this many days into the episode
+anomaly_prob = 0.35  # share of episodes with one imposed legitimate anomaly
+anomaly_types = ["guests", "holiday_absence", "festive_cooking", "night_bucket_fill", "washer_delay_timer"]
+anomaly_days = [1, 3]  # length of an imposed anomaly, whole days
+
+[split.train]
+years = [2023]
+archetypes = ["working_family", "retired_couple", "young_couple", "large_family"]
+episodes_per_fault_type = 12
+fault_free_episodes = 12
+
+[split.validation]
+years = [2024]
+archetypes = ["working_family", "retired_couple", "young_couple", "large_family"]
+episodes_per_fault_type = 8
+fault_free_episodes = 8
+
+[split.test]
+years = [2025]
+archetypes = ["working_family", "retired_couple", "young_couple", "large_family", "shift_family"]
+episodes_per_fault_type = 10
+fault_free_episodes = 10

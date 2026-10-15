@@ -1,0 +1,28 @@
+[project]
+name = "penjaga-eval"
+version = "0.1.0"
+description = "Penjaga M11: evaluation harness (episodes, sealed test split, replay, scoring, reports)."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "penjaga-contract",
+    "penjaga-sim",
+    "penjaga-detect",
+    "numpy>=2.5.4,<3",
+    "pyarrow>=26.0.0,<27",
+]
+
+[project.scripts]
+penjaga-eval = "penjaga_eval.cli:main"
+
+[build-system]
+requires = ["hatchling>=1.32.4,<2"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/penjaga_eval"]
+
+[tool.uv.sources]
+penjaga-contract = { workspace = true }
+penjaga-sim = { workspace = true }
+penjaga-detect = { workspace = true }

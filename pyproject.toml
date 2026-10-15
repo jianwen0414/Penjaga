@@ -9,6 +9,7 @@ dependencies = [
     "penjaga-stream",
     "penjaga-sim",
     "penjaga-detect",
+    "penjaga-eval",
 ]
 
 [tool.uv]
@@ -20,6 +21,7 @@ members = [
     "services/stream",
     "services/sim",
     "services/detect",
+    "ml",
 ]
 
 [tool.uv.sources]
@@ -27,6 +29,7 @@ penjaga-contract = { workspace = true }
 penjaga-stream = { workspace = true }
 penjaga-sim = { workspace = true }
 penjaga-detect = { workspace = true }
+penjaga-eval = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -96,11 +99,18 @@ testpaths = [
     "services/stream/tests",
     "services/sim/tests",
     "services/detect/tests",
+    "ml/tests",
 ]
 filterwarnings = ["error"]
 
 [tool.importlinter]
-root_packages = ["penjaga_contract", "penjaga_stream", "penjaga_sim", "penjaga_detect"]
+root_packages = [
+    "penjaga_contract",
+    "penjaga_stream",
+    "penjaga_sim",
+    "penjaga_detect",
+    "penjaga_eval",
+]
 include_external_packages = false
 
 [[tool.importlinter.contracts]]
@@ -139,4 +149,5 @@ forbidden_modules = [
     "penjaga_contract.generated.lab",
     "penjaga_sim",
     "penjaga_stream",
+    "penjaga_eval",
 ]

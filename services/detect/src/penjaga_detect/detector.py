@@ -25,6 +25,8 @@ class DetectorInfo:
     kind: str  # rule, model or baseline
     version: str  # semver of the detector's logic and parameters
     model: str | None = None
+    streams: frozenset[str] | None = None  # sampled streams it reads (None: all)
+    event_streams: frozenset[str] = frozenset()  # event streams it reads
 
     def source(self) -> dict[str, str]:
         out = {"detector": self.name, "kind": self.kind, "version": self.version}
