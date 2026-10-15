@@ -7,6 +7,7 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
     "penjaga-contract",
     "penjaga-stream",
+    "penjaga-sim",
 ]
 
 [tool.uv]
@@ -16,11 +17,13 @@ package = false
 members = [
     "packages/contract",
     "services/stream",
+    "services/sim",
 ]
 
 [tool.uv.sources]
 penjaga-contract = { workspace = true }
 penjaga-stream = { workspace = true }
+penjaga-sim = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -84,11 +87,11 @@ ignore_missing_imports = true
 minversion = "9.0"
 addopts = ["-ra", "--strict-markers", "--strict-config", "--import-mode=importlib"]
 xfail_strict = true
-testpaths = ["tests", "packages/contract/tests", "services/stream/tests"]
+testpaths = ["tests", "packages/contract/tests", "services/stream/tests", "services/sim/tests"]
 filterwarnings = ["error"]
 
 [tool.importlinter]
-root_packages = ["penjaga_contract", "penjaga_stream"]
+root_packages = ["penjaga_contract", "penjaga_stream", "penjaga_sim"]
 include_external_packages = false
 
 [[tool.importlinter.contracts]]
@@ -112,3 +115,8 @@ name = "The stream service never touches ground truth"
 type = "forbidden"
 source_modules = ["penjaga_stream"]
 forbidden_modules = ["penjaga_contract.lab", "penjaga_contract.generated.lab"]
+
+[[tool.importlinter.contracts]]
+name = "The stream service and the simulator only meet over HTTP (and the stream never sees truth)"
+type = "independence"
+modules = ["penjaga_stream", "penjaga_sim"]

@@ -1,0 +1,96 @@
+# Appliance behaviour. Powers in W, times in minutes unless stated.
+# No Malaysian field measurements of appliance-level behaviour were found (see the research log
+# in docs/DATA_SOURCES.md); the parameters below are physics-based assumptions whose household
+# totals are validated against DS-012 (water) and DS-014 (electricity).
+
+[aircon]
+# Grey-box cooling load: L = (UA * max(0, T_drive - T_set) + gains) * (1 + latent_k * (RH - 60)/40)
+# T_drive = outdoor temperature + roof excess (first-floor rooms, decaying overnight).
+ua_bedroom_1f = { dist = "uniform", low = 90, high = 140, unit = "W/K", basis = "derived", source = "DS-004", note = "~12 m2 bedroom: 30 m2 brick walls at U~2.5 (75 W/K) + 12 m2 ceiling under a hot roof (~24) + 3 m2 glazing at U~5.8 (~17) + 0.5 ACH infiltration (~6 W/K); terrace layout from DS-004, U-values typical for uninsulated masonry (assumption)." }
+ua_bedroom_gf = { dist = "uniform", low = 60, high = 100, unit = "W/K", basis = "assumption", note = "Ground-floor bedroom: no roof exposure, more shading than first-floor rooms." }
+ua_living = { dist = "uniform", low = 130, high = 210, unit = "W/K", basis = "assumption", note = "Open living/dining area with larger glazing and door openings." }
+roof_excess_peak = { dist = "uniform", low = 5, high = 9, unit = "K", basis = "assumption", note = "Attic and roof slab run several degrees above outdoor air in the afternoon; heat is released into first-floor rooms overnight." }
+roof_decay_hours = { dist = "uniform", low = 6, high = 10, unit = "h", basis = "assumption", note = "Time constant of the roof excess decay after its 15:00 peak." }
+gain_per_person_w = { dist = "uniform", low = 70, high = 110, unit = "W", basis = "assumption", note = "Sensible+latent heat from a resting person." }
+gain_equipment_w = { dist = "uniform", low = 20, high = 60, unit = "W", basis = "assumption", note = "Lights, chargers and electronics in the room." }
+latent_k = { dist = "uniform", low = 0.2, high = 0.5, unit = "1", basis = "assumption", note = "Extra (dehumidification) load fraction per 40 %RH above 60 %RH from infiltration of humid air." }
+pulldown_ua_multiple = { dist = "uniform", low = 2, high = 4, unit = "1", basis = "assumption", note = "Stored heat in a warm room adds load at switch-on, decaying with pulldown_minutes." }
+pulldown_minutes = { dist = "uniform", low = 15, high = 30, unit = "min", basis = "assumption", note = "Pull-down time constant after switch-on." }
+cop_temp_coef = { dist = "uniform", low = 0.012, high = 0.02, unit = "1/K", basis = "assumption", note = "Relative COP gain per kelvin of outdoor temperature below the 35 C rating point." }
+part_load_gain = { dist = "uniform", low = 0.1, high = 0.25, unit = "1", basis = "assumption", note = "Inverter part-load efficiency benefit at low load (relative COP gain as load ratio falls to the minimum)." }
+min_load_ratio = { dist = "fixed", value = 0.3, unit = "1", basis = "assumption", note = "Minimum inverter modulation; below it the compressor cycles (time-averaged power scales down)." }
+max_capacity_ratio = { dist = "fixed", value = 1.15, unit = "1", basis = "assumption", note = "Inverter boost capacity above the rated point." }
+roof_peak_h = { dist = "fixed", value = 15.0, unit = "h", basis = "assumption", note = "Hour of the day when the roof slab is hottest; upper-floor heat gain decays from it (thermal lag of the roof)." }
+rating_outdoor_c = { dist = "fixed", value = 35.0, unit = "degC", basis = "assumption", note = "Outdoor temperature of the rated EER (ISO 5151 T1 condition); COP rises as it gets cooler outside, falls as it gets hotter." }
+latent_rh_onset = { dist = "fixed", value = 60.0, unit = "%", basis = "assumption", note = "Relative humidity above which dehumidification adds latent load to the sensible load." }
+latent_rh_span = { dist = "fixed", value = 40.0, unit = "%", basis = "assumption", note = "Humidity span over which the latent factor reaches its full value (60% to 100% RH)." }
+fan_w = { dist = "uniform", low = 15, high = 35, unit = "W", basis = "assumption", note = "Indoor and outdoor fan power while running." }
+standby_w = { dist = "uniform", low = 1, high = 3, unit = "W", basis = "assumption", note = "Standby power when off." }
+
+[fridge]
+on_w = { dist = "uniform", low = 95, high = 140, unit = "W", basis = "assumption", note = "Running power of a 2019 non-inverter two-door fridge compressor." }
+off_w = { dist = "uniform", low = 2, high = 5, unit = "W", basis = "assumption", note = "Controller and light standby." }
+base_duty = { dist = "uniform", low = 0.33, high = 0.45, unit = "1", basis = "assumption", note = "Compressor duty cycle at 29 C kitchen temperature; forum reports of 17-33% are from cooler climates." }
+duty_per_k = { dist = "fixed", value = 0.035, unit = "1/K", basis = "assumption", note = "Relative duty increase per kelvin of kitchen temperature (heat ingress is proportional to the temperature difference)." }
+kitchen_base_c = { dist = "fixed", value = 29.0, unit = "degC", basis = "assumption", note = "Kitchen air temperature (no aircon) at the reference outdoor temperature; the fridge rejects heat into it." }
+kitchen_coupling = { dist = "fixed", value = 0.5, unit = "1", basis = "assumption", note = "Change of kitchen temperature per kelvin of outdoor temperature (a naturally ventilated room follows outdoors partly)." }
+kitchen_ref_outdoor_c = { dist = "fixed", value = 27.0, unit = "degC", basis = "assumption", note = "Outdoor temperature at which the kitchen is at kitchen_base_c." }
+duty_min = { dist = "fixed", value = 0.15, unit = "1", basis = "assumption", note = "Lowest compressor duty the thermostat produces (light load, cool kitchen)." }
+duty_max = { dist = "fixed", value = 0.95, unit = "1", basis = "assumption", note = "Highest compressor duty; the compressor never runs fully continuously under its own control." }
+meal_window_minutes = { dist = "fixed", value = 60, unit = "min", basis = "assumption", note = "Fridge doors are opened more often within this long before and after cooking (door_duty_boost applies)." }
+on_minutes = { dist = "normal", mean = 18, sd = 3, low = 10, high = 30, unit = "min", basis = "assumption", note = "Compressor on-cycle length." }
+startup_surge_w = { dist = "uniform", low = 30, high = 80, unit = "W", basis = "assumption", note = "Extra power in the first seconds of each run (visible at 1 s only as a small step)." }
+defrost_every_h = { dist = "uniform", low = 10, high = 20, unit = "h", basis = "assumption", note = "Frost-free defrost interval." }
+defrost_w = { dist = "uniform", low = 150, high = 250, unit = "W", basis = "assumption", note = "Defrost heater power." }
+defrost_minutes = { dist = "uniform", low = 15, high = 25, unit = "min", basis = "assumption", note = "Defrost heater duration." }
+door_duty_boost = { dist = "fixed", value = 0.05, unit = "1", basis = "assumption", note = "Extra duty during the two hours around meal preparation (door openings)." }
+
+[washer]
+wash_w = { dist = "uniform", low = 250, high = 450, unit = "W", basis = "assumption", note = "Agitation motor power (intermittent)." }
+spin_w = { dist = "uniform", low = 300, high = 500, unit = "W", basis = "assumption", note = "Spin-phase motor power of a top loader." }
+idle_w = { dist = "fixed", value = 3, unit = "W", basis = "assumption", note = "Controller during fills and pauses." }
+cycle_minutes = { dist = "uniform", low = 45, high = 70, unit = "min", basis = "assumption", note = "Full top-load cycle (fill, wash, rinse, spin)." }
+agitate_period_s = { dist = "fixed", value = 15, unit = "s", basis = "assumption", note = "Agitator reversal period during wash and rinse phases." }
+agitate_on_s = { dist = "fixed", value = 10, unit = "s", basis = "assumption", note = "Seconds of motor drive in each agitator period." }
+
+[washer.fill_phases]
+note = "Water a top loader draws per cycle is split over its fills: the wash fill at the start, then two rinse fills at the given fractions of the cycle. Assumption based on a typical wash-rinse-rinse programme."
+volume_fraction = [0.45, 0.30, 0.25]
+cycle_offset = [0.0, 0.45, 0.70]
+
+[washer.motor_phases]
+note = "Motor activity over a top-load cycle as fractions of its length: agitation during the wash and two rinses, then the final spin. Assumption based on a typical wash-rinse-rinse-spin programme."
+agitate = [[0.12, 0.40], [0.55, 0.65], [0.78, 0.85]]
+spin_from = 0.88
+
+[kitchen]
+rice_cooker_w = { dist = "uniform", low = 600, high = 750, unit = "W", basis = "assumption", note = "1.8 L rice cooker heating element." }
+rice_cooker_minutes = { dist = "uniform", low = 30, high = 45, unit = "min", basis = "assumption", note = "Heating (cooking) phase of a rice cooker." }
+rice_keepwarm_w = { dist = "uniform", low = 40, high = 70, unit = "W", basis = "assumption", note = "Keep-warm phase average power." }
+rice_keepwarm_hours = { dist = "uniform", low = 1, high = 3, unit = "h", basis = "assumption", note = "Keep-warm duration after cooking ends." }
+kettle_w = { dist = "uniform", low = 1800, high = 2200, unit = "W", basis = "assumption", note = "Electric kettle element." }
+kettle_minutes = { dist = "uniform", low = 2, high = 5, unit = "min", basis = "assumption", note = "Time to boil 0.5-1.7 L in an electric kettle." }
+microwave_w = { dist = "uniform", low = 1100, high = 1400, unit = "W", basis = "assumption", note = "Microwave input power." }
+microwave_minutes = { dist = "uniform", low = 1, high = 5, unit = "min", basis = "assumption", note = "Microwave reheating time per use." }
+airfryer_w = { dist = "uniform", low = 1400, high = 1700, unit = "W", basis = "assumption", note = "Air fryer element and fan." }
+airfryer_minutes = { dist = "uniform", low = 12, high = 25, unit = "min", basis = "assumption", note = "Air fryer cooking time per use." }
+airfryer_duty = { dist = "uniform", low = 0.6, high = 0.85, unit = "1", basis = "assumption", note = "Thermostat duty after warm-up." }
+airfryer_warmup_s = { dist = "fixed", value = 180, unit = "s", basis = "assumption", note = "The air fryer heats continuously for its first few minutes before the thermostat starts cycling." }
+airfryer_cycle_s = { dist = "fixed", value = 60, unit = "s", basis = "assumption", note = "Thermostat cycle of the air fryer element after warm-up (on for airfryer_duty of it)." }
+
+[other]
+router_w = { dist = "uniform", low = 8, high = 14, unit = "W", basis = "assumption", note = "Wi-Fi router, always on." }
+tv_w = { dist = "uniform", low = 70, high = 130, unit = "W", basis = "assumption", note = "Television while on." }
+tv_standby_w = { dist = "fixed", value = 1, unit = "W", basis = "assumption", note = "Television standby power when off." }
+iron_w = { dist = "uniform", low = 1000, high = 2200, unit = "W", basis = "assumption", note = "Steam iron element rating range." }
+iron_duty = { dist = "uniform", low = 0.35, high = 0.6, unit = "1", basis = "assumption", note = "Thermostat duty while ironing." }
+iron_cycle_s = { dist = "fixed", value = 40, unit = "s", basis = "assumption", note = "Thermostat cycle of a steam iron element (on for iron_duty of it)." }
+light_w_per_awake_person = { dist = "uniform", low = 15, high = 35, unit = "W", basis = "assumption", note = "LED lighting on the occupant's floor after dark." }
+light_common_w = { dist = "uniform", low = 10, high = 30, unit = "W", basis = "assumption", note = "Corridor, porch and stair lighting after dark when anyone is awake at home." }
+night_light_w = { dist = "uniform", low = 3, high = 10, unit = "W", basis = "assumption", note = "Porch/security light through the night." }
+fan_w = { dist = "uniform", low = 45, high = 70, unit = "W", basis = "assumption", note = "Ceiling fan (on lighting/fan circuits)." }
+fan_share_awake = { dist = "fixed", value = 0.5, unit = "1", basis = "assumption", note = "Daytime fans in shared rooms: each warm, awake occupant adds this many fans' worth of load (fans are shared)." }
+socket_standby_w = { dist = "uniform", low = 2, high = 8, unit = "W", basis = "assumption", note = "Chargers and standby devices per socket circuit." }
+socket_active_w = { dist = "uniform", low = 15, high = 60, unit = "W", basis = "assumption", note = "Phones, laptops, small electronics per awake occupant on their room's socket circuit." }
+sunset_min = { dist = "fixed", value = 1155, unit = "min", basis = "assumption", note = "Lights needed after ~19:15 (Shah Alam sunset is ~19:10-19:30 year round, near the equator)." }
+sunrise_min = { dist = "fixed", value = 435, unit = "min", basis = "assumption", note = "Daylight from ~07:15." }

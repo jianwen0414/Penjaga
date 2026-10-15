@@ -1,0 +1,47 @@
+# Fault magnitude ranges (PRD §12.2). Used to validate injected FaultSpecs and to draw
+# "surprise me" / evaluation faults. A fault's ground truth records the realised values.
+
+[W1]
+flow_lpm = { dist = "uniform", low = 0.02, high = 0.1, unit = "L/min", basis = "source", source = "DS-019", note = "Dripping tap: one drip per second is ~0.022 L/min (EPA); PRD 12.2 gives 0.02-0.1 L/min." }
+[W2]
+leak_lpm = { dist = "lognormal", median = 0.25, sigma = 1.0, low = 0.06, high = 3.0, unit = "L/min", basis = "derived", source = "DS-020", note = "Cistern flapper leak drains the cistern; ~1 gal/h (0.063 L/min) for a slow leak up to several L/min (St Paul utility)." }
+continuous_prob = { dist = "fixed", value = 0.3, unit = "1", basis = "assumption", note = "Share of running cisterns that trickle continuously (overflow-tube type) instead of periodic refills." }
+refill_drop_l = { dist = "uniform", low = 0.8, high = 2.0, unit = "L", basis = "assumption", note = "Water lost before the fill valve reopens (sets the phantom-flush period = drop / leak rate)." }
+[W3]
+overflow_lpm = { dist = "uniform", low = 2.0, high = 15.0, unit = "L/min", basis = "derived", source = "DS-017", note = "Float valve failing to shut: inflow continues below the valve's full flow (~20 L/min at 1 bar), excess leaves via the overflow pipe." }
+[W4]
+leak_lpm = { dist = "lognormal", median = 0.4, sigma = 0.9, low = 0.05, high = 5.0, unit = "L/min", basis = "derived", source = "DS-019", note = "Concealed pipe leak; 10% of homes leak >= 90 gal/day (0.24 L/min) per EPA, with a long tail." }
+worsening_prob = { dist = "fixed", value = 0.5, unit = "1", basis = "assumption", note = "Drawn faults: share of concealed leaks that worsen over time (the rest stay constant)." }
+growth_per_day = { dist = "uniform", low = 0.01, high = 0.15, unit = "1/day", basis = "assumption", note = "Drawn faults: a worsening concealed leak grows by this fraction per day." }
+[W5]
+flow_lpm = { dist = "uniform", low = 8.0, high = 30.0, unit = "L/min", basis = "assumption", note = "Burst pipe: large continuous flow limited by supply pressure and pipe size." }
+[E1]
+extra_a = { dist = "uniform", low = 3.0, high = 15.0, unit = "A", basis = "assumption", note = "Additional load (e.g. portable heater, multi-plug of high-load appliances) on a socket circuit, pushing it near or above its rating." }
+hours_per_day = { dist = "uniform", low = 1.0, high = 6.0, unit = "h", basis = "assumption", note = "Daily duration of the extra load." }
+window_open_h = { dist = "fixed", value = 17.0, unit = "h", basis = "assumption", note = "The extra load runs in the evening: its daily start is drawn uniformly between this hour and the latest start that still fits in the day." }
+[E2]
+start_ma = { dist = "uniform", low = 0.5, high = 2.0, unit = "mA", basis = "assumption", note = "Initial extra leakage from a degrading element or damp outdoor socket." }
+growth_per_day = { dist = "uniform", low = 0.05, high = 0.25, unit = "1/day", basis = "assumption", note = "Drawn faults: rising leakage grows by this fraction per day, so from 0.5-2 mA a 10 mA RCCB trip band is reached within one to several weeks." }
+rain_multiplier = { dist = "uniform", low = 1.5, high = 3.0, unit = "1", basis = "assumption", note = "Moisture ingress multiplies the fault leakage while relative humidity is near saturation (outdoor socket faults)." }
+wet_onset_rh = { dist = "fixed", value = 90, unit = "%", basis = "assumption", note = "Relative humidity above which an outdoor E2 fault leaks more (moisture ingress)." }
+wet_span_rh = { dist = "fixed", value = 10, unit = "%", basis = "assumption", note = "Humidity span over which the rain multiplier reaches its full value (90% to 100% RH)." }
+[E3]
+trips_per_day = { dist = "uniform", low = 1.0, high = 6.0, unit = "1/day", basis = "assumption", note = "Intermittent fault (e.g. cracked heater element) causing leakage spikes above the RCCB threshold." }
+spike_ma_over_threshold = { dist = "uniform", low = 1.0, high = 10.0, unit = "mA", basis = "assumption", note = "How far a spike exceeds the device's trip threshold." }
+spike_s = { dist = "fixed", value = 2.0, unit = "s", basis = "assumption", note = "Length of a leakage spike; longer than the RCCB break time, so a spike above threshold always trips it." }
+[A1]
+loss_pct_per_week = { dist = "uniform", low = 1.0, high = 3.0, unit = "%/week", basis = "assumption", note = "PRD 12.2: aircon power for the same demand drifts upward ~1-3%/week as the filter clogs." }
+[A2]
+capacity_loss_pct = { dist = "uniform", low = 10.0, high = 35.0, unit = "%", basis = "assumption", note = "Low refrigerant charge reduces capacity, lengthening runtimes." }
+cop_loss_ratio = { dist = "fixed", value = 0.6, unit = "1", basis = "assumption", note = "Relative COP loss per unit of relative capacity loss under undercharge (efficiency falls more slowly than capacity)." }
+[A3]
+duty_increase = { dist = "uniform", low = 0.1, high = 0.35, unit = "1", basis = "assumption", note = "Absolute increase of compressor duty from a failing door seal (PRD 12.2: duty rises markedly)." }
+[A4]
+power_increase_pct = { dist = "uniform", low = 8.0, high = 30.0, unit = "%", basis = "assumption", note = "Worn compressor draws more power per run (redefined A4, DECISIONS D-014)." }
+short_cycle_on_minutes = { dist = "uniform", low = 4.0, high = 8.0, unit = "min", basis = "assumption", note = "Short-cycling: much shorter on-cycles." }
+[U1]
+hours = { dist = "uniform", low = 4.0, high = 24.0, unit = "h", basis = "assumption", note = "Scheduled water disruption length (Air Selangor notices commonly span hours to a day)." }
+[U2]
+hours = { dist = "uniform", low = 1.0, high = 10.0, unit = "h", basis = "assumption", note = "Unannounced supply drop length." }
+[U3]
+hours = { dist = "uniform", low = 1.0, high = 6.0, unit = "h", basis = "assumption", note = "Planned power outage length." }

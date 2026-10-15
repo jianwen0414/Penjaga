@@ -1,0 +1,24 @@
+[project]
+name = "penjaga-sim"
+version = "0.1.0"
+description = "Penjaga M2: house simulator (household behaviour, water and electrical physics, sensor metrology, faults, ground truth)."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "penjaga-contract",
+    "numpy>=2.5.4,<3",
+    "pyarrow>=26.0.0,<27",
+]
+
+[project.scripts]
+penjaga-sim = "penjaga_sim.cli:main"
+
+[build-system]
+requires = ["hatchling>=1.32.4,<2"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/penjaga_sim"]
+
+[tool.uv.sources]
+penjaga-contract = { workspace = true }

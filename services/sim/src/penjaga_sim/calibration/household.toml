@@ -1,0 +1,183 @@
+# Household behaviour (PRD §12.1). Times are minutes after local midnight.
+# No Malaysian time-use microdata was found, so schedules are assumptions; their totals are
+# validated against sourced per-capita water (DS-012) and household electricity (DS-014).
+
+# ------------------------------------------------------------------ archetypes (not parameters)
+# occupants: roles; bedrooms/bathrooms: contract room ids used by each occupant, in order.
+# routine: whether the occupant keeps frequent short basin sessions at fixed times (e.g. ablutions).
+
+[archetypes.working_family]
+description = "PRD persona: two working adults out ~8am-7pm, a school-age child, an elder at home in the ground-floor Flexi-Suite."
+roles = ["worker", "worker", "child", "elder"]
+bedrooms = ["room_bed_master", "room_bed_master", "room_bed2", "room_bed4"]
+bathrooms = ["room_bath_master", "room_bath_master", "room_bath2", "room_bath4"]
+routine = [true, false, false, true]
+
+[archetypes.retired_couple]
+description = "Two retirees at home most of the day."
+roles = ["elder", "elder"]
+bedrooms = ["room_bed_master", "room_bed_master"]
+bathrooms = ["room_bath_master", "room_bath_master"]
+routine = [true, true]
+
+[archetypes.young_couple]
+description = "Two working adults, out on weekdays, often out on weekends."
+roles = ["worker", "worker"]
+bedrooms = ["room_bed_master", "room_bed_master"]
+bathrooms = ["room_bath_master", "room_bath_master"]
+routine = [false, false]
+
+[archetypes.large_family]
+description = "Two working adults, two children, an elder; every bathroom in use."
+roles = ["worker", "worker", "child", "child", "elder"]
+bedrooms = ["room_bed_master", "room_bed_master", "room_bed2", "room_bed3", "room_bed4"]
+bathrooms = ["room_bath_master", "room_bath_master", "room_bath2", "room_bath3", "room_bath4"]
+routine = [true, true, true, false, true]
+
+[archetypes.shift_family]
+description = "A night-shift worker who sleeps by day, a day worker and a child (daytime sleep, night activity)."
+roles = ["shift_worker", "worker", "child"]
+bedrooms = ["room_bed_master", "room_bed_master", "room_bed2"]
+bathrooms = ["room_bath_master", "room_bath_master", "room_bath2"]
+routine = [false, false, false]
+
+# ------------------------------------------------------------------ schedules by role
+[roles.worker]
+wake_weekday = { dist = "normal", mean = 375, sd = 25, low = 300, high = 450, unit = "min", basis = "assumption", note = "Typical urban commuter waking around 06:15 for an 8am start; no Malaysian time-use microdata found." }
+leave_weekday = { dist = "normal", mean = 465, sd = 20, low = 420, high = 540, unit = "min", basis = "assumption", note = "Leaves around 07:45 (PRD persona: out ~8am-7pm)." }
+return_weekday = { dist = "normal", mean = 1125, sd = 40, low = 1020, high = 1260, unit = "min", basis = "assumption", note = "Returns around 18:45 (PRD persona: out ~8am-7pm)." }
+sleep = { dist = "normal", mean = 1395, sd = 40, low = 1290, high = 1439, unit = "min", basis = "assumption", note = "Bedtime around 23:15; capped before midnight because days are simulated midnight to midnight." }
+wake_weekend = { dist = "normal", mean = 480, sd = 60, low = 360, high = 660, unit = "min", basis = "assumption", note = "Later weekend waking around 08:00." }
+weekend_outing_prob = { dist = "fixed", value = 0.6, unit = "1", basis = "assumption", note = "Share of weekend days with an outing (shopping, visits)." }
+weekend_outing_start = { dist = "uniform", low = 600, high = 960, unit = "min", basis = "assumption", note = "Outings start between 10:00 and 16:00." }
+weekend_outing_hours = { dist = "uniform", low = 2, high = 6, unit = "h", basis = "assumption", note = "Outing length 2-6 h." }
+
+[roles.child]
+wake_weekday = { dist = "normal", mean = 375, sd = 15, low = 330, high = 420, unit = "min", basis = "assumption", note = "School-day waking around 06:15." }
+leave_weekday = { dist = "normal", mean = 420, sd = 10, low = 400, high = 450, unit = "min", basis = "assumption", note = "Leaves for school around 07:00 (Malaysian session starts ~07:30)." }
+return_weekday = { dist = "normal", mean = 840, sd = 30, low = 780, high = 960, unit = "min", basis = "assumption", note = "Back from school around 14:00." }
+sleep = { dist = "normal", mean = 1290, sd = 30, low = 1230, high = 1380, unit = "min", basis = "assumption", note = "Bedtime around 21:30." }
+wake_weekend = { dist = "normal", mean = 495, sd = 45, low = 390, high = 600, unit = "min", basis = "assumption", note = "Weekend waking around 08:15." }
+weekend_outing_prob = { dist = "fixed", value = 0.5, unit = "1", basis = "assumption", note = "Children join some weekend outings." }
+weekend_outing_start = { dist = "uniform", low = 600, high = 960, unit = "min", basis = "assumption", note = "Same window as adult outings." }
+weekend_outing_hours = { dist = "uniform", low = 2, high = 5, unit = "h", basis = "assumption", note = "Outing length 2-5 h." }
+
+[roles.elder]
+wake_weekday = { dist = "normal", mean = 360, sd = 25, low = 300, high = 420, unit = "min", basis = "assumption", note = "Early riser around 06:00." }
+sleep = { dist = "normal", mean = 1320, sd = 30, low = 1260, high = 1410, unit = "min", basis = "assumption", note = "Bedtime around 22:00." }
+wake_weekend = { dist = "normal", mean = 360, sd = 25, low = 300, high = 420, unit = "min", basis = "assumption", note = "Elder routine does not change at weekends." }
+outing_prob = { dist = "fixed", value = 0.25, unit = "1", basis = "assumption", note = "Share of days with a morning outing (market, clinic)." }
+outing_start = { dist = "uniform", low = 450, high = 600, unit = "min", basis = "assumption", note = "Morning outings 07:30-10:00." }
+outing_hours = { dist = "uniform", low = 1, high = 3, unit = "h", basis = "assumption", note = "Outing length 1-3 h." }
+nap_prob = { dist = "fixed", value = 0.6, unit = "1", basis = "assumption", note = "Share of days with an afternoon nap (bedroom aircon may run)." }
+
+[roles.shift_worker]
+sleep_day_start = { dist = "normal", mean = 510, sd = 20, low = 470, high = 560, unit = "min", basis = "assumption", note = "After a night shift, sleeps from around 08:30." }
+wake_afternoon = { dist = "normal", mean = 900, sd = 30, low = 840, high = 960, unit = "min", basis = "assumption", note = "After day sleep, wakes around 15:00." }
+leave_evening = { dist = "normal", mean = 1290, sd = 15, low = 1260, high = 1320, unit = "min", basis = "assumption", note = "Leaves for a 22:00 shift around 21:30." }
+return_morning = { dist = "normal", mean = 450, sd = 15, low = 420, high = 480, unit = "min", basis = "assumption", note = "Returns around 07:30." }
+
+# ------------------------------------------------------------------ bathroom routines (per person)
+[bath]
+showers_per_day = { dist = "fixed", value = 2, unit = "1/day", basis = "assumption", note = "Showering twice daily is common in Malaysia's climate; showering is the dominant end use in DS-013 (124.8 L/person/day)." }
+shower_prob = { dist = "fixed", value = 0.92, unit = "1", basis = "assumption", note = "Each of the two daily showers happens with this probability." }
+shower_minutes = { dist = "lognormal", median = 7.5, sigma = 0.35, low = 3, high = 25, unit = "min", basis = "source", source = "DS-025", note = "Median near the reported ~8 min average; wide spread because the source is weak." }
+heater_prob_morning = { dist = "fixed", value = 0.65, unit = "1", basis = "assumption", note = "Share of morning showers using the instant heater." }
+heater_prob_evening = { dist = "fixed", value = 0.35, unit = "1", basis = "assumption", note = "Evenings are warm; fewer heated showers." }
+wc_uses_per_awake_home_day = { dist = "fixed", value = 5.0, unit = "1/day", basis = "assumption", note = "About five WC uses per person over a full waking day at home, scaled by time at home." }
+wc_full_flush_prob = { dist = "fixed", value = 0.4, unit = "1", basis = "assumption", note = "Share of full (vs half) flushes on a dual-flush cistern." }
+bidet_prob = { dist = "fixed", value = 0.85, unit = "1", basis = "assumption", note = "Hand bidet spray use per WC visit (common in Malaysian bathrooms)." }
+bidet_seconds = { dist = "uniform", low = 15, high = 45, unit = "s", basis = "assumption", note = "Spray duration per use." }
+basin_uses_per_awake_home_day = { dist = "fixed", value = 7.0, unit = "1/day", basis = "assumption", note = "Handwashing and teeth; sized with DS-013 (31.5 L/person/day for hand washing and teeth)." }
+basin_seconds = { dist = "lognormal", median = 30, sigma = 0.5, low = 5, high = 180, unit = "s", basis = "assumption", note = "Short taps; occasional long ones." }
+routine_seconds = { dist = "uniform", low = 50, high = 100, unit = "s", basis = "assumption", note = "Each session uses the basin tap at reduced flow." }
+routine_jitter = { dist = "uniform", low = -12, high = 12, unit = "min", basis = "assumption", note = "Day-to-day variation of session start times." }
+
+[routine_clock]
+note = "Clock times (minutes after midnight) of the routine basin sessions: about 05:45, 13:15, 16:40, 19:20, 20:35, following the daily rhythm described in PRD section 8.2 (pre-dawn session included). Assumption."
+times = [345, 795, 1000, 1160, 1235]
+
+# ------------------------------------------------------------------ kitchen, laundry, outdoor (household)
+[kitchen]
+breakfast_sink_minutes = { dist = "uniform", low = 1, high = 4, unit = "min", basis = "assumption", note = "Breakfast rinse at the dry-kitchen sink." }
+lunch_sink_minutes = { dist = "uniform", low = 2, high = 6, unit = "min", basis = "assumption", note = "Lunch prep when someone is home." }
+dinner_prep_minutes = { dist = "uniform", low = 5, high = 15, unit = "min", basis = "assumption", note = "Food prep at the wet-kitchen sink before dinner." }
+dishwash_minutes_per_person = { dist = "uniform", low = 2.5, high = 5, unit = "min", basis = "assumption", note = "Dishwashing at the dry-kitchen sink after dinner, scaled by household size; sized with DS-013 (~30 L/person/day dish washing)." }
+sink_duty = { dist = "uniform", low = 0.5, high = 0.8, unit = "1", basis = "assumption", note = "The tap is on for part of a sink session (rinse, scrub, rinse)." }
+cook_dinner_prob = { dist = "fixed", value = 0.85, unit = "1", basis = "assumption", note = "Share of evenings with home cooking (rice cooker used)." }
+kettle_uses = { dist = "uniform", low = 1, high = 4, unit = "1/day", basis = "assumption", note = "Hot drinks and cooking water." }
+microwave_uses = { dist = "uniform", low = 0, high = 3, unit = "1/day", basis = "assumption", note = "Microwave reheating uses per day." }
+airfryer_prob = { dist = "fixed", value = 0.35, unit = "1", basis = "assumption", note = "Share of days the air fryer is used." }
+
+[laundry]
+cycles_per_person_day = { dist = "fixed", value = 0.22, unit = "1/day", basis = "assumption", note = "About one load a day for 4-5 people; a Selangor survey found 57% of households wash once a day." }
+delay_timer_prob = { dist = "fixed", value = 0.06, unit = "1", basis = "assumption", note = "Loads started on a delay timer that runs at 02:00-04:00 (a legitimate night-time use, PRD §12.3)." }
+morning_prob = { dist = "fixed", value = 0.6, unit = "1", basis = "assumption", note = "Share of non-delayed loads started in the morning (else evening)." }
+mop_bucket_prob = { dist = "fixed", value = 0.7, unit = "1", basis = "assumption", note = "Daily floor-mopping bucket filled at the yard laundry tap." }
+
+[outdoor]
+garden_prob_weekend = { dist = "fixed", value = 0.45, unit = "1", basis = "assumption", note = "Weekend mornings with plant watering at the garden tap." }
+garden_prob_weekday = { dist = "fixed", value = 0.1, unit = "1", basis = "assumption", note = "Occasional weekday watering (elder at home)." }
+garden_minutes = { dist = "uniform", low = 4, high = 12, unit = "min", basis = "assumption", note = "Garden watering duration per session." }
+car_wash_prob_weekend = { dist = "fixed", value = 0.08, unit = "1", basis = "assumption", note = "Occasional home car wash at the porch." }
+car_wash_minutes = { dist = "uniform", low = 8, high = 15, unit = "min", basis = "assumption", note = "Hose running during a car wash." }
+night_bucket_prob = { dist = "fixed", value = 0.02, unit = "1", basis = "assumption", note = "Nights with buckets filled late (PRD §12.3 legitimate anomaly occurring naturally)." }
+night_bucket_litres = { dist = "uniform", low = 15, high = 45, unit = "L", basis = "assumption", note = "One to three buckets." }
+
+# ------------------------------------------------------------------ aircon and electrical habits
+[comfort]
+bedroom_ac_prob = { dist = "fixed", value = 0.85, unit = "1", basis = "assumption", note = "Share of nights an occupied bedroom runs its aircon (PRD §8.2: aircon runs overnight in bedrooms)." }
+setpoint = { dist = "normal", mean = 24.5, sd = 1.0, low = 22, high = 27, unit = "degC", basis = "assumption", note = "Per-household preferred setpoint." }
+ac_on_before_sleep = { dist = "uniform", low = 5, high = 30, unit = "min", basis = "assumption", note = "Room pre-cooled shortly before bedtime." }
+living_ac_evening_prob = { dist = "fixed", value = 0.45, unit = "1", basis = "assumption", note = "Evenings with the living-room aircon on when occupants are home." }
+living_ac_weekend_afternoon_prob = { dist = "fixed", value = 0.5, unit = "1", basis = "assumption", note = "Weekend afternoons with the living-room aircon on." }
+nap_ac_prob = { dist = "fixed", value = 0.6, unit = "1", basis = "assumption", note = "Afternoon naps with the bedroom aircon on." }
+fan_threshold_degC = { dist = "fixed", value = 26, unit = "degC", basis = "assumption", note = "Ceiling fans run when occupants are home without aircon and it is warmer than this." }
+tv_hours_evening = { dist = "uniform", low = 1.5, high = 4.5, unit = "h", basis = "assumption", note = "Evening TV when someone is home." }
+tv_hours_day_home = { dist = "uniform", low = 1, high = 4, unit = "h", basis = "assumption", note = "Daytime TV when someone is home all day (elder, weekends)." }
+iron_sessions_per_week = { dist = "fixed", value = 2, unit = "1/week", basis = "assumption", note = "Ironing sessions per week." }
+iron_minutes = { dist = "uniform", low = 20, high = 45, unit = "min", basis = "assumption", note = "Ironing session length." }
+
+# ------------------------------------------------------------------ timing of the daily routine
+# Clock values are minutes after midnight; durations are minutes unless the unit says otherwise.
+[timing]
+routine_wake_lead = { dist = "fixed", value = 5, unit = "min", basis = "assumption", note = "Occupants who keep the routine are up at least this long before the first routine session." }
+min_awake_before_leaving = { dist = "fixed", value = 20, unit = "min", basis = "assumption", note = "Shortest gap between waking and leaving for work or school." }
+min_time_away = { dist = "fixed", value = 60, unit = "min", basis = "assumption", note = "Shortest weekday absence, so a drawn return time never precedes the departure." }
+home_before_sleep = { dist = "fixed", value = 10, unit = "min", basis = "assumption", note = "Occupants are back at least this long before their bedtime." }
+shift_sleep_after_return = { dist = "fixed", value = 10, unit = "min", basis = "assumption", note = "A night-shift worker goes to bed no sooner than this after getting home." }
+elder_nap_start = { dist = "fixed", value = 840, unit = "min", basis = "assumption", note = "Afternoon nap begins around 14:00 (after lunch, in the hottest part of the day)." }
+elder_nap_minutes = { dist = "fixed", value = 60, unit = "min", basis = "assumption", note = "Afternoon nap length of about an hour." }
+reference_awake_home_hours = { dist = "fixed", value = 16, unit = "h", basis = "assumption", note = "Per-day WC and basin rates refer to this many awake hours at home; actual counts scale with time awake at home." }
+shower_after_wake = { dist = "uniform", low = 5, high = 20, unit = "min", basis = "assumption", note = "The morning shower follows waking within a quarter of an hour or so." }
+shower_after_return = { dist = "uniform", low = 20, high = 90, unit = "min", basis = "assumption", note = "The evening shower follows coming home after some time to settle." }
+shower_evening_clock = { dist = "uniform", low = 1020, high = 1140, unit = "min", basis = "assumption", note = "Evening shower time (17:00-19:00) for occupants who did not go out." }
+wc_flush_delay_s = { dist = "fixed", value = 5, unit = "s", basis = "assumption", note = "The cistern refill starts a few seconds after the WC visit (flush), after any bidet spray." }
+sink_burst_s = { dist = "uniform", low = 15, high = 60, unit = "s", basis = "assumption", note = "Length of one tap burst within an intermittent sink session (rinse, scrub, rinse)." }
+breakfast_after_wake = { dist = "uniform", low = 15, high = 45, unit = "min", basis = "assumption", note = "Breakfast preparation starts this long after the first occupant is up." }
+kettle_after_breakfast = { dist = "fixed", value = 5, unit = "min", basis = "assumption", note = "The first kettle boil of the day comes just after breakfast preparation starts." }
+lunch_clock = { dist = "uniform", low = 720, high = 810, unit = "min", basis = "assumption", note = "Lunch preparation (12:00-13:30) when someone is at home." }
+dinner_arrival_from = { dist = "fixed", value = 900, unit = "min", basis = "assumption", note = "Arrivals home between this time (15:00) and dinner_arrival_until delay dinner until everyone is back." }
+dinner_arrival_until = { dist = "fixed", value = 1260, unit = "min", basis = "assumption", note = "Arrivals after 21:00 do not delay the household dinner (late shift workers eat separately)." }
+dinner_default_clock = { dist = "fixed", value = 1110, unit = "min", basis = "assumption", note = "Dinner time (18:30) for households where nobody arrives home in the afternoon or evening." }
+dinner_after_arrival = { dist = "uniform", low = 10, high = 40, unit = "min", basis = "assumption", note = "Dinner starts a little after the last arrival home." }
+dinner_latest_clock = { dist = "fixed", value = 1260, unit = "min", basis = "assumption", note = "Dinner starts no later than 21:00, leaving the evening for dishwashing within the day." }
+prep_before_dinner = { dist = "fixed", value = 15, unit = "min", basis = "assumption", note = "Food preparation at the wet-kitchen sink begins this long before dinner." }
+rice_before_dinner = { dist = "fixed", value = 30, unit = "min", basis = "assumption", note = "The rice cooker is started this long before dinner (a cooking cycle is about half an hour)." }
+airfryer_before_dinner = { dist = "fixed", value = 20, unit = "min", basis = "assumption", note = "The air fryer runs shortly before dinner is served." }
+dishwash_after_dinner = { dist = "uniform", low = 40, high = 80, unit = "min", basis = "assumption", note = "Dishwashing starts after the meal is finished." }
+festive_multiplier = { dist = "fixed", value = 1.6, unit = "1", basis = "assumption", note = "Festive cooking (PRD 12.3): kitchen sink time, dishwashing and kettle use rise by this factor; dinner is always cooked." }
+washer_delayed_clock = { dist = "uniform", low = 120, high = 240, unit = "min", basis = "assumption", note = "Delay-timer washes run between 02:00 and 04:00 (PRD 12.3 legitimate night-time use)." }
+washer_after_wake = { dist = "uniform", low = 10, high = 60, unit = "min", basis = "assumption", note = "A morning wash is started within the first hour after someone is up." }
+washer_evening_clock = { dist = "uniform", low = 1200, high = 1320, unit = "min", basis = "assumption", note = "Evening washes start between 20:00 and 22:00." }
+washer_latest_clock = { dist = "fixed", value = 1320, unit = "min", basis = "assumption", note = "No wash starts after 22:00, so every cycle finishes within the day." }
+garden_from_clock = { dist = "fixed", value = 420, unit = "min", basis = "assumption", note = "Plants are watered and cars washed in the cool of the morning, from 07:00." }
+garden_until_clock = { dist = "fixed", value = 600, unit = "min", basis = "assumption", note = "Morning outdoor water use ends by 10:00, before the midday heat." }
+night_bucket_from_clock = { dist = "fixed", value = 1380, unit = "min", basis = "assumption", note = "Late bucket filling happens after 23:00 (PRD 12.3 legitimate night-time use)." }
+nap_max_hours = { dist = "fixed", value = 2, unit = "h", basis = "assumption", note = "Sleep blocks shorter than this are naps, which use the bedroom aircon less often than night sleep." }
+evening_from_clock = { dist = "fixed", value = 1140, unit = "min", basis = "assumption", note = "Evening TV and living-room aircon start once someone is home after 19:00." }
+evening_start_delay = { dist = "uniform", low = 0, high = 30, unit = "min", basis = "assumption", note = "The evening TV session starts a little after the evening begins." }
+afternoon_from_clock = { dist = "fixed", value = 780, unit = "min", basis = "assumption", note = "Afternoon at home (daytime TV, weekend living-room aircon) starts at 13:00." }
+afternoon_until_clock = { dist = "fixed", value = 1020, unit = "min", basis = "assumption", note = "Afternoon at home ends at 17:00." }
+afternoon_tv_min_home_hours = { dist = "fixed", value = 3, unit = "h", basis = "assumption", note = "On weekdays, daytime TV runs only if someone is home for at least this much of the afternoon." }
+living_ac_afternoon_hours = { dist = "fixed", value = 3, unit = "h", basis = "assumption", note = "Length of a weekend-afternoon living-room aircon session." }

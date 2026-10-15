@@ -1,0 +1,49 @@
+# Electrical supply, protection and leakage.
+
+[supply]
+voltage_mean = { dist = "uniform", low = 228, high = 240, unit = "V", basis = "derived", source = "DS-022", note = "Per-house mean within the 216-253 V statutory band; Malaysian supply often sits above 230 V (legacy 240 V system)." }
+peak_sag_frac = { dist = "uniform", low = 0.01, high = 0.03, unit = "1", basis = "assumption", note = "Network voltage sag during the evening peak (19:00-23:00)." }
+noise_sd_v = { dist = "fixed", value = 0.6, unit = "V", basis = "assumption", note = "Short-term supply voltage fluctuation (AR(1) process)." }
+noise_tau_s = { dist = "fixed", value = 300, unit = "s", basis = "assumption", note = "Correlation time of the supply voltage fluctuation (AR(1) time constant, five minutes)." }
+peak_from_h = { dist = "fixed", value = 19, unit = "h", basis = "assumption", note = "Start of the evening network peak, when the supply voltage sags (with peak_sag_frac)." }
+peak_until_h = { dist = "fixed", value = 23, unit = "h", basis = "assumption", note = "End of the evening network peak." }
+source_impedance_ohm = { dist = "uniform", low = 0.15, high = 0.35, unit = "ohm", basis = "assumption", note = "Service cable plus network impedance; sets the voltage drop under house load." }
+min_v = { dist = "fixed", value = 216, unit = "V", basis = "source", source = "DS-022", note = "Lower statutory limit (230 V -6%)." }
+max_v = { dist = "fixed", value = 253, unit = "V", basis = "source", source = "DS-022", note = "Upper statutory limit (230 V +10%)." }
+
+[mcb]
+# Time-current points for the thermal/magnetic model, interpolated log-log between points.
+t_at_1_45 = { dist = "uniform", low = 900, high = 3000, unit = "s", basis = "derived", source = "DS-021", note = "IEC 60898-1: trips within 1 h at 1.45 In; the exact time varies by device." }
+t_at_2_55 = { dist = "uniform", low = 5, high = 45, unit = "s", basis = "derived", source = "DS-021", note = "IEC 60898-1: 1-60 s at 2.55 In for In <= 32 A." }
+t_at_3_00 = { dist = "uniform", low = 1.5, high = 10, unit = "s", basis = "derived", source = "DS-021", note = "Type B lower instantaneous bound is 3 In (>0.1 s); thermal release still acts." }
+t_at_5_00 = { dist = "fixed", value = 0.05, unit = "s", basis = "source", source = "DS-021", note = "Type B upper instantaneous bound: trips in < 0.1 s at 5 In." }
+no_trip_multiple = { dist = "fixed", value = 1.13, unit = "1", basis = "source", source = "DS-021", note = "Conventional non-tripping current: no trip for >= 1 h at 1.13 In." }
+cooling_tau_s = { dist = "uniform", low = 400, high = 900, unit = "s", basis = "assumption", note = "Thermal memory: accumulated heating decays with this time constant when current falls below 1.13 In." }
+
+[rcd]
+trip_fraction = { dist = "uniform", low = 0.55, high = 0.95, unit = "1", basis = "derived", source = "DS-024", note = "Each RCCB trips at a fixed fraction of its rated residual current: never at or below 0.5 IΔn, always at IΔn." }
+
+[reset]
+minutes_when_home = { dist = "lognormal", median = 6, sigma = 0.7, low = 1, high = 60, unit = "min", basis = "assumption", note = "Time for an occupant at home and awake to notice a trip and reset the device." }
+give_up_after_trips = { dist = "fixed", value = 3, unit = "1", basis = "assumption", note = "After this many trips of one device in an hour the household leaves it off until the next day (PRD 15.3 safety guidance: do not keep resetting)." }
+
+[leakage]
+cable_ma_per_circuit = { dist = "uniform", low = 0.01, high = 0.06, unit = "mA", basis = "assumption", note = "Standing leakage of circuit wiring insulation." }
+humidity_gain = { dist = "uniform", low = 0.5, high = 2.0, unit = "1", basis = "assumption", note = "Extra multiple of leakage on outdoor and yard circuits when relative humidity is near 100% (scaled linearly above 80% RH)." }
+humidity_onset_rh = { dist = "fixed", value = 80, unit = "%", basis = "assumption", note = "Relative humidity above which outdoor-circuit leakage starts to rise (condensation on accessories)." }
+humidity_span_rh = { dist = "fixed", value = 20, unit = "%", basis = "assumption", note = "Humidity span over which the humidity gain reaches its full value (80% to 100% RH)." }
+appliance_on_w = { dist = "fixed", value = 5, unit = "W", basis = "assumption", note = "An appliance contributes its leakage only while drawing more than this (energised, not in standby)." }
+aircon_ma = { dist = "uniform", low = 0.2, high = 0.8, unit = "mA", basis = "assumption", note = "Inverter aircon EMC-filter leakage while energised; below the IEC 60335-1 3.5 mA stationary limit (DS-023)." }
+water_heater_ma = { dist = "uniform", low = 0.05, high = 0.4, unit = "mA", basis = "assumption", note = "Healthy element insulation leakage while heating; below appliance limits (DS-023)." }
+fridge_ma = { dist = "uniform", low = 0.1, high = 0.4, unit = "mA", basis = "assumption", note = "Compressor and controller leakage while connected; below the 0.75 mA portable class-I limit (DS-023)." }
+washer_ma = { dist = "uniform", low = 0.2, high = 0.6, unit = "mA", basis = "assumption", note = "Motor and EMC-filter leakage while running; below DS-023 limits." }
+small_appliance_ma = { dist = "uniform", low = 0.02, high = 0.2, unit = "mA", basis = "assumption", note = "Kettle, rice cooker, microwave, air fryer, iron leakage while on." }
+electronics_ma = { dist = "uniform", low = 0.01, high = 0.08, unit = "mA", basis = "assumption", note = "TV, router and chargers (mostly class II)." }
+
+[power_factor]
+resistive = { dist = "fixed", value = 1.0, unit = "1", basis = "assumption", note = "Heaters, kettles, rice cookers: purely resistive." }
+inverter_ac = { dist = "fixed", value = 0.97, unit = "1", basis = "assumption", note = "Inverter aircons with active power-factor correction." }
+compressor = { dist = "fixed", value = 0.75, unit = "1", basis = "assumption", note = "Non-inverter fridge compressor motor." }
+motor = { dist = "fixed", value = 0.65, unit = "1", basis = "assumption", note = "Washing machine motor." }
+electronics = { dist = "fixed", value = 0.9, unit = "1", basis = "assumption", note = "LED lighting, TV, chargers, microwave electronics." }
+fan = { dist = "fixed", value = 0.95, unit = "1", basis = "assumption", note = "Ceiling fan with capacitor-run motor." }

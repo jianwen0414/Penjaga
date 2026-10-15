@@ -23,10 +23,12 @@ SOURCE_DIRS = [
     "packages/contract/src",
     "packages/contract/tools",
     "services/stream/src",
+    "services/sim/src",
+    "services/sim/tools",
     "scripts",
     "spikes",
 ]
-TEST_DIRS = ["tests", "packages/contract/tests", "services/stream/tests"]
+TEST_DIRS = ["tests", "packages/contract/tests", "services/stream/tests", "services/sim/tests"]
 
 
 def gates(fast: bool) -> list[tuple[str, list[str]]]:

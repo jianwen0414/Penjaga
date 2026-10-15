@@ -1,0 +1,33 @@
+# Sensor metrology beyond the kit spec in house.json (resolution and accuracy come from the
+# contract; these add noise structure and data loss).
+
+[db_monitor]
+gain_error_pct = { dist = "normal", mean = 0.0, sd = 0.4, low = -1.0, high = 1.0, unit = "%", basis = "assumption", note = "Per-channel CT gain error within the kit's +-1% accuracy target (house.json DbMonitorSpec, design target)." }
+current_noise_a = { dist = "fixed", value = 0.01, unit = "A", basis = "assumption", note = "Measurement noise floor per 1 s RMS sample (one resolution step)." }
+residual_noise_ma = { dist = "fixed", value = 0.1, unit = "mA", basis = "assumption", note = "Residual-current monitor noise floor (one resolution step)." }
+voltage_noise_v = { dist = "fixed", value = 0.1, unit = "V", basis = "assumption", note = "Voltage measurement noise (one resolution step)." }
+power_noise_w = { dist = "fixed", value = 1.0, unit = "W", basis = "assumption", note = "Active-power noise at the incomer (one resolution step); zero when there is no voltage, since power is computed from V and I." }
+dropouts_per_day = { dist = "uniform", low = 0, high = 0.5, unit = "1/day", basis = "assumption", note = "Wired board monitor: rare gateway dropouts." }
+dropout_seconds = { dist = "lognormal", median = 20, sigma = 1.0, low = 2, high = 900, unit = "s", basis = "assumption", note = "Length of a data gap." }
+
+[water_meter]
+dropouts_per_day = { dist = "uniform", low = 0, high = 1.5, unit = "1/day", basis = "assumption", note = "Battery/radio meter at the boundary: occasional lost packets." }
+dropout_seconds = { dist = "lognormal", median = 40, sigma = 1.0, low = 10, high = 1800, unit = "s", basis = "assumption", note = "Length of a data gap." }
+
+[pressure]
+noise_bar = { dist = "fixed", value = 0.01, unit = "bar", basis = "assumption", note = "Transducer noise (one resolution step); accuracy offset uses the kit's +-0.5% FS." }
+offset_pct_fs = { dist = "uniform", low = -0.5, high = 0.5, unit = "%", basis = "assumption", note = "Per-sensor offset within the kit spec (house.json PressureSensorSpec, design target)." }
+dropouts_per_day = { dist = "uniform", low = 0, high = 1.0, unit = "1/day", basis = "assumption", note = "Shares the meter's radio link." }
+dropout_seconds = { dist = "lognormal", median = 40, sigma = 1.0, low = 10, high = 1800, unit = "s", basis = "assumption", note = "Length of a data gap." }
+
+[tank_level]
+noise_mm = { dist = "fixed", value = 3, unit = "mm", basis = "assumption", note = "Ultrasonic ranging noise; kit accuracy target is +-5 mm (house.json)." }
+ripple_mm = { dist = "fixed", value = 4, unit = "mm", basis = "assumption", note = "Surface ripple while the tank is filling." }
+dropouts_per_day = { dist = "uniform", low = 0, high = 1.0, unit = "1/day", basis = "assumption", note = "Roof-space radio link." }
+dropout_seconds = { dist = "lognormal", median = 120, sigma = 0.8, low = 60, high = 3600, unit = "s", basis = "assumption", note = "Length of a data gap." }
+
+[smart_plug]
+gain_error_pct = { dist = "normal", mean = 0.0, sd = 0.4, low = -1.0, high = 1.0, unit = "%", basis = "assumption", note = "Within the kit's +-1% accuracy target (house.json SmartPlugSpec)." }
+noise_w = { dist = "fixed", value = 0.3, unit = "W", basis = "assumption", note = "Power measurement noise." }
+dropouts_per_day = { dist = "uniform", low = 0, high = 2.0, unit = "1/day", basis = "assumption", note = "Wi-Fi plug: occasional reconnects." }
+dropout_seconds = { dist = "lognormal", median = 30, sigma = 1.0, low = 5, high = 600, unit = "s", basis = "assumption", note = "Length of a data gap." }

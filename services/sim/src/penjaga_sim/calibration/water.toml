@@ -1,0 +1,43 @@
+# Water system physics and fixture flows. Volumes in litres, flows in L/min, pressure in bar.
+
+[fixtures]
+basin_lpm = { dist = "triangular", low = 4.0, mode = 6.0, high = 8.0, unit = "L/min", basis = "source", source = "DS-015", note = "WEPLS one-star basin band is 6-8 L/min; many users run the tap below full flow." }
+routine_basin_lpm = { dist = "uniform", low = 1.5, high = 3.0, unit = "L/min", basis = "assumption", note = "Routine sessions use a gentle stream." }
+shower_unheated_lpm = { dist = "triangular", low = 6.0, mode = 8.0, high = 10.0, unit = "L/min", basis = "assumption", note = "Unheated shower heads; no Malaysian measurement found." }
+shower_heated_lpm = { dist = "triangular", low = 3.5, mode = 4.5, high = 6.0, unit = "L/min", basis = "derived", source = "DS-006", note = "A 3.6 kW (at 240 V) heater gives ~3.3 kW at 230 V; dT = P/(rho*c*Q) = 10.6 K at 4.5 L/min, raising 28 C water to ~38 C, so heated showers must run at low flow." }
+bidet_lpm = { dist = "uniform", low = 5.0, high = 8.0, unit = "L/min", basis = "assumption", note = "Hand bidet spray (paip getah) on the bathroom cold supply." }
+wc_full_l = { dist = "fixed", value = 6.0, unit = "L", basis = "assumption", note = "Dual-flush cistern full volume; MS 795 devices deliver a controlled volume but the value was not accessible, 6/3 L is a common dual-flush rating." }
+wc_half_l = { dist = "fixed", value = 3.0, unit = "L", basis = "assumption", note = "Dual-flush reduced volume (see wc_full_l)." }
+wc_fill_lpm = { dist = "uniform", low = 8.0, high = 12.0, unit = "L/min", basis = "assumption", note = "Cistern inlet (fill) valve flow." }
+kitchen_sink_lpm = { dist = "uniform", low = 5.0, high = 9.0, unit = "L/min", basis = "assumption", note = "Kitchen sink tap flow." }
+washer_tap_lpm = { dist = "uniform", low = 10.0, high = 15.0, unit = "L/min", basis = "assumption", note = "Washing machine inlet valve flow." }
+washer_litres_per_cycle = { dist = "uniform", low = 96, high = 128, unit = "L", basis = "source", source = "DS-016", note = "Top-load 8-8.5 kg machines." }
+laundry_tap_lpm = { dist = "uniform", low = 8.0, high = 12.0, unit = "L/min", basis = "assumption", note = "Yard laundry tap (bucket filling)." }
+mop_bucket_l = { dist = "uniform", low = 8, high = 15, unit = "L", basis = "assumption", note = "Volume of one floor-mopping bucket." }
+garden_lpm = { dist = "uniform", low = 8.0, high = 14.0, unit = "L/min", basis = "assumption", note = "Garden hose on the porch tap." }
+
+[tank]
+height_m = { dist = "fixed", value = 1.15, unit = "m", basis = "assumption", note = "Water depth of a 300-imperial-gallon polyethylene tank (typical tanks of this size are about 1.1-1.3 m tall)." }
+start_level = { dist = "uniform", low = 0.9, high = 0.99, unit = "1", basis = "assumption", note = "Initial fill fraction at episode start." }
+float_band = { dist = "uniform", low = 0.02, high = 0.06, unit = "1", basis = "assumption", note = "Float travel: the valve opens fully once the level is this fraction below full, and closes at full." }
+float_k = { dist = "uniform", low = 17, high = 23, unit = "L/min/sqrt(bar)", basis = "derived", source = "DS-017", note = "q_max = k*sqrt(p/1 bar); DS-017 lists 20 L/min at 1 bar and 29 at 2 bar for a 1/2 inch brass valve, so k ~ 20; per-house spread for valve model and pipe losses." }
+static_head_bar = { dist = "fixed", value = 0.75, unit = "bar", basis = "derived", source = "DS-018", note = "Roof tank about 7.5 m above the inlet: 7.5 m of water = 0.735 bar of static head the supply must overcome to fill it." }
+
+[supply]
+pressure_mean = { dist = "uniform", low = 1.6, high = 2.8, unit = "bar", basis = "derived", source = "DS-018", note = "Must fill a cistern 15 m above platform (>= ~1.5 bar) and static pressure stays <= 30 m (~2.9 bar); per-house value." }
+peak_dip = { dist = "uniform", low = 0.15, high = 0.4, unit = "bar", basis = "assumption", note = "Network pressure dips during morning (06-08) and evening (19-22) demand peaks." }
+noise_sd = { dist = "fixed", value = 0.02, unit = "bar", basis = "assumption", note = "Short-term network pressure fluctuation (AR(1) process)." }
+noise_tau_s = { dist = "fixed", value = 600, unit = "s", basis = "assumption", note = "Correlation time of the network pressure fluctuation (AR(1) time constant, about ten minutes)." }
+demand_peak_morning_h = { dist = "fixed", value = 7.0, unit = "h", basis = "assumption", note = "Centre of the morning network demand peak, when supply pressure dips (with peak_dip)." }
+demand_peak_morning_width_h = { dist = "fixed", value = 1.0, unit = "h", basis = "assumption", note = "Standard deviation of the Gaussian-shaped morning pressure dip." }
+demand_peak_evening_h = { dist = "fixed", value = 20.5, unit = "h", basis = "assumption", note = "Centre of the evening network demand peak, when supply pressure dips." }
+demand_peak_evening_width_h = { dist = "fixed", value = 1.2, unit = "h", basis = "assumption", note = "Standard deviation of the Gaussian-shaped evening pressure dip." }
+friction_bar_at_30lpm = { dist = "uniform", low = 0.1, high = 0.3, unit = "bar", basis = "assumption", note = "Pressure drop across the service pipe and meter at 30 L/min, scaling with flow squared." }
+outage_residual = { dist = "uniform", low = 0.0, high = 0.08, unit = "bar", basis = "assumption", note = "Residual pressure reading during a supply interruption." }
+recovery_minutes = { dist = "uniform", low = 5, high = 25, unit = "min", basis = "assumption", note = "Pressure ramps back to normal after an interruption as the network refills." }
+
+[meter]
+upper_zone_bias_pct = { dist = "normal", mean = 0.0, sd = 0.7, low = -2.0, high = 2.0, unit = "%", basis = "source", source = "DS-007", note = "Per-meter error in Q2..Q4 stays within the class-2 MPE of +-2%." }
+lower_zone_bias_pct = { dist = "normal", mean = -1.0, sd = 1.5, low = -5.0, high = 5.0, unit = "%", basis = "source", source = "DS-007", note = "Per-meter error in Q1..Q2 stays within +-5%; meters tend to under-register at low flow." }
+cutoff_lph = { dist = "uniform", low = 1.0, high = 3.0, unit = "L/h", basis = "assumption", note = "Flow below which the meter registers nothing. Ultrasonic meters typically start registering at a few L/h; to be confirmed by spike S3." }
+below_q1_bias_pct = { dist = "uniform", low = -30, high = -10, unit = "%", basis = "assumption", note = "Between the cutoff and Q1 (6.25 L/h) no accuracy is guaranteed; modelled as stronger under-registration." }
