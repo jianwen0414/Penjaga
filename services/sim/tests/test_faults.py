@@ -22,7 +22,7 @@ from penjaga_sim.testing import (
     same_output,
     window,
 )
-from penjaga_sim.world import DayOutput, World, WorldError
+from penjaga_sim.world import DayOutput, World, WorldConflictError, WorldError
 
 DAY2 = START + timedelta(days=1)
 
@@ -109,10 +109,15 @@ def test_fault_before_episode_or_published_time_is_rejected(
     world = new_world()
     with pytest.raises(WorldError, match="before the episode"):
         world.inject(fault("W1", location("W1"), 0.05, at(START - timedelta(days=1))))
+    world.inject(fault("W1", location("W1"), 0.05, at(START)))  # nothing published yet
     world.published_until_us = world.day_start_us(START) + 3600 * US
-    with pytest.raises(WorldError, match="already-published"):
+    with pytest.raises(WorldConflictError, match="already-published"):
         world.inject(fault("W1", location("W1"), 0.05, at(START, 0.5)))
-    world.inject(fault("W1", location("W1"), 0.05, at(START, 1.0)))  # exactly at the boundary
+    with pytest.raises(
+        WorldConflictError, match="already-published"
+    ):  # (t0, t1]: the boundary is sent
+        world.inject(fault("W1", location("W1"), 0.05, at(START, 1.0)))
+    world.inject(fault("W1", location("W1"), 0.05, at(START, 1.0 + 1 / 3600)))
 
 
 def test_fault_without_start_uses_now(location: Callable[[str], str]) -> None:

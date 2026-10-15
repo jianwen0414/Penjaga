@@ -37,6 +37,7 @@ from penjaga_contract.validate import load_context
 from penjaga_sim import GENERATOR_VERSION
 from penjaga_sim.faults import spec_document
 from penjaga_sim.sensors import QUALITY_CODES, StreamDay
+from penjaga_sim.timeutil import to_us
 from penjaga_sim.world import DayOutput, SimEvent, World, WorldConfig, WorldError
 
 US = 1_000_000
@@ -193,7 +194,11 @@ def world_for(manifest: EpisodeManifest) -> World:
     )
     if manifest.house_id != _house_id(world):
         raise WorldError(f"manifest house {manifest.house_id!r} != {_house_id(world)!r}")
+    t0, _ = episode_window(manifest)
     for fault in manifest.faults:
+        # the episode covers (start, end]: an effect at the start instant would not be in it
+        if fault.start_at is None or to_us(fault.start_at) <= t0:
+            raise WorldError("every manifest fault needs a start_at after the episode start")
         world.inject(fault)
     for anomaly in manifest.anomalies:
         world.impose(anomaly)
@@ -214,7 +219,7 @@ def manifest_document(manifest: EpisodeManifest) -> dict[str, Any]:
 
 
 def episode_window(manifest: EpisodeManifest) -> tuple[int, int]:
-    t0 = int(manifest.start.timestamp()) * US + manifest.start.microsecond
+    t0 = to_us(manifest.start)
     return t0, t0 + round(manifest.duration_days * 86_400 * US)
 
 

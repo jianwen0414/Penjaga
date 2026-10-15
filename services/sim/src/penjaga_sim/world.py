@@ -4,7 +4,9 @@ Days are generated in order (each day starts from the previous day's end state) 
 Injecting or clearing a fault invalidates the affected day and everything after it; because
 fault effects are zero before the fault starts and every random stream is keyed by date and
 component, regenerating a day reproduces everything before the injection exactly. The world
-refuses changes that would alter time already published (``published_until_us``).
+refuses changes that would alter time already published: readings and events stamped at or
+before ``published_until_us`` have been sent (windows are half-open, (t0, t1]), so a change
+must take effect strictly after it.
 
 Ground truth (fault records, legitimate-anomaly occurrences) is kept here and handed only to
 the truth store; it never appears in the readings.
@@ -37,6 +39,7 @@ from penjaga_sim.faults import (
 from penjaga_sim.household import DayModifiers, N, NaturalAnomaly, plan_day
 from penjaga_sim.model import HouseModel
 from penjaga_sim.sensors import DayPhysics, Registers, SensorKit, StreamDay
+from penjaga_sim.timeutil import to_us
 from penjaga_sim.water import WaterInputs, WaterState, demand_from_uses, simulate_water
 from penjaga_sim.weather import day_weather
 
@@ -58,7 +61,15 @@ OCCURRENCE_ANOMALIES = {AnomalyType.night_bucket_fill, AnomalyType.washer_delay_
 
 
 class WorldError(ValueError):
-    pass
+    """A request the world cannot accept as given (invalid spec, unknown archetype...)."""
+
+
+class WorldConflictError(WorldError):
+    """A valid request that conflicts with the world's state (published time, ended fault)."""
+
+
+class UnknownFaultError(WorldError):
+    """No fault with that id."""
 
 
 @dataclass(frozen=True)
@@ -139,7 +150,8 @@ class World:
         self._states[self.config.start] = _DayState(
             WaterState(tank_l=start_level * float(tank.capacity_l)), ElecState(), Registers()
         )
-        self.published_until_us = self.day_start_us(self.config.start)
+        # nothing published yet: even the first instant of the first day may still change
+        self.published_until_us = self.day_start_us(self.config.start) - 1
 
     # ------------------------------------------------------------------ time
 
@@ -177,9 +189,9 @@ class World:
             del self._states[d]
 
     def _check_not_published(self, ts_us: int, what: str) -> None:
-        if ts_us < self.published_until_us:
-            raise WorldError(
-                f"{what} at {ts_us} is before already-published house time "
+        if ts_us <= self.published_until_us:
+            raise WorldConflictError(
+                f"{what} at {ts_us} is not after already-published house time "
                 f"{self.published_until_us}"
             )
 
@@ -190,7 +202,7 @@ class World:
         except FaultError as exc:
             raise WorldError(str(exc)) from None
         if spec.start_at is not None:
-            start = int(spec.start_at.timestamp()) * US + spec.start_at.microsecond
+            start = to_us(spec.start_at)
         elif now_us is not None:
             start = now_us
         else:
@@ -208,14 +220,14 @@ class World:
     def clear(self, fault_id: str, now_us: int) -> ActiveFault:
         for i, f in enumerate(self.faults):
             if f.fault_id == fault_id:
-                if f.end_us is not None and f.end_us <= now_us:
-                    raise WorldError(f"{fault_id} already ended")
+                if f.end_us is not None and (f.end_us <= now_us or f.end_us <= f.start_us):
+                    raise WorldConflictError(f"{fault_id} already ended or was cancelled")
                 self._check_not_published(now_us, "fault clear")
                 cleared = ActiveFault(f.fault_id, f.spec, f.start_us, max(f.start_us, now_us))
                 self.faults[i] = cleared
                 self._invalidate_from(now_us)
                 return cleared
-        raise WorldError(f"unknown fault {fault_id!r}")
+        raise UnknownFaultError(f"unknown fault {fault_id!r}")
 
     def impose(self, spec: AnomalySpec) -> str:
         """Impose a legitimate anomaly on whole house days.
@@ -230,7 +242,7 @@ class World:
             raise WorldError("anomaly starts before the episode")
         start = self.day_start_us(start_day)
         self._check_not_published(start, "anomaly start (whole days)")
-        requested_end = int(spec.start_at.timestamp()) * US + int(spec.duration_s * US)
+        requested_end = to_us(spec.start_at) + int(spec.duration_s * US)
         end = self.day_start_us(self.day_of(requested_end - 1) + timedelta(days=1))
         record = self._new_id("tr")
         self._anomalies.append(_Anomaly(spec, start, end, record))
@@ -346,6 +358,8 @@ class World:
         for f in self.faults:
             if until_us is not None and f.start_us >= until_us:
                 continue
+            if f.end_us is not None and f.end_us <= f.start_us:
+                continue  # cleared before it started: it never happened
             records.append({
                 "record_id": "tr_" + f.fault_id.removeprefix("flt_"),
                 "house_id": house_id,

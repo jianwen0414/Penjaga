@@ -217,3 +217,12 @@ def test_written_documents_validate_with_supply_faults(tmp_path: Path) -> None:
     ]
     schema_registry.validate("lab", "fault_spec", record["params"]["spec"])
     assert record["params"]["spec"]["location_id"] is None
+
+
+def test_manifest_faults_must_start_after_the_episode_start(location: Any) -> None:
+    """An episode covers (start, end]: an effect at the start instant would fall outside it."""
+    at_start = fault("U3", None, 1, at(START), duration_s=600)
+    with pytest.raises(WorldError, match="after the episode start"):
+        world_for(manifest(faults=[at_start.model_dump(mode="json")]))
+    just_after = fault("U3", None, 1, at(START, 1 / 3600), duration_s=600)
+    world_for(manifest(faults=[just_after.model_dump(mode="json")]))
