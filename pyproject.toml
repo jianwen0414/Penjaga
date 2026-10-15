@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "penjaga-contract",
+    "penjaga-stream",
 ]
 
 [tool.uv]
@@ -14,10 +15,12 @@ package = false
 [tool.uv.workspace]
 members = [
     "packages/contract",
+    "services/stream",
 ]
 
 [tool.uv.sources]
 penjaga-contract = { workspace = true }
+penjaga-stream = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -30,6 +33,7 @@ dev = [
     "datamodel-code-generator==0.83.0",
     "types-jsonschema>=4.26.0.20261006",
     "packaging>=26.3",
+    "httpx>=0.28.1,<0.29",
 ]
 
 [tool.ruff]
@@ -70,6 +74,11 @@ warn_unreachable = true
 module = ["penjaga_contract.generated.*"]
 disallow_any_explicit = false
 warn_unused_ignores = false
+
+[[tool.mypy.overrides]]
+# pyarrow ships no type information (no py.typed); treat it as untyped.
+module = ["pyarrow", "pyarrow.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 minversion = "9.0"
