@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://penjaga.invalid/contract/core/reading_batch.schema.json",
+  "title": "ReadingBatch",
+  "description": "A run of regularly spaced samples from one sampled stream: sample i has timestamp t0 + i * period_s. Internal transport and storage format. Carries only what a real meter reports: there is deliberately no metadata field. Semantic rules (checked by penjaga_contract.validate): quality array length equals values length; a sample is null exactly when its quality is 'missing'; seq increases by one per batch per stream.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "house_id",
+    "stream",
+    "t0",
+    "period_s",
+    "unit",
+    "values",
+    "quality",
+    "seq"
+  ],
+  "properties": {
+    "house_id": {
+      "$ref": "common.schema.json#/$defs/HouseId"
+    },
+    "stream": {
+      "$ref": "common.schema.json#/$defs/StreamId"
+    },
+    "t0": {
+      "$ref": "common.schema.json#/$defs/HouseTime"
+    },
+    "period_s": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "unit": {
+      "type": "string",
+      "minLength": 1
+    },
+    "values": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100000,
+      "items": {
+        "type": [
+          "number",
+          "null"
+        ]
+      }
+    },
+    "quality": {
+      "description": "A single flag applying to every sample, or one flag per sample.",
+      "oneOf": [
+        {
+          "$ref": "common.schema.json#/$defs/Quality"
+        },
+        {
+          "title": "QualityPerSample",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100000,
+          "items": {
+            "$ref": "common.schema.json#/$defs/Quality"
+          }
+        }
+      ]
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Per-stream batch sequence number, used to detect gaps and measure latency."
+    }
+  }
+}

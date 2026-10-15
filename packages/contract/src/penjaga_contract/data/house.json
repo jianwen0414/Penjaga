@@ -1,0 +1,254 @@
+{
+  "schema_version": "1.0",
+  "house_id": "elmina_g6_demo",
+  "name": "Representative Elmina Green Six double-storey terrace",
+  "description": "Representative of SDP Elmina Green Six (double-storey terrace), City of Elmina, Shah Alam: intermediate unit on a ~22 ft x 80 ft lot, ~2,170 sq ft built-up, 4 bedrooms and 4 bathrooms including a ground-floor Flexi-Suite. Layout, services routing and ratings are representative until the official floor plan and as-built services are verified.",
+  "representative": true,
+  "location": {
+    "locality": "Elmina Green, Seksyen U17, Shah Alam, Selangor",
+    "latitude": 3.2036,
+    "longitude": 101.4941,
+    "reference": "Centroid of public street Jalan Cassia U17/75 (not a specific home)",
+    "timezone": "Asia/Kuala_Lumpur",
+    "source_ref": "DS-003"
+  },
+  "handover_date": "2024-06-01",
+  "levels": [
+    { "index": 0, "name": "Ground floor" },
+    { "index": 1, "name": "First floor" },
+    { "index": 2, "name": "Roof space" }
+  ],
+  "rooms": [
+    { "id": "room_porch", "name": "Car porch and front garden", "level": 0, "kind": "outdoor", "wet_location": false },
+    { "id": "room_living", "name": "Living room", "level": 0, "kind": "living", "wet_location": false },
+    { "id": "room_dining", "name": "Dining area", "level": 0, "kind": "dining", "wet_location": false },
+    { "id": "room_kitchen", "name": "Dry kitchen", "level": 0, "kind": "kitchen", "wet_location": false },
+    { "id": "room_kitchen_wet", "name": "Wet kitchen", "level": 0, "kind": "kitchen", "wet_location": false },
+    { "id": "room_yard", "name": "Yard and utility area", "level": 0, "kind": "utility", "wet_location": false },
+    { "id": "room_bed4", "name": "Flexi-Suite bedroom (Bedroom 4)", "level": 0, "kind": "bedroom", "wet_location": false },
+    { "id": "room_bath4", "name": "Flexi-Suite bathroom (Bathroom 4)", "level": 0, "kind": "bathroom", "wet_location": true },
+    { "id": "room_stair", "name": "Staircase", "level": 0, "kind": "circulation", "wet_location": false },
+    { "id": "room_bed_master", "name": "Master bedroom", "level": 1, "kind": "bedroom", "wet_location": false },
+    { "id": "room_bath_master", "name": "Master bathroom", "level": 1, "kind": "bathroom", "wet_location": true },
+    { "id": "room_bed2", "name": "Bedroom 2", "level": 1, "kind": "bedroom", "wet_location": false },
+    { "id": "room_bath2", "name": "Bathroom 2 (Bedroom 2 en-suite)", "level": 1, "kind": "bathroom", "wet_location": true },
+    { "id": "room_bed3", "name": "Bedroom 3", "level": 1, "kind": "bedroom", "wet_location": false },
+    { "id": "room_bath3", "name": "Bathroom 3 (common)", "level": 1, "kind": "bathroom", "wet_location": true },
+    { "id": "room_hall_1f", "name": "Family hall", "level": 1, "kind": "living", "wet_location": false },
+    { "id": "room_roof_space", "name": "Roof space", "level": 2, "kind": "roof_space", "wet_location": false }
+  ],
+  "walls": [
+    { "id": "wall_bath_master_wet", "name": "Master bathroom wet wall", "kind": "wall", "room_ids": ["room_bath_master"], "levels": [1] },
+    { "id": "wall_bath2_wet", "name": "Bathroom 2 wet wall", "kind": "wall", "room_ids": ["room_bath2"], "levels": [1] },
+    { "id": "wall_bath3_wet", "name": "Bathroom 3 wet wall", "kind": "wall", "room_ids": ["room_bath3"], "levels": [1] },
+    { "id": "wall_bath4_wet", "name": "Bathroom 4 wet wall", "kind": "wall", "room_ids": ["room_bath4"], "levels": [0] },
+    { "id": "wall_kitchen_sink", "name": "Dry kitchen sink wall", "kind": "wall", "room_ids": ["room_kitchen"], "levels": [0] },
+    { "id": "wall_kitchen_wet_sink", "name": "Wet kitchen sink wall", "kind": "wall", "room_ids": ["room_kitchen_wet"], "levels": [0] },
+    { "id": "duct_riser_main", "name": "Plumbing riser duct", "kind": "duct", "room_ids": ["room_kitchen_wet", "room_bath3", "room_roof_space"], "levels": [0, 1, 2] },
+    { "id": "ceil_gf_service", "name": "Ground-floor ceiling service zone", "kind": "ceiling", "room_ids": ["room_kitchen_wet", "room_dining", "room_bath4"], "levels": [0] }
+  ],
+  "water": {
+    "meters": [
+      {
+        "id": "meter_water_main",
+        "name": "Main water meter",
+        "room_id": "room_porch",
+        "position": "Penjaga smart meter in series after the utility meter at the front boundary; measures all water entering the house."
+      }
+    ],
+    "tanks": [
+      {
+        "id": "tank_roof_main",
+        "name": "Roof water tank",
+        "room_id": "room_roof_space",
+        "capacity_l": 1364,
+        "inlet_pipe_id": "pipe_rising_main",
+        "material": "polyethylene",
+        "source_ref": "DS-008"
+      }
+    ],
+    "pipes": [
+      { "id": "pipe_supply_main", "name": "Service pipe from meter", "kind": "service", "upstream_id": "meter_water_main", "routing": "underground", "room_ids": ["room_porch"], "concealed_in": [], "nominal_size_mm": 20 },
+      { "id": "pipe_porch_tap", "name": "Garden tap branch", "kind": "branch", "upstream_id": "pipe_supply_main", "routing": "exposed", "room_ids": ["room_porch"], "concealed_in": [], "nominal_size_mm": 15 },
+      { "id": "pipe_kitchen_direct", "name": "Direct-from-main kitchen branch (drinking water)", "kind": "branch", "upstream_id": "pipe_supply_main", "routing": "concealed", "room_ids": ["room_kitchen"], "concealed_in": ["wall_kitchen_sink"], "nominal_size_mm": 15 },
+      { "id": "pipe_rising_main", "name": "Rising main to roof tank", "kind": "rising_main", "upstream_id": "pipe_supply_main", "routing": "concealed", "room_ids": ["room_kitchen_wet", "room_roof_space"], "concealed_in": ["duct_riser_main"], "nominal_size_mm": 20 },
+      { "id": "pipe_roof_tank_overflow", "name": "Roof tank overflow pipe", "kind": "overflow", "upstream_id": "tank_roof_main", "routing": "roof_space", "room_ids": ["room_roof_space"], "concealed_in": [], "nominal_size_mm": 25 },
+      { "id": "pipe_downfeed_main", "name": "Gravity down-feed from roof tank", "kind": "downfeed", "upstream_id": "tank_roof_main", "routing": "roof_space", "room_ids": ["room_roof_space"], "concealed_in": [], "nominal_size_mm": 25 },
+      { "id": "pipe_bath_master_cold_supply", "name": "Master bathroom cold supply", "kind": "branch", "upstream_id": "pipe_downfeed_main", "routing": "concealed", "room_ids": ["room_bath_master"], "concealed_in": ["wall_bath_master_wet"], "nominal_size_mm": 15 },
+      { "id": "pipe_bath2_cold_supply", "name": "Bathroom 2 cold supply", "kind": "branch", "upstream_id": "pipe_downfeed_main", "routing": "concealed", "room_ids": ["room_bath2"], "concealed_in": ["wall_bath2_wet"], "nominal_size_mm": 15 },
+      { "id": "pipe_bath3_cold_supply", "name": "Bathroom 3 cold supply", "kind": "branch", "upstream_id": "pipe_downfeed_main", "routing": "concealed", "room_ids": ["room_bath3"], "concealed_in": ["wall_bath3_wet"], "nominal_size_mm": 15 },
+      { "id": "pipe_gf_downfeed", "name": "Ground-floor down-feed", "kind": "downfeed", "upstream_id": "pipe_downfeed_main", "routing": "concealed", "room_ids": ["room_kitchen_wet", "room_dining"], "concealed_in": ["duct_riser_main", "ceil_gf_service"], "nominal_size_mm": 20 },
+      { "id": "pipe_bath4_cold_supply", "name": "Bathroom 4 cold supply", "kind": "branch", "upstream_id": "pipe_gf_downfeed", "routing": "concealed", "room_ids": ["room_bath4"], "concealed_in": ["ceil_gf_service", "wall_bath4_wet"], "nominal_size_mm": 15 },
+      { "id": "pipe_kitchen_wet_supply", "name": "Wet kitchen supply", "kind": "branch", "upstream_id": "pipe_gf_downfeed", "routing": "concealed", "room_ids": ["room_kitchen_wet"], "concealed_in": ["wall_kitchen_wet_sink"], "nominal_size_mm": 15 },
+      { "id": "pipe_yard_supply", "name": "Yard supply", "kind": "branch", "upstream_id": "pipe_gf_downfeed", "routing": "exposed", "room_ids": ["room_yard"], "concealed_in": [], "nominal_size_mm": 15 }
+    ],
+    "valves": [
+      { "id": "valve_main_stop", "name": "Main stop valve", "kind": "stop", "pipe_id": "pipe_supply_main", "room_id": "room_porch", "owner_operable": true },
+      { "id": "valve_roof_tank_float", "name": "Roof tank float valve", "kind": "float", "pipe_id": "pipe_rising_main", "room_id": "room_roof_space", "owner_operable": false },
+      { "id": "valve_downfeed_main", "name": "Tank outlet gate valve", "kind": "gate", "pipe_id": "pipe_downfeed_main", "room_id": "room_roof_space", "owner_operable": false },
+      { "id": "valve_bath_master_branch", "name": "Master bathroom stop valve", "kind": "stop", "pipe_id": "pipe_bath_master_cold_supply", "room_id": "room_bath_master", "owner_operable": true },
+      { "id": "valve_bath2_branch", "name": "Bathroom 2 stop valve", "kind": "stop", "pipe_id": "pipe_bath2_cold_supply", "room_id": "room_bath2", "owner_operable": true },
+      { "id": "valve_bath3_branch", "name": "Bathroom 3 stop valve", "kind": "stop", "pipe_id": "pipe_bath3_cold_supply", "room_id": "room_bath3", "owner_operable": true },
+      { "id": "valve_bath4_branch", "name": "Bathroom 4 stop valve", "kind": "stop", "pipe_id": "pipe_bath4_cold_supply", "room_id": "room_bath4", "owner_operable": true },
+      { "id": "valve_bath_master_wc_angle", "name": "Master bathroom WC angle valve", "kind": "angle", "pipe_id": "pipe_bath_master_cold_supply", "room_id": "room_bath_master", "owner_operable": true },
+      { "id": "valve_bath2_wc_angle", "name": "Bathroom 2 WC angle valve", "kind": "angle", "pipe_id": "pipe_bath2_cold_supply", "room_id": "room_bath2", "owner_operable": true },
+      { "id": "valve_bath3_wc_angle", "name": "Bathroom 3 WC angle valve", "kind": "angle", "pipe_id": "pipe_bath3_cold_supply", "room_id": "room_bath3", "owner_operable": true },
+      { "id": "valve_bath4_wc_angle", "name": "Bathroom 4 WC angle valve", "kind": "angle", "pipe_id": "pipe_bath4_cold_supply", "room_id": "room_bath4", "owner_operable": true }
+    ],
+    "fixtures": [
+      { "id": "fix_bath_master_wc_cistern", "name": "Master bathroom WC cistern", "kind": "wc_cistern", "room_id": "room_bath_master", "pipe_id": "pipe_bath_master_cold_supply", "isolation_valve_id": "valve_bath_master_wc_angle", "install_date": "2024-06-01" },
+      { "id": "fix_bath_master_basin_tap", "name": "Master bathroom basin tap", "kind": "basin_tap", "room_id": "room_bath_master", "pipe_id": "pipe_bath_master_cold_supply", "install_date": "2024-06-01" },
+      { "id": "fix_bath_master_shower", "name": "Master bathroom shower", "kind": "shower", "room_id": "room_bath_master", "pipe_id": "pipe_bath_master_cold_supply", "install_date": "2024-06-01" },
+      { "id": "fix_bath_master_bidet_spray", "name": "Master bathroom bidet spray", "kind": "bidet_spray", "room_id": "room_bath_master", "pipe_id": "pipe_bath_master_cold_supply", "install_date": "2024-06-01" },
+      { "id": "fix_bath2_wc_cistern", "name": "Bathroom 2 WC cistern", "kind": "wc_cistern", "room_id": "room_bath2", "pipe_id": "pipe_bath2_cold_supply", "isolation_valve_id": "valve_bath2_wc_angle", "install_date": "2024-06-01" },
+      { "id": "fix_bath2_basin_tap", "name": "Bathroom 2 basin tap", "kind": "basin_tap", "room_id": "room_bath2", "pipe_id": "pipe_bath2_cold_supply", "install_date": "2024-06-01" },
+      { "id": "fix_bath2_shower", "name": "Bathroom 2 shower", "kind": "shower", "room_id": "room_bath2", "pipe_id": "pipe_bath2_cold_supply", "install_date": "2024-06-01" },
+      { "id": "fix_bath2_bidet_spray", "name": "Bathroom 2 bidet spray", "kind": "bidet_spray", "room_id": "room_bath2", "pipe_id": "pipe_bath2_cold_supply", "install_date": "2024-06-01" },
+      { "id": "fix_bath3_wc_cistern", "name": "Bathroom 3 WC cistern", "kind": "wc_cistern", "room_id": "room_bath3", "pipe_id": "pipe_bath3_cold_supply", "isolation_valve_id": "valve_bath3_wc_angle", "install_date": "2024-06-01" },
+      { "id": "fix_bath3_basin_tap", "name": "Bathroom 3 basin tap", "kind": "basin_tap", "room_id": "room_bath3", "pipe_id": "pipe_bath3_cold_supply", "install_date": "2024-06-01" },
+      { "id": "fix_bath3_shower", "name": "Bathroom 3 shower", "kind": "shower", "room_id": "room_bath3", "pipe_id": "pipe_bath3_cold_supply", "install_date": "2024-06-01" },
+      { "id": "fix_bath3_bidet_spray", "name": "Bathroom 3 bidet spray", "kind": "bidet_spray", "room_id": "room_bath3", "pipe_id": "pipe_bath3_cold_supply", "install_date": "2024-06-01" },
+      { "id": "fix_bath4_wc_cistern", "name": "Bathroom 4 WC cistern", "kind": "wc_cistern", "room_id": "room_bath4", "pipe_id": "pipe_bath4_cold_supply", "isolation_valve_id": "valve_bath4_wc_angle", "install_date": "2024-06-01" },
+      { "id": "fix_bath4_basin_tap", "name": "Bathroom 4 basin tap", "kind": "basin_tap", "room_id": "room_bath4", "pipe_id": "pipe_bath4_cold_supply", "install_date": "2024-06-01" },
+      { "id": "fix_bath4_shower", "name": "Bathroom 4 shower", "kind": "shower", "room_id": "room_bath4", "pipe_id": "pipe_bath4_cold_supply", "install_date": "2024-06-01" },
+      { "id": "fix_bath4_bidet_spray", "name": "Bathroom 4 bidet spray", "kind": "bidet_spray", "room_id": "room_bath4", "pipe_id": "pipe_bath4_cold_supply", "install_date": "2024-06-01" },
+      { "id": "fix_kitchen_sink_tap", "name": "Dry kitchen sink tap (direct from main)", "kind": "sink_tap", "room_id": "room_kitchen", "pipe_id": "pipe_kitchen_direct", "install_date": "2024-06-01" },
+      { "id": "fix_kitchen_wet_sink_tap", "name": "Wet kitchen sink tap", "kind": "sink_tap", "room_id": "room_kitchen_wet", "pipe_id": "pipe_kitchen_wet_supply", "install_date": "2024-06-01" },
+      { "id": "fix_yard_washer_tap", "name": "Washing machine tap", "kind": "washing_machine_tap", "room_id": "room_yard", "pipe_id": "pipe_yard_supply", "install_date": "2024-06-01" },
+      { "id": "fix_yard_laundry_tap", "name": "Yard laundry tap", "kind": "laundry_tap", "room_id": "room_yard", "pipe_id": "pipe_yard_supply", "install_date": "2024-06-01" },
+      { "id": "fix_porch_garden_tap", "name": "Garden tap", "kind": "garden_tap", "room_id": "room_porch", "pipe_id": "pipe_porch_tap", "install_date": "2024-06-01" }
+    ]
+  },
+  "electrical": {
+    "supply": { "phases": 1, "nominal_voltage_v": 230, "frequency_hz": 50 },
+    "boards": [{ "id": "db_main", "name": "Main distribution board", "room_id": "room_living" }],
+    "protective_devices": [
+      { "id": "rcd_main", "name": "Main RCCB 100 mA", "kind": "rccb", "board_id": "db_main", "upstream_device_id": null, "rated_current_a": 63, "rated_residual_ma": 100, "poles": 2, "install_date": "2024-06-01" },
+      { "id": "rcd_sockets", "name": "Socket-outlet RCCB 30 mA", "kind": "rccb", "board_id": "db_main", "upstream_device_id": "rcd_main", "rated_current_a": 63, "rated_residual_ma": 30, "poles": 2, "install_date": "2024-06-01" },
+      { "id": "rcd_wh_bath_master", "name": "Master bathroom water heater RCCB 10 mA", "kind": "rccb", "board_id": "db_main", "upstream_device_id": "rcd_main", "rated_current_a": 25, "rated_residual_ma": 10, "poles": 2, "install_date": "2024-06-01" },
+      { "id": "rcd_wh_bath2", "name": "Bathroom 2 water heater RCCB 10 mA", "kind": "rccb", "board_id": "db_main", "upstream_device_id": "rcd_main", "rated_current_a": 25, "rated_residual_ma": 10, "poles": 2, "install_date": "2024-06-01" },
+      { "id": "rcd_wh_bath3", "name": "Bathroom 3 water heater RCCB 10 mA", "kind": "rccb", "board_id": "db_main", "upstream_device_id": "rcd_main", "rated_current_a": 25, "rated_residual_ma": 10, "poles": 2, "install_date": "2024-06-01" },
+      { "id": "rcd_wh_bath4", "name": "Bathroom 4 water heater RCCB 10 mA", "kind": "rccb", "board_id": "db_main", "upstream_device_id": "rcd_main", "rated_current_a": 25, "rated_residual_ma": 10, "poles": 2, "install_date": "2024-06-01" },
+      { "id": "mcb_lights_gf", "name": "MCB lighting ground floor", "kind": "mcb", "board_id": "db_main", "upstream_device_id": "rcd_main", "rated_current_a": 10, "curve": "B", "poles": 1, "install_date": "2024-06-01" },
+      { "id": "mcb_lights_1f", "name": "MCB lighting first floor", "kind": "mcb", "board_id": "db_main", "upstream_device_id": "rcd_main", "rated_current_a": 10, "curve": "B", "poles": 1, "install_date": "2024-06-01" },
+      { "id": "mcb_sockets_living", "name": "MCB sockets living and dining", "kind": "mcb", "board_id": "db_main", "upstream_device_id": "rcd_sockets", "rated_current_a": 20, "curve": "B", "poles": 1, "install_date": "2024-06-01" },
+      { "id": "mcb_sockets_kitchen", "name": "MCB sockets dry kitchen", "kind": "mcb", "board_id": "db_main", "upstream_device_id": "rcd_sockets", "rated_current_a": 20, "curve": "B", "poles": 1, "install_date": "2024-06-01" },
+      { "id": "mcb_sockets_kitchen_wet", "name": "MCB sockets wet kitchen", "kind": "mcb", "board_id": "db_main", "upstream_device_id": "rcd_sockets", "rated_current_a": 20, "curve": "B", "poles": 1, "install_date": "2024-06-01" },
+      { "id": "mcb_sockets_yard", "name": "MCB sockets yard", "kind": "mcb", "board_id": "db_main", "upstream_device_id": "rcd_sockets", "rated_current_a": 20, "curve": "B", "poles": 1, "install_date": "2024-06-01" },
+      { "id": "mcb_sockets_outdoor", "name": "MCB outdoor socket", "kind": "mcb", "board_id": "db_main", "upstream_device_id": "rcd_sockets", "rated_current_a": 20, "curve": "B", "poles": 1, "install_date": "2024-06-01" },
+      { "id": "mcb_sockets_bed4", "name": "MCB sockets Flexi-Suite", "kind": "mcb", "board_id": "db_main", "upstream_device_id": "rcd_sockets", "rated_current_a": 20, "curve": "B", "poles": 1, "install_date": "2024-06-01" },
+      { "id": "mcb_sockets_1f", "name": "MCB sockets first floor", "kind": "mcb", "board_id": "db_main", "upstream_device_id": "rcd_sockets", "rated_current_a": 20, "curve": "B", "poles": 1, "install_date": "2024-06-01" },
+      { "id": "mcb_ac_living", "name": "MCB aircon living", "kind": "mcb", "board_id": "db_main", "upstream_device_id": "rcd_main", "rated_current_a": 20, "curve": "B", "poles": 1, "install_date": "2024-06-01" },
+      { "id": "mcb_ac_master", "name": "MCB aircon master bedroom", "kind": "mcb", "board_id": "db_main", "upstream_device_id": "rcd_main", "rated_current_a": 16, "curve": "B", "poles": 1, "install_date": "2024-06-01" },
+      { "id": "mcb_ac_bed2", "name": "MCB aircon bedroom 2", "kind": "mcb", "board_id": "db_main", "upstream_device_id": "rcd_main", "rated_current_a": 16, "curve": "B", "poles": 1, "install_date": "2024-06-01" },
+      { "id": "mcb_ac_bed3", "name": "MCB aircon bedroom 3", "kind": "mcb", "board_id": "db_main", "upstream_device_id": "rcd_main", "rated_current_a": 16, "curve": "B", "poles": 1, "install_date": "2024-06-01" },
+      { "id": "mcb_ac_bed4", "name": "MCB aircon Flexi-Suite", "kind": "mcb", "board_id": "db_main", "upstream_device_id": "rcd_main", "rated_current_a": 16, "curve": "B", "poles": 1, "install_date": "2024-06-01" },
+      { "id": "mcb_wh_bath_master", "name": "MCB water heater master bathroom", "kind": "mcb", "board_id": "db_main", "upstream_device_id": "rcd_wh_bath_master", "rated_current_a": 20, "curve": "B", "poles": 1, "install_date": "2024-06-01" },
+      { "id": "mcb_wh_bath2", "name": "MCB water heater bathroom 2", "kind": "mcb", "board_id": "db_main", "upstream_device_id": "rcd_wh_bath2", "rated_current_a": 20, "curve": "B", "poles": 1, "install_date": "2024-06-01" },
+      { "id": "mcb_wh_bath3", "name": "MCB water heater bathroom 3", "kind": "mcb", "board_id": "db_main", "upstream_device_id": "rcd_wh_bath3", "rated_current_a": 20, "curve": "B", "poles": 1, "install_date": "2024-06-01" },
+      { "id": "mcb_wh_bath4", "name": "MCB water heater bathroom 4", "kind": "mcb", "board_id": "db_main", "upstream_device_id": "rcd_wh_bath4", "rated_current_a": 20, "curve": "B", "poles": 1, "install_date": "2024-06-01" }
+    ],
+    "circuits": [
+      { "id": "circ_lights_gf", "name": "Lighting, ground floor", "kind": "lighting", "mcb_id": "mcb_lights_gf", "cable_csa_mm2": 1.5, "serves_room_ids": ["room_porch", "room_living", "room_dining", "room_kitchen", "room_kitchen_wet", "room_yard", "room_bed4", "room_bath4", "room_stair"] },
+      { "id": "circ_lights_1f", "name": "Lighting, first floor", "kind": "lighting", "mcb_id": "mcb_lights_1f", "cable_csa_mm2": 1.5, "serves_room_ids": ["room_bed_master", "room_bath_master", "room_bed2", "room_bath2", "room_bed3", "room_bath3", "room_hall_1f", "room_roof_space"] },
+      { "id": "circ_sockets_living", "name": "Sockets, living and dining", "kind": "socket", "mcb_id": "mcb_sockets_living", "cable_csa_mm2": 2.5, "serves_room_ids": ["room_living", "room_dining"] },
+      { "id": "circ_sockets_kitchen", "name": "Sockets, dry kitchen", "kind": "socket", "mcb_id": "mcb_sockets_kitchen", "cable_csa_mm2": 2.5, "serves_room_ids": ["room_kitchen"] },
+      { "id": "circ_sockets_kitchen_wet", "name": "Sockets, wet kitchen", "kind": "socket", "mcb_id": "mcb_sockets_kitchen_wet", "cable_csa_mm2": 2.5, "serves_room_ids": ["room_kitchen_wet"] },
+      { "id": "circ_sockets_yard", "name": "Sockets, yard", "kind": "socket", "mcb_id": "mcb_sockets_yard", "cable_csa_mm2": 2.5, "serves_room_ids": ["room_yard"] },
+      { "id": "circ_sockets_outdoor", "name": "Outdoor socket, porch", "kind": "socket", "mcb_id": "mcb_sockets_outdoor", "cable_csa_mm2": 2.5, "serves_room_ids": ["room_porch"] },
+      { "id": "circ_sockets_bed4", "name": "Sockets, Flexi-Suite", "kind": "socket", "mcb_id": "mcb_sockets_bed4", "cable_csa_mm2": 2.5, "serves_room_ids": ["room_bed4"] },
+      { "id": "circ_sockets_1f", "name": "Sockets, first floor", "kind": "socket", "mcb_id": "mcb_sockets_1f", "cable_csa_mm2": 2.5, "serves_room_ids": ["room_bed_master", "room_bed2", "room_bed3", "room_hall_1f"] },
+      { "id": "circ_ac_living", "name": "Aircon, living room", "kind": "dedicated", "mcb_id": "mcb_ac_living", "cable_csa_mm2": 2.5, "serves_room_ids": ["room_living"] },
+      { "id": "circ_ac_master", "name": "Aircon, master bedroom", "kind": "dedicated", "mcb_id": "mcb_ac_master", "cable_csa_mm2": 2.5, "serves_room_ids": ["room_bed_master"] },
+      { "id": "circ_ac_bed2", "name": "Aircon, bedroom 2", "kind": "dedicated", "mcb_id": "mcb_ac_bed2", "cable_csa_mm2": 2.5, "serves_room_ids": ["room_bed2"] },
+      { "id": "circ_ac_bed3", "name": "Aircon, bedroom 3", "kind": "dedicated", "mcb_id": "mcb_ac_bed3", "cable_csa_mm2": 2.5, "serves_room_ids": ["room_bed3"] },
+      { "id": "circ_ac_bed4", "name": "Aircon, Flexi-Suite", "kind": "dedicated", "mcb_id": "mcb_ac_bed4", "cable_csa_mm2": 2.5, "serves_room_ids": ["room_bed4"] },
+      { "id": "circ_wh_bath_master", "name": "Water heater, master bathroom", "kind": "dedicated", "mcb_id": "mcb_wh_bath_master", "cable_csa_mm2": 2.5, "serves_room_ids": ["room_bath_master"] },
+      { "id": "circ_wh_bath2", "name": "Water heater, bathroom 2", "kind": "dedicated", "mcb_id": "mcb_wh_bath2", "cable_csa_mm2": 2.5, "serves_room_ids": ["room_bath2"] },
+      { "id": "circ_wh_bath3", "name": "Water heater, bathroom 3", "kind": "dedicated", "mcb_id": "mcb_wh_bath3", "cable_csa_mm2": 2.5, "serves_room_ids": ["room_bath3"] },
+      { "id": "circ_wh_bath4", "name": "Water heater, bathroom 4", "kind": "dedicated", "mcb_id": "mcb_wh_bath4", "cable_csa_mm2": 2.5, "serves_room_ids": ["room_bath4"] }
+    ],
+    "socket_groups": [
+      { "id": "sock_living_tv", "name": "Living room TV sockets", "room_id": "room_living", "circuit_id": "circ_sockets_living", "outlet_count": 2, "outdoor": false },
+      { "id": "sock_living_general", "name": "Living room general sockets", "room_id": "room_living", "circuit_id": "circ_sockets_living", "outlet_count": 3, "outdoor": false },
+      { "id": "sock_dining", "name": "Dining sockets", "room_id": "room_dining", "circuit_id": "circ_sockets_living", "outlet_count": 2, "outdoor": false },
+      { "id": "sock_kitchen_counter", "name": "Dry kitchen counter sockets", "room_id": "room_kitchen", "circuit_id": "circ_sockets_kitchen", "outlet_count": 4, "outdoor": false },
+      { "id": "sock_kitchen_fridge", "name": "Fridge socket", "room_id": "room_kitchen", "circuit_id": "circ_sockets_kitchen", "outlet_count": 1, "outdoor": false },
+      { "id": "sock_kitchen_wet", "name": "Wet kitchen sockets", "room_id": "room_kitchen_wet", "circuit_id": "circ_sockets_kitchen_wet", "outlet_count": 2, "outdoor": false },
+      { "id": "sock_yard_washer", "name": "Washing machine socket", "room_id": "room_yard", "circuit_id": "circ_sockets_yard", "outlet_count": 1, "outdoor": false },
+      { "id": "sock_yard_general", "name": "Yard general socket", "room_id": "room_yard", "circuit_id": "circ_sockets_yard", "outlet_count": 1, "outdoor": false },
+      { "id": "sock_porch_outdoor", "name": "Outdoor socket", "room_id": "room_porch", "circuit_id": "circ_sockets_outdoor", "outlet_count": 1, "outdoor": true },
+      { "id": "sock_bed4", "name": "Flexi-Suite sockets", "room_id": "room_bed4", "circuit_id": "circ_sockets_bed4", "outlet_count": 3, "outdoor": false },
+      { "id": "sock_bed_master", "name": "Master bedroom sockets", "room_id": "room_bed_master", "circuit_id": "circ_sockets_1f", "outlet_count": 3, "outdoor": false },
+      { "id": "sock_bed2", "name": "Bedroom 2 sockets", "room_id": "room_bed2", "circuit_id": "circ_sockets_1f", "outlet_count": 3, "outdoor": false },
+      { "id": "sock_bed3", "name": "Bedroom 3 sockets", "room_id": "room_bed3", "circuit_id": "circ_sockets_1f", "outlet_count": 3, "outdoor": false },
+      { "id": "sock_hall_1f", "name": "Family hall sockets", "room_id": "room_hall_1f", "circuit_id": "circ_sockets_1f", "outlet_count": 2, "outdoor": false }
+    ]
+  },
+  "appliances": [
+    { "id": "app_ac_living", "name": "Living room aircon (2.0 hp inverter)", "kind": "air_conditioner", "room_id": "room_living", "circuit_id": "circ_ac_living", "install_date": "2024-07-15", "nameplate": { "rated_input_w": 1650, "nominal_hp": 2.0, "cooling_capacity_btu_h": 18000, "inverter": true, "source_ref": "DS-005" } },
+    { "id": "app_ac_master", "name": "Master bedroom aircon (1.5 hp inverter)", "kind": "air_conditioner", "room_id": "room_bed_master", "circuit_id": "circ_ac_master", "install_date": "2024-07-15", "nameplate": { "rated_input_w": 1000, "nominal_hp": 1.5, "cooling_capacity_btu_h": 12522, "inverter": true, "source_ref": "DS-005" } },
+    { "id": "app_ac_bed2", "name": "Bedroom 2 aircon (1.0 hp inverter)", "kind": "air_conditioner", "room_id": "room_bed2", "circuit_id": "circ_ac_bed2", "install_date": "2024-07-15", "nameplate": { "rated_input_w": 750, "nominal_hp": 1.0, "cooling_capacity_btu_h": 9554, "inverter": true, "source_ref": "DS-005" } },
+    { "id": "app_ac_bed3", "name": "Bedroom 3 aircon (1.0 hp inverter)", "kind": "air_conditioner", "room_id": "room_bed3", "circuit_id": "circ_ac_bed3", "install_date": "2024-07-15", "nameplate": { "rated_input_w": 750, "nominal_hp": 1.0, "cooling_capacity_btu_h": 9554, "inverter": true, "source_ref": "DS-005" } },
+    { "id": "app_ac_bed4", "name": "Flexi-Suite aircon (1.0 hp inverter)", "kind": "air_conditioner", "room_id": "room_bed4", "circuit_id": "circ_ac_bed4", "install_date": "2024-07-15", "nameplate": { "rated_input_w": 750, "nominal_hp": 1.0, "cooling_capacity_btu_h": 9554, "inverter": true, "source_ref": "DS-005" } },
+    { "id": "app_wh_bath_master", "name": "Master bathroom instant water heater", "kind": "water_heater", "room_id": "room_bath_master", "circuit_id": "circ_wh_bath_master", "fixture_id": "fix_bath_master_shower", "install_date": "2024-07-10", "nameplate": { "rated_input_w": 3600, "rated_voltage_v": 240, "source_ref": "DS-006" } },
+    { "id": "app_wh_bath2", "name": "Bathroom 2 instant water heater", "kind": "water_heater", "room_id": "room_bath2", "circuit_id": "circ_wh_bath2", "fixture_id": "fix_bath2_shower", "install_date": "2024-07-10", "nameplate": { "rated_input_w": 3600, "rated_voltage_v": 240, "source_ref": "DS-006" } },
+    { "id": "app_wh_bath3", "name": "Bathroom 3 instant water heater", "kind": "water_heater", "room_id": "room_bath3", "circuit_id": "circ_wh_bath3", "fixture_id": "fix_bath3_shower", "install_date": "2024-07-10", "nameplate": { "rated_input_w": 3600, "rated_voltage_v": 240, "source_ref": "DS-006" } },
+    { "id": "app_wh_bath4", "name": "Bathroom 4 instant water heater", "kind": "water_heater", "room_id": "room_bath4", "circuit_id": "circ_wh_bath4", "fixture_id": "fix_bath4_shower", "install_date": "2024-07-10", "nameplate": { "rated_input_w": 3600, "rated_voltage_v": 240, "source_ref": "DS-006" } },
+    { "id": "app_fridge_kitchen", "name": "Refrigerator", "kind": "refrigerator", "room_id": "room_kitchen", "socket_group_id": "sock_kitchen_fridge", "install_date": "2019-11-02" },
+    { "id": "app_washer_yard", "name": "Washing machine (top-load)", "kind": "washing_machine", "room_id": "room_yard", "socket_group_id": "sock_yard_washer", "install_date": "2021-05-20" },
+    { "id": "app_rice_cooker_kitchen", "name": "Rice cooker", "kind": "rice_cooker", "room_id": "room_kitchen", "socket_group_id": "sock_kitchen_counter", "install_date": "2022-01-10" },
+    { "id": "app_kettle_kitchen", "name": "Electric kettle", "kind": "kettle", "room_id": "room_kitchen", "socket_group_id": "sock_kitchen_counter", "install_date": "2023-03-05" },
+    { "id": "app_microwave_kitchen", "name": "Microwave oven", "kind": "microwave", "room_id": "room_kitchen", "socket_group_id": "sock_kitchen_counter", "install_date": "2020-08-15" },
+    { "id": "app_airfryer_kitchen", "name": "Air fryer", "kind": "air_fryer", "room_id": "room_kitchen", "socket_group_id": "sock_kitchen_counter", "install_date": "2024-12-01" },
+    { "id": "app_tv_living", "name": "Television", "kind": "television", "room_id": "room_living", "socket_group_id": "sock_living_tv", "install_date": "2024-07-20" },
+    { "id": "app_router_living", "name": "Wi-Fi router", "kind": "router", "room_id": "room_living", "socket_group_id": "sock_living_tv", "install_date": "2024-07-01" },
+    { "id": "app_hob_kitchen_wet", "name": "Gas hob", "kind": "gas_hob", "room_id": "room_kitchen_wet", "install_date": "2024-07-05" },
+    { "id": "app_lpg_hose_kitchen_wet", "name": "LPG hose and regulator", "kind": "lpg_hose", "room_id": "room_kitchen_wet", "install_date": "2024-07-05" },
+    { "id": "app_lpg_cylinder_kitchen_wet", "name": "LPG cylinder", "kind": "lpg_cylinder", "room_id": "room_kitchen_wet", "install_date": "2026-09-01" }
+  ],
+  "sensors": [
+    {
+      "id": "sensor_water_meter_main",
+      "name": "Smart water meter (flow)",
+      "kind": "water_meter",
+      "mounted_on_id": "meter_water_main",
+      "spec": { "technology": "ultrasonic", "nominal_diameter_mm": 15, "q3_m3_per_h": 2.5, "ratio_r": 400, "accuracy_class": 2, "scale_interval_l": 0.01, "source_ref": "DS-007" }
+    },
+    {
+      "id": "sensor_water_pressure_inlet",
+      "name": "Inlet supply pressure sensor",
+      "kind": "pressure_sensor",
+      "mounted_on_id": "pipe_supply_main",
+      "spec": { "range_max_bar": 10, "accuracy_pct_full_scale": 0.5, "resolution_bar": 0.01, "basis": "design_target" }
+    },
+    {
+      "id": "sensor_tank_level",
+      "name": "Roof tank level sensor",
+      "kind": "tank_level_sensor",
+      "mounted_on_id": "tank_roof_main",
+      "spec": { "technology": "ultrasonic", "accuracy_mm": 5, "resolution_pct": 0.5, "basis": "design_target" }
+    },
+    {
+      "id": "sensor_db_monitor",
+      "name": "Distribution board monitor",
+      "kind": "db_monitor",
+      "mounted_on_id": "db_main",
+      "spec": { "current_accuracy_pct": 1.0, "current_resolution_a": 0.01, "residual_resolution_ma": 0.1, "residual_range_max_ma": 300, "voltage_resolution_v": 0.1, "power_resolution_w": 1, "energy_resolution_wh": 1, "aux_contacts": true, "basis": "design_target" }
+    },
+    {
+      "id": "sensor_plug_fridge",
+      "name": "Fridge smart plug",
+      "kind": "smart_plug",
+      "mounted_on_id": "app_fridge_kitchen",
+      "spec": { "max_load_a": 13, "power_accuracy_pct": 1.0, "power_resolution_w": 0.1, "basis": "design_target" }
+    },
+    {
+      "id": "sensor_weather_feed",
+      "name": "Outdoor weather feed",
+      "kind": "weather_feed",
+      "mounted_on_id": null,
+      "spec": { "provider": "Open-Meteo Historical Weather API (cached, aligned to house time)", "source_ref": "DS-009" }
+    }
+  ]
+}

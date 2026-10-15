@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://penjaga.invalid/contract/lab/episode_manifest.schema.json",
+  "title": "EpisodeManifest",
+  "description": "LAB NAMESPACE: one evaluation/training episode for M11. Everything needed to regenerate the episode deterministically. Test-split manifests are sealed (hash recorded) and every test run is logged.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "episode_id",
+    "split",
+    "seed",
+    "house_id",
+    "household_archetype",
+    "start",
+    "duration_days",
+    "enabled_sensor_ids",
+    "faults",
+    "anomalies",
+    "generator_version"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "episode_id": {
+      "type": "string",
+      "pattern": "^ep_[0-9a-z_]{3,64}$"
+    },
+    "split": {
+      "title": "Split",
+      "type": "string",
+      "enum": [
+        "train",
+        "validation",
+        "test"
+      ]
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "Bounded to 2^53 - 1 so it survives JSON round-trips in JavaScript."
+    },
+    "house_id": {
+      "$ref": "../core/common.schema.json#/$defs/HouseId"
+    },
+    "household_archetype": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "start": {
+      "$ref": "../core/common.schema.json#/$defs/HouseTime"
+    },
+    "duration_days": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 730
+    },
+    "enabled_sensor_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "../core/common.schema.json#/$defs/ObjectId"
+      },
+      "description": "Sensor-kit configuration (enables with/without ablations, e.g. no tank level sensor)."
+    },
+    "faults": {
+      "type": "array",
+      "items": {
+        "$ref": "fault_spec.schema.json"
+      }
+    },
+    "anomalies": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/AnomalySpec"
+      }
+    },
+    "generator_version": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "$defs": {
+    "AnomalySpec": {
+      "title": "AnomalySpec",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "anomaly_type",
+        "start_at",
+        "duration_s"
+      ],
+      "properties": {
+        "anomaly_type": {
+          "$ref": "truth_record.schema.json#/$defs/AnomalyType"
+        },
+        "start_at": {
+          "$ref": "../core/common.schema.json#/$defs/HouseTime"
+        },
+        "duration_s": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "params": {
+          "type": "object"
+        }
+      }
+    }
+  }
+}

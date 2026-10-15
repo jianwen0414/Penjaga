@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://penjaga.invalid/contract/lab/truth_record.schema.json",
+  "title": "TruthRecord",
+  "description": "LAB NAMESPACE: ground truth written by the simulator to the truth store only (PRD §12.1). Read by the M11 scorer and training pipelines, never by detection at inference time.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_id",
+    "house_id",
+    "kind",
+    "label",
+    "object_ids",
+    "start",
+    "end",
+    "params"
+  ],
+  "properties": {
+    "record_id": {
+      "type": "string",
+      "pattern": "^tr_[0-9a-z]{6,40}$"
+    },
+    "episode_id": {
+      "type": "string",
+      "pattern": "^ep_[0-9a-z_]{3,64}$"
+    },
+    "house_id": {
+      "$ref": "../core/common.schema.json#/$defs/HouseId"
+    },
+    "kind": {
+      "title": "TruthKind",
+      "type": "string",
+      "enum": [
+        "fault",
+        "legit_anomaly"
+      ]
+    },
+    "label": {
+      "description": "Fault type (W1..U3) or legitimate-anomaly type.",
+      "oneOf": [
+        {
+          "$ref": "fault_spec.schema.json#/$defs/FaultType"
+        },
+        {
+          "$ref": "#/$defs/AnomalyType"
+        }
+      ]
+    },
+    "fault_id": {
+      "type": "string",
+      "pattern": "^flt_[0-9a-z]{6,32}$"
+    },
+    "object_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "../core/common.schema.json#/$defs/ObjectId"
+      },
+      "description": "True location(s)."
+    },
+    "start": {
+      "$ref": "../core/common.schema.json#/$defs/HouseTime"
+    },
+    "end": {
+      "$ref": "../core/common.schema.json#/$defs/NullableHouseTime",
+      "description": "Null while ongoing."
+    },
+    "params": {
+      "type": "object",
+      "description": "Realised parameters (e.g. actual flow L/min, refill period, growth rate), for magnitude-stratified evaluation."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "fault"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "fault_id"
+        ],
+        "properties": {
+          "label": {
+            "$ref": "fault_spec.schema.json#/$defs/FaultType"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "label": {
+            "$ref": "#/$defs/AnomalyType"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "AnomalyType": {
+      "title": "AnomalyType",
+      "type": "string",
+      "enum": [
+        "night_bucket_fill",
+        "early_morning_routine",
+        "washer_delay_timer",
+        "guests",
+        "heatwave",
+        "holiday_absence",
+        "festive_cooking",
+        "aircon_setpoint_change",
+        "occupancy_change",
+        "post_outage_tank_refill"
+      ],
+      "description": "Legitimate behaviour that must not raise false alarms (PRD §12.3, extended in PRD v1.1)."
+    }
+  }
+}

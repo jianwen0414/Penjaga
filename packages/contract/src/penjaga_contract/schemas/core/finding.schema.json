@@ -1,0 +1,523 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://penjaga.invalid/contract/core/finding.schema.json",
+  "title": "Finding",
+  "description": "Output of a detection service (M5): structured, no prose, no LLM. A finding is one condition tracked over time: it keeps its id across revisions, and the same condition (same key) never opens a second active finding. Monetary impact is not part of a finding; the M6 tariff calculator converts 'quantities'. Semantic rules (checked by penjaga_contract.validate): candidate probabilities plus candidates_other_p sum to at most 1; first_seen <= last_seen <= updated_at.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "key",
+    "revision",
+    "status",
+    "house_id",
+    "layer",
+    "type",
+    "severity",
+    "severity_floor",
+    "confidence",
+    "confidence_kind",
+    "object_ids",
+    "candidates",
+    "candidates_other_p",
+    "quantities",
+    "evidence",
+    "series_refs",
+    "first_seen",
+    "last_seen",
+    "updated_at",
+    "source"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^fnd_[0-9a-f]{20}$",
+      "description": "Deterministic ID derived from key and first_seen, so replays produce identical findings."
+    },
+    "key": {
+      "type": "string",
+      "pattern": "^L[1-5]:[a-z0-9_]+(:[a-z0-9_.]+)*$",
+      "maxLength": 160,
+      "description": "Dedupe key of the underlying condition, e.g. 'L2:circuit_overload:circ_sockets_kitchen'."
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "status": {
+      "title": "FindingStatus",
+      "type": "string",
+      "enum": [
+        "active",
+        "cleared",
+        "superseded"
+      ]
+    },
+    "superseded_by": {
+      "type": "string",
+      "pattern": "^fnd_[0-9a-f]{20}$",
+      "description": "Present when status is 'superseded'."
+    },
+    "cleared_at": {
+      "$ref": "common.schema.json#/$defs/HouseTime"
+    },
+    "house_id": {
+      "$ref": "common.schema.json#/$defs/HouseId"
+    },
+    "layer": {
+      "title": "DetectionLayer",
+      "type": "string",
+      "enum": [
+        "L1",
+        "L2",
+        "L3",
+        "L5"
+      ],
+      "description": "L4 (maintenance) items are produced from the knowledge base, not by detection."
+    },
+    "type": {
+      "$ref": "#/$defs/FindingType"
+    },
+    "severity": {
+      "$ref": "common.schema.json#/$defs/Severity"
+    },
+    "severity_floor": {
+      "type": "boolean",
+      "description": "True when the severity comes from a deterministic safety-floor rule. Nothing downstream may present this finding at a lower severity (PRD §15.3)."
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "confidence_kind": {
+      "title": "ConfidenceKind",
+      "type": "string",
+      "enum": [
+        "calibrated_probability",
+        "deterministic_rule"
+      ],
+      "description": "calibrated_probability: model score calibrated on held-out validation data (reported in M11). deterministic_rule: a measured condition crossed a documented threshold; confidence is 1."
+    },
+    "object_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "common.schema.json#/$defs/ObjectId"
+      },
+      "description": "Elements the finding is about with certainty (e.g. the monitored circuit). May be empty when the location is uncertain; see candidates."
+    },
+    "candidates": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "$ref": "#/$defs/Candidate"
+      },
+      "description": "Possible locations/sources, most likely first."
+    },
+    "candidates_other_p": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Probability mass on locations not listed in candidates."
+    },
+    "quantities": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "common.schema.json#/$defs/Quantity"
+      },
+      "description": "Physical impact estimates keyed by snake_case name (validated semantically), e.g. water_l_per_day, extra_energy_kwh_per_day."
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/EvidenceItem"
+      }
+    },
+    "series_refs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SeriesRef"
+      },
+      "description": "Stream windows a client can fetch (as bounded summaries) to chart the evidence."
+    },
+    "onset_estimate": {
+      "$ref": "common.schema.json#/$defs/HouseTime"
+    },
+    "first_seen": {
+      "$ref": "common.schema.json#/$defs/HouseTime"
+    },
+    "last_seen": {
+      "$ref": "common.schema.json#/$defs/HouseTime"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/HouseTime"
+    },
+    "safety_guidance_key": {
+      "type": "string",
+      "pattern": "^sg_[a-z0-9_]+$",
+      "description": "Key of reviewed safety guidance text held in the knowledge base. Required for urgent findings."
+    },
+    "source": {
+      "$ref": "#/$defs/Source"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "severity": {
+            "const": "urgent"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "safety_guidance_key"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "superseded"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "superseded_by"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "cleared"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "cleared_at"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "severity_floor": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "confidence_kind": {
+            "const": "deterministic_rule"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "confidence_kind": {
+            "const": "deterministic_rule"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "confidence": {
+            "const": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "layer": {
+            "const": "L1"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "type": {
+            "$ref": "#/$defs/L1FindingType"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "layer": {
+            "const": "L2"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "type": {
+            "$ref": "#/$defs/L2FindingType"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "layer": {
+            "const": "L3"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "type": {
+            "$ref": "#/$defs/L3FindingType"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "layer": {
+            "const": "L5"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "type": {
+            "$ref": "#/$defs/L5FindingType"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "L1FindingType": {
+      "type": "string",
+      "enum": [
+        "night_flow_unexplained",
+        "dripping_fixture_suspected",
+        "running_cistern_suspected",
+        "tank_overflow_suspected",
+        "concealed_leak_suspected",
+        "burst_pipe_suspected"
+      ]
+    },
+    "L2FindingType": {
+      "type": "string",
+      "enum": [
+        "circuit_overload",
+        "earth_leakage_elevated",
+        "earth_leakage_rising",
+        "protective_device_trip",
+        "repeated_trips"
+      ]
+    },
+    "L3FindingType": {
+      "type": "string",
+      "enum": [
+        "aircon_efficiency_decline",
+        "fridge_duty_cycle_rise",
+        "fridge_compressor_wear"
+      ]
+    },
+    "L5FindingType": {
+      "type": "string",
+      "enum": [
+        "water_supply_interruption",
+        "power_supply_interruption"
+      ]
+    },
+    "FindingType": {
+      "title": "FindingType",
+      "type": "string",
+      "enum": [
+        "night_flow_unexplained",
+        "dripping_fixture_suspected",
+        "running_cistern_suspected",
+        "tank_overflow_suspected",
+        "concealed_leak_suspected",
+        "burst_pipe_suspected",
+        "circuit_overload",
+        "earth_leakage_elevated",
+        "earth_leakage_rising",
+        "protective_device_trip",
+        "repeated_trips",
+        "aircon_efficiency_decline",
+        "fridge_duty_cycle_rise",
+        "fridge_compressor_wear",
+        "water_supply_interruption",
+        "power_supply_interruption"
+      ]
+    },
+    "Candidate": {
+      "title": "Candidate",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "object_id",
+        "p",
+        "basis"
+      ],
+      "properties": {
+        "object_id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "p": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "basis": {
+          "type": "string",
+          "pattern": "^[a-z0-9_+]+$",
+          "maxLength": 80,
+          "description": "Machine-readable reason codes joined by '+', e.g. 'periodic_refill+tank_fed'."
+        }
+      }
+    },
+    "EvidenceItem": {
+      "title": "EvidenceItem",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "value"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 64
+        },
+        "value": {
+          "description": "Numeric measurement, short machine-readable label, or flag.",
+          "oneOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/EvidenceText"
+            },
+            {
+              "type": "boolean"
+            }
+          ]
+        },
+        "unit": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "baseline": {
+          "type": "number"
+        },
+        "threshold": {
+          "type": "number"
+        },
+        "window": {
+          "$ref": "common.schema.json#/$defs/TimeWindow"
+        }
+      }
+    },
+    "SeriesRef": {
+      "title": "SeriesRef",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stream",
+        "window",
+        "bucket_s"
+      ],
+      "properties": {
+        "stream": {
+          "$ref": "common.schema.json#/$defs/StreamId"
+        },
+        "window": {
+          "$ref": "common.schema.json#/$defs/TimeWindow"
+        },
+        "bucket_s": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "Source": {
+      "title": "Source",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "detector",
+        "kind",
+        "version"
+      ],
+      "properties": {
+        "detector": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "kind": {
+          "title": "SourceKind",
+          "type": "string",
+          "enum": [
+            "rule",
+            "model",
+            "baseline"
+          ]
+        },
+        "model": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(\\+[0-9a-z.]+)?$"
+        },
+        "model_card": {
+          "type": "string",
+          "pattern": "^docs/models/[a-z0-9_-]+\\.md$",
+          "description": "Required for trained models (PRD §15.1)."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "model"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "model",
+              "model_card"
+            ]
+          }
+        }
+      ]
+    },
+    "EvidenceText": {
+      "title": "EvidenceText",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    }
+  }
+}

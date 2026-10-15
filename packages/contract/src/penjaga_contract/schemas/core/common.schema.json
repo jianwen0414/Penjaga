@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://penjaga.invalid/contract/core/common.schema.json",
+  "title": "Common",
+  "description": "Shared definitions for the Penjaga House Data Contract (M0). Referenced by every other contract schema.",
+  "$defs": {
+    "ObjectId": {
+      "title": "ObjectId",
+      "description": "Stable, unique, human-readable ID of a physical element: <kind-prefix>_<descriptor>, lowercase snake_case. The prefix must match the element kind (enforced by the semantic validator).",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(_[a-z0-9]+)+$",
+      "maxLength": 64
+    },
+    "NullableObjectId": {
+      "title": "NullableObjectId",
+      "description": "An ObjectId or null.",
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-z][a-z0-9]*(_[a-z0-9]+)+$",
+      "maxLength": 64
+    },
+    "HouseId": {
+      "title": "HouseId",
+      "description": "ID of one house instance.",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(_[a-z0-9]+)*$",
+      "maxLength": 64
+    },
+    "LevelIndex": {
+      "title": "LevelIndex",
+      "description": "Floor level index: 0 ground floor, increasing upwards.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10
+    },
+    "StreamId": {
+      "title": "StreamId",
+      "description": "Concrete stream ID from the stream catalogue (streams.json), dot-separated, e.g. elec.circuit.circ_ac_master.current_a.",
+      "type": "string",
+      "pattern": "^[a-z]+(\\.[a-z0-9_]+)+$",
+      "maxLength": 128
+    },
+    "HouseTime": {
+      "title": "HouseTime",
+      "description": "Instant in house time (see M4): an RFC 3339 date-time, which always carries an explicit UTC offset (validators must assert the format). Services emit +08:00 (Asia/Kuala_Lumpur).",
+      "type": "string",
+      "format": "date-time"
+    },
+    "NullableHouseTime": {
+      "title": "NullableHouseTime",
+      "description": "A HouseTime or null.",
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "CalendarDate": {
+      "title": "CalendarDate",
+      "description": "Calendar date (RFC 3339 full-date, YYYY-MM-DD) in the house's local time zone.",
+      "type": "string",
+      "format": "date"
+    },
+    "Layer": {
+      "title": "Layer",
+      "description": "Preventive layer: L1 leaks, L2 electrical safety, L3 appliance health, L4 maintenance, L5 management integration.",
+      "type": "string",
+      "enum": [
+        "L1",
+        "L2",
+        "L3",
+        "L4",
+        "L5"
+      ]
+    },
+    "Severity": {
+      "title": "Severity",
+      "description": "Ordered severity scale. 'urgent' is reserved for safety (e.g. electrical hazard, burst pipe).",
+      "type": "string",
+      "enum": [
+        "info",
+        "heads_up",
+        "act_soon",
+        "urgent"
+      ]
+    },
+    "Quality": {
+      "title": "Quality",
+      "description": "Per-sample quality flag. ok: valid measurement. missing: no value (value must be null). estimated: value filled or derived by the sensor/gateway. out_of_range: outside the stream's physical range (value kept as reported). stale: value repeated from an earlier sample because the sensor did not update.",
+      "type": "string",
+      "enum": [
+        "ok",
+        "missing",
+        "estimated",
+        "out_of_range",
+        "stale"
+      ]
+    },
+    "TimeWindow": {
+      "title": "TimeWindow",
+      "description": "Half-open house-time interval [from, to).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "from",
+        "to"
+      ],
+      "properties": {
+        "from": {
+          "$ref": "#/$defs/HouseTime"
+        },
+        "to": {
+          "$ref": "#/$defs/HouseTime"
+        }
+      }
+    },
+    "Quantity": {
+      "title": "Quantity",
+      "description": "A physical quantity with unit and optional 90% interval. Monetary values are never computed by detection; the M6 tariff calculator converts physical quantities to RM.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "value",
+        "unit"
+      ],
+      "properties": {
+        "value": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "ci90": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        }
+      }
+    },
+    "SpecBasis": {
+      "title": "SpecBasis",
+      "description": "design_target: a specification we require of the sensor we would buy. datasheet: taken from a specific product's datasheet.",
+      "type": "string",
+      "enum": [
+        "design_target",
+        "datasheet"
+      ]
+    },
+    "SourceRef": {
+      "title": "SourceRef",
+      "description": "Reference to an entry in docs/DATA_SOURCES.md (e.g. DS-007).",
+      "type": "string",
+      "pattern": "^DS-[0-9]{3}$"
+    }
+  }
+}

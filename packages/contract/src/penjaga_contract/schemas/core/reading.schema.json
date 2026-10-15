@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://penjaga.invalid/contract/core/reading.schema.json",
+  "title": "Reading",
+  "description": "One sample from one sampled stream (PRD §10.4). Used at API edges and in single-value realtime messages. Carries only what a real meter reports: there is deliberately no metadata field.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ts",
+    "house_id",
+    "stream",
+    "value",
+    "unit",
+    "quality"
+  ],
+  "properties": {
+    "ts": {
+      "$ref": "common.schema.json#/$defs/HouseTime"
+    },
+    "house_id": {
+      "$ref": "common.schema.json#/$defs/HouseId"
+    },
+    "stream": {
+      "$ref": "common.schema.json#/$defs/StreamId"
+    },
+    "value": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "unit": {
+      "type": "string",
+      "minLength": 1
+    },
+    "quality": {
+      "$ref": "common.schema.json#/$defs/Quality"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "quality": {
+            "const": "missing"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "value": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "value": {
+            "type": "number"
+          }
+        }
+      }
+    }
+  ]
+}

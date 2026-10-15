@@ -1,0 +1,1285 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://penjaga.invalid/contract/core/house.schema.json",
+  "title": "House",
+  "description": "Canonical house record (M0): structure, water system, electrical system, appliances and the sensor kit. Every referenceable element has a stable ObjectId whose prefix matches its kind. Cross-references, topology and regulatory rules are checked by the semantic validator (penjaga_contract.validate).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "house_id",
+    "name",
+    "description",
+    "representative",
+    "location",
+    "handover_date",
+    "levels",
+    "rooms",
+    "walls",
+    "water",
+    "electrical",
+    "appliances",
+    "sensors"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "house_id": {
+      "$ref": "common.schema.json#/$defs/HouseId"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "representative": {
+      "type": "boolean",
+      "description": "True while the layout is representative rather than taken from the official floor plan (PRD §5.1)."
+    },
+    "location": {
+      "$ref": "#/$defs/Location"
+    },
+    "handover_date": {
+      "$ref": "common.schema.json#/$defs/CalendarDate"
+    },
+    "levels": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/Level"
+      }
+    },
+    "rooms": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/Room"
+      }
+    },
+    "walls": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Wall"
+      }
+    },
+    "water": {
+      "$ref": "#/$defs/WaterSystem"
+    },
+    "electrical": {
+      "$ref": "#/$defs/ElectricalSystem"
+    },
+    "appliances": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Appliance"
+      }
+    },
+    "sensors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/Sensor"
+      }
+    }
+  },
+  "$defs": {
+    "Location": {
+      "title": "Location",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "locality",
+        "latitude",
+        "longitude",
+        "reference",
+        "timezone"
+      ],
+      "properties": {
+        "locality": {
+          "type": "string",
+          "minLength": 1
+        },
+        "latitude": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
+        },
+        "longitude": {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180
+        },
+        "reference": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What the coordinates point at (a public street, never a specific home)."
+        },
+        "timezone": {
+          "type": "string",
+          "minLength": 1,
+          "description": "IANA time zone name."
+        },
+        "source_ref": {
+          "$ref": "common.schema.json#/$defs/SourceRef"
+        }
+      }
+    },
+    "Level": {
+      "title": "Level",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "name"
+      ],
+      "properties": {
+        "index": {
+          "$ref": "common.schema.json#/$defs/LevelIndex"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "Room": {
+      "title": "Room",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "level",
+        "kind",
+        "wet_location"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "level": {
+          "$ref": "common.schema.json#/$defs/LevelIndex"
+        },
+        "kind": {
+          "title": "RoomKind",
+          "type": "string",
+          "enum": [
+            "bedroom",
+            "bathroom",
+            "kitchen",
+            "living",
+            "dining",
+            "utility",
+            "circulation",
+            "outdoor",
+            "roof_space"
+          ]
+        },
+        "wet_location": {
+          "type": "boolean",
+          "description": "A place where the floor is likely to be wet, in the sense of Electricity Regulations 1994 reg. 36(2). Final circuits supplying equipment here need RCD protection of at most 10 mA."
+        },
+        "footprint": {
+          "description": "Optional plan rectangle in metres (origin: front-left corner of the plot at ground level; x across the frontage, y towards the rear). To be filled by the M1 owner from the floor plan.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "x_m",
+            "y_m",
+            "width_m",
+            "depth_m"
+          ],
+          "properties": {
+            "x_m": {
+              "type": "number",
+              "minimum": 0
+            },
+            "y_m": {
+              "type": "number",
+              "minimum": 0
+            },
+            "width_m": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "depth_m": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          }
+        }
+      }
+    },
+    "Wall": {
+      "title": "Wall",
+      "description": "Structural element that can conceal services and can be faded in the 3D focus sequence (PRD §11.2). Only elements that carry or hide referenced services need an ID here; the 3D model may contain more.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "room_ids",
+        "levels"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "title": "WallKind",
+          "type": "string",
+          "enum": [
+            "wall",
+            "ceiling",
+            "duct"
+          ],
+          "description": "ID prefix: wall_, ceil_ or duct_ respectively."
+        },
+        "room_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "common.schema.json#/$defs/ObjectId"
+          }
+        },
+        "levels": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "common.schema.json#/$defs/LevelIndex"
+          }
+        }
+      }
+    },
+    "WaterSystem": {
+      "title": "WaterSystem",
+      "description": "Water supply as a tree rooted at the measuring meter. Pipes name their upstream element; fixtures and valves name the pipe they sit on. Whether a fixture is fed from the main or the roof tank is derived from the topology, never stored.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "meters",
+        "tanks",
+        "pipes",
+        "valves",
+        "fixtures"
+      ],
+      "properties": {
+        "meters": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/WaterMeter"
+          }
+        },
+        "tanks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Tank"
+          }
+        },
+        "pipes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/Pipe"
+          }
+        },
+        "valves": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Valve"
+          }
+        },
+        "fixtures": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/Fixture"
+          }
+        }
+      }
+    },
+    "WaterMeter": {
+      "title": "WaterMeter",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "room_id",
+        "position"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "room_id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "position": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Where the meter sits relative to the utility connection."
+        }
+      }
+    },
+    "Tank": {
+      "title": "Tank",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "room_id",
+        "capacity_l",
+        "inlet_pipe_id"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "room_id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "capacity_l": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "inlet_pipe_id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "material": {
+          "type": "string"
+        },
+        "source_ref": {
+          "$ref": "common.schema.json#/$defs/SourceRef"
+        }
+      }
+    },
+    "Pipe": {
+      "title": "Pipe",
+      "description": "Pipe segment. upstream_id is the meter, a tank or another pipe.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "upstream_id",
+        "routing",
+        "room_ids",
+        "concealed_in"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "title": "PipeKind",
+          "type": "string",
+          "enum": [
+            "service",
+            "rising_main",
+            "downfeed",
+            "branch",
+            "overflow"
+          ]
+        },
+        "upstream_id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "routing": {
+          "title": "PipeRouting",
+          "type": "string",
+          "enum": [
+            "exposed",
+            "concealed",
+            "underground",
+            "roof_space"
+          ],
+          "description": "Dominant routing of the segment. 'concealed' requires concealed_in to be non-empty."
+        },
+        "room_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "common.schema.json#/$defs/ObjectId"
+          }
+        },
+        "concealed_in": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "common.schema.json#/$defs/ObjectId"
+          },
+          "description": "Walls, ceilings or ducts that hide this segment."
+        },
+        "nominal_size_mm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "Valve": {
+      "title": "Valve",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "pipe_id",
+        "room_id",
+        "owner_operable"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "title": "ValveKind",
+          "type": "string",
+          "enum": [
+            "stop",
+            "gate",
+            "angle",
+            "float"
+          ]
+        },
+        "pipe_id": {
+          "$ref": "common.schema.json#/$defs/ObjectId",
+          "description": "Pipe the valve controls; closing it isolates everything downstream of that pipe (an angle valve isolates only the fixture that names it)."
+        },
+        "room_id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "owner_operable": {
+          "type": "boolean",
+          "description": "Whether an owner can safely operate it without tools or roof access (used by guided checks)."
+        }
+      }
+    },
+    "Fixture": {
+      "title": "Fixture",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "room_id",
+        "pipe_id",
+        "install_date"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "title": "FixtureKind",
+          "type": "string",
+          "enum": [
+            "wc_cistern",
+            "basin_tap",
+            "shower",
+            "bidet_spray",
+            "sink_tap",
+            "washing_machine_tap",
+            "laundry_tap",
+            "garden_tap"
+          ]
+        },
+        "room_id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "pipe_id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "isolation_valve_id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "install_date": {
+          "$ref": "common.schema.json#/$defs/CalendarDate"
+        }
+      }
+    },
+    "ElectricalSystem": {
+      "title": "ElectricalSystem",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "supply",
+        "boards",
+        "protective_devices",
+        "circuits",
+        "socket_groups"
+      ],
+      "properties": {
+        "supply": {
+          "$ref": "#/$defs/Supply"
+        },
+        "boards": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/Board"
+          }
+        },
+        "protective_devices": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/ProtectiveDevice"
+          }
+        },
+        "circuits": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/Circuit"
+          }
+        },
+        "socket_groups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SocketGroup"
+          }
+        }
+      }
+    },
+    "Supply": {
+      "title": "Supply",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "phases",
+        "nominal_voltage_v",
+        "frequency_hz"
+      ],
+      "properties": {
+        "phases": {
+          "title": "SupplyPhases",
+          "type": "integer",
+          "enum": [
+            1,
+            3
+          ]
+        },
+        "nominal_voltage_v": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "frequency_hz": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "Board": {
+      "title": "Board",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "room_id"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "room_id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        }
+      }
+    },
+    "ProtectiveDevice": {
+      "title": "ProtectiveDevice",
+      "description": "RCCB (prefix rcd_) or MCB (prefix mcb_). upstream_device_id forms the protection chain from the main RCCB down to each circuit's MCB.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "board_id",
+        "upstream_device_id",
+        "rated_current_a",
+        "poles",
+        "install_date"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "title": "ProtectiveDeviceKind",
+          "type": "string",
+          "enum": [
+            "rccb",
+            "mcb"
+          ]
+        },
+        "board_id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "upstream_device_id": {
+          "$ref": "common.schema.json#/$defs/NullableObjectId"
+        },
+        "rated_current_a": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "rated_residual_ma": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Rated residual operating current IΔn (RCCB only)."
+        },
+        "curve": {
+          "title": "TripCurve",
+          "type": "string",
+          "enum": [
+            "B",
+            "C",
+            "D"
+          ],
+          "description": "Tripping characteristic (MCB only)."
+        },
+        "breaking_capacity_ka": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "poles": {
+          "title": "Poles",
+          "type": "integer",
+          "enum": [
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        "install_date": {
+          "$ref": "common.schema.json#/$defs/CalendarDate"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "rccb"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "rated_residual_ma"
+            ],
+            "not": {
+              "required": [
+                "curve"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "mcb"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "curve"
+            ],
+            "not": {
+              "required": [
+                "rated_residual_ma"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "Circuit": {
+      "title": "Circuit",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "mcb_id",
+        "cable_csa_mm2",
+        "serves_room_ids"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "title": "CircuitKind",
+          "type": "string",
+          "enum": [
+            "lighting",
+            "socket",
+            "dedicated"
+          ]
+        },
+        "mcb_id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "cable_csa_mm2": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "serves_room_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "common.schema.json#/$defs/ObjectId"
+          }
+        }
+      }
+    },
+    "SocketGroup": {
+      "title": "SocketGroup",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "room_id",
+        "circuit_id",
+        "outlet_count",
+        "outdoor"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "room_id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "circuit_id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "outlet_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "outdoor": {
+          "type": "boolean"
+        }
+      }
+    },
+    "Appliance": {
+      "title": "Appliance",
+      "description": "Electric appliances name exactly one of circuit_id (dedicated circuit) or socket_group_id; gas items name neither.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "room_id",
+        "install_date"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "title": "ApplianceKind",
+          "type": "string",
+          "enum": [
+            "air_conditioner",
+            "water_heater",
+            "refrigerator",
+            "washing_machine",
+            "rice_cooker",
+            "kettle",
+            "microwave",
+            "air_fryer",
+            "television",
+            "router",
+            "gas_hob",
+            "lpg_cylinder",
+            "lpg_hose"
+          ]
+        },
+        "room_id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "circuit_id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "socket_group_id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "fixture_id": {
+          "$ref": "common.schema.json#/$defs/ObjectId",
+          "description": "Water fixture the appliance serves (e.g. an instant water heater feeding a shower)."
+        },
+        "install_date": {
+          "$ref": "common.schema.json#/$defs/CalendarDate",
+          "description": "Installation or purchase date (an owner's appliance may predate handover)."
+        },
+        "nameplate": {
+          "$ref": "#/$defs/Nameplate"
+        }
+      },
+      "not": {
+        "required": [
+          "circuit_id",
+          "socket_group_id"
+        ]
+      }
+    },
+    "Nameplate": {
+      "title": "Nameplate",
+      "description": "Representative nameplate data. Only values with a cited source are recorded.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_ref"
+      ],
+      "properties": {
+        "rated_input_w": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "rated_voltage_v": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Voltage at which rated_input_w is stated (a resistive load draws (V/rated_voltage_v)^2 of it)."
+        },
+        "nominal_hp": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "cooling_capacity_btu_h": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "inverter": {
+          "type": "boolean"
+        },
+        "source_ref": {
+          "$ref": "common.schema.json#/$defs/SourceRef"
+        }
+      }
+    },
+    "Sensor": {
+      "title": "Sensor",
+      "description": "Item of the Penjaga sensor kit. The stream catalogue (streams.json) maps every stream to exactly one sensor; detection may consume catalogue streams only.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "mounted_on_id",
+        "spec"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "title": "SensorKind",
+          "type": "string",
+          "enum": [
+            "water_meter",
+            "pressure_sensor",
+            "tank_level_sensor",
+            "db_monitor",
+            "smart_plug",
+            "weather_feed"
+          ]
+        },
+        "mounted_on_id": {
+          "$ref": "common.schema.json#/$defs/NullableObjectId",
+          "description": "Element the sensor is mounted on or measures; null for the external weather feed."
+        },
+        "spec": {
+          "type": "object"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "water_meter"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "spec": {
+                "$ref": "#/$defs/WaterMeterSpec"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "pressure_sensor"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "spec": {
+                "$ref": "#/$defs/PressureSensorSpec"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "tank_level_sensor"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "spec": {
+                "$ref": "#/$defs/TankLevelSensorSpec"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "db_monitor"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "spec": {
+                "$ref": "#/$defs/DbMonitorSpec"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "smart_plug"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "spec": {
+                "$ref": "#/$defs/SmartPlugSpec"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "weather_feed"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "spec": {
+                "$ref": "#/$defs/WeatherFeedSpec"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "WaterMeterSpec": {
+      "title": "WaterMeterSpec",
+      "description": "Metrology per OIML R49 / ISO 4064 terms. Q1 = Q3 / ratio_r.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "technology",
+        "nominal_diameter_mm",
+        "q3_m3_per_h",
+        "ratio_r",
+        "accuracy_class",
+        "scale_interval_l",
+        "source_ref"
+      ],
+      "properties": {
+        "technology": {
+          "title": "MeterTechnology",
+          "type": "string",
+          "enum": [
+            "ultrasonic",
+            "mechanical"
+          ]
+        },
+        "nominal_diameter_mm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "q3_m3_per_h": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "ratio_r": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "accuracy_class": {
+          "title": "MeterAccuracyClass",
+          "type": "integer",
+          "enum": [
+            1,
+            2
+          ]
+        },
+        "scale_interval_l": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "source_ref": {
+          "$ref": "common.schema.json#/$defs/SourceRef"
+        }
+      }
+    },
+    "PressureSensorSpec": {
+      "title": "PressureSensorSpec",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "range_max_bar",
+        "accuracy_pct_full_scale",
+        "resolution_bar",
+        "basis"
+      ],
+      "properties": {
+        "range_max_bar": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "accuracy_pct_full_scale": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "resolution_bar": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "basis": {
+          "$ref": "common.schema.json#/$defs/SpecBasis"
+        }
+      }
+    },
+    "TankLevelSensorSpec": {
+      "title": "TankLevelSensorSpec",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "technology",
+        "accuracy_mm",
+        "resolution_pct",
+        "basis"
+      ],
+      "properties": {
+        "technology": {
+          "title": "LevelTechnology",
+          "type": "string",
+          "enum": [
+            "ultrasonic",
+            "pressure"
+          ]
+        },
+        "accuracy_mm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "resolution_pct": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "basis": {
+          "$ref": "common.schema.json#/$defs/SpecBasis"
+        }
+      }
+    },
+    "DbMonitorSpec": {
+      "title": "DbMonitorSpec",
+      "description": "Distribution-board monitor: a CT per final circuit and on the main incomer, voltage at the incomer, a residual current monitor per RCCB group, and auxiliary contacts on every protective device.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "current_accuracy_pct",
+        "current_resolution_a",
+        "residual_resolution_ma",
+        "residual_range_max_ma",
+        "voltage_resolution_v",
+        "power_resolution_w",
+        "energy_resolution_wh",
+        "aux_contacts",
+        "basis"
+      ],
+      "properties": {
+        "current_accuracy_pct": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "current_resolution_a": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "residual_resolution_ma": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "residual_range_max_ma": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "voltage_resolution_v": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "power_resolution_w": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "energy_resolution_wh": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "aux_contacts": {
+          "type": "boolean",
+          "description": "Auxiliary/fault-signal contacts report tripped/reset state per device. They do not report the cause of a trip."
+        },
+        "basis": {
+          "$ref": "common.schema.json#/$defs/SpecBasis"
+        }
+      }
+    },
+    "SmartPlugSpec": {
+      "title": "SmartPlugSpec",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_load_a",
+        "power_accuracy_pct",
+        "power_resolution_w",
+        "basis"
+      ],
+      "properties": {
+        "max_load_a": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "power_accuracy_pct": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "power_resolution_w": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "basis": {
+          "$ref": "common.schema.json#/$defs/SpecBasis"
+        }
+      }
+    },
+    "WeatherFeedSpec": {
+      "title": "WeatherFeedSpec",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "source_ref"
+      ],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_ref": {
+          "$ref": "common.schema.json#/$defs/SourceRef"
+        }
+      }
+    }
+  }
+}

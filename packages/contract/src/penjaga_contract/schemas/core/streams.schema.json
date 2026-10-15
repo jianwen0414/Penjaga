@@ -1,0 +1,211 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://penjaga.invalid/contract/core/streams.schema.json",
+  "title": "StreamCatalogue",
+  "description": "Machine-readable stream catalogue (M0). It is the complete list of what detection may consume: no stream may exist that the real sensor kit could not provide. Generated from house.json by penjaga_contract.catalogue and checked for drift in tests.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "house_id",
+    "streams"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "house_id": {
+      "$ref": "common.schema.json#/$defs/HouseId"
+    },
+    "streams": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/StreamDef"
+      }
+    }
+  },
+  "$defs": {
+    "StreamDef": {
+      "title": "StreamDef",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "aggregation",
+        "unit",
+        "nominal_period_s",
+        "value_min",
+        "value_max",
+        "resolution",
+        "layers",
+        "sensor_id",
+        "object_ids",
+        "description"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "common.schema.json#/$defs/StreamId"
+        },
+        "kind": {
+          "title": "StreamKind",
+          "type": "string",
+          "enum": [
+            "sampled",
+            "event"
+          ],
+          "description": "sampled: regular samples (ReadingBatch). event: irregular discrete events (Event), never aggregated or dropped."
+        },
+        "aggregation": {
+          "title": "Aggregation",
+          "type": "string",
+          "enum": [
+            "instant",
+            "mean_over_period",
+            "sum_over_period",
+            "event"
+          ],
+          "description": "How a sample relates to time. instant: value at the timestamp. mean_over_period / sum_over_period: over the period (ts - nominal_period_s, ts], i.e. the timestamp marks the END of the period."
+        },
+        "unit": {
+          "title": "Unit",
+          "type": "string",
+          "enum": [
+            "L/min",
+            "bar",
+            "%",
+            "W",
+            "V",
+            "A",
+            "Wh",
+            "mA",
+            "degC",
+            "mm",
+            "none"
+          ]
+        },
+        "nominal_period_s": {
+          "description": "Sampling period in seconds; null for event streams.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0
+        },
+        "value_min": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "value_max": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "resolution": {
+          "description": "Smallest reported increment (quantisation step); null for event streams.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0
+        },
+        "layers": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "common.schema.json#/$defs/Layer"
+          },
+          "description": "Layers that may consume the stream. Layer consent gates processing per layer."
+        },
+        "sensor_id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "object_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "common.schema.json#/$defs/ObjectId"
+          },
+          "description": "Elements the stream measures (e.g. a circuit, an RCCB group, the meter)."
+        },
+        "event_payload": {
+          "title": "EventPayloadType",
+          "type": "string",
+          "enum": [
+            "protection_device_state",
+            "supply_state"
+          ],
+          "description": "Payload type carried by an event stream (see event.schema.json)."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "event"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "event_payload"
+            ],
+            "properties": {
+              "aggregation": {
+                "const": "event"
+              },
+              "nominal_period_s": {
+                "type": "null"
+              },
+              "resolution": {
+                "type": "null"
+              },
+              "unit": {
+                "const": "none"
+              }
+            }
+          },
+          "else": {
+            "not": {
+              "required": [
+                "event_payload"
+              ]
+            },
+            "properties": {
+              "aggregation": {
+                "enum": [
+                  "instant",
+                  "mean_over_period",
+                  "sum_over_period"
+                ]
+              },
+              "nominal_period_s": {
+                "type": "number"
+              },
+              "resolution": {
+                "type": "number"
+              },
+              "value_min": {
+                "type": "number"
+              },
+              "value_max": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

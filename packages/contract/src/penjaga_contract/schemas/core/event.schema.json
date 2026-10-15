@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://penjaga.invalid/contract/core/event.schema.json",
+  "title": "Event",
+  "description": "A discrete event from an event stream. Events are never aggregated or dropped (PRD §14). Payloads carry only what the physical device reports: auxiliary contacts report tripped/reset state, not the cause.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ts",
+    "house_id",
+    "stream",
+    "seq",
+    "payload"
+  ],
+  "properties": {
+    "ts": {
+      "$ref": "common.schema.json#/$defs/HouseTime"
+    },
+    "house_id": {
+      "$ref": "common.schema.json#/$defs/HouseId"
+    },
+    "stream": {
+      "$ref": "common.schema.json#/$defs/StreamId"
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "payload": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ProtectionDeviceState"
+        },
+        {
+          "$ref": "#/$defs/SupplyState"
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "ProtectionDeviceState": {
+      "title": "ProtectionDeviceState",
+      "description": "State change of a protective device (stream elec.protection.trip).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "device_id",
+        "state"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "protection_device_state"
+        },
+        "device_id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "state": {
+          "title": "ProtectionState",
+          "type": "string",
+          "enum": [
+            "tripped",
+            "reset"
+          ]
+        }
+      }
+    },
+    "SupplyState": {
+      "title": "SupplyState",
+      "description": "Mains presence at the incomer (stream elec.supply.state).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "state"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "supply_state"
+        },
+        "state": {
+          "title": "MainsState",
+          "type": "string",
+          "enum": [
+            "lost",
+            "restored"
+          ]
+        }
+      }
+    }
+  }
+}

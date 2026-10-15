@@ -1,0 +1,1005 @@
+{
+  "schema_version": "1.0",
+  "house_id": "elmina_g6_demo",
+  "streams": [
+    {
+      "id": "water.main.flow_lpm",
+      "kind": "sampled",
+      "aggregation": "mean_over_period",
+      "unit": "L/min",
+      "nominal_period_s": 10.0,
+      "value_min": 0.0,
+      "value_max": 52.083333,
+      "resolution": 0.06,
+      "layers": [
+        "L1",
+        "L5"
+      ],
+      "sensor_id": "sensor_water_meter_main",
+      "object_ids": [
+        "meter_water_main"
+      ],
+      "description": "Mean flow through the main meter over the period (register increments)."
+    },
+    {
+      "id": "water.main.pressure_bar",
+      "kind": "sampled",
+      "aggregation": "instant",
+      "unit": "bar",
+      "nominal_period_s": 10.0,
+      "value_min": 0.0,
+      "value_max": 10.0,
+      "resolution": 0.01,
+      "layers": [
+        "L1",
+        "L5"
+      ],
+      "sensor_id": "sensor_water_pressure_inlet",
+      "object_ids": [
+        "pipe_supply_main"
+      ],
+      "description": "Supply pressure at the house inlet."
+    },
+    {
+      "id": "water.tank.level_pct",
+      "kind": "sampled",
+      "aggregation": "instant",
+      "unit": "%",
+      "nominal_period_s": 60.0,
+      "value_min": 0.0,
+      "value_max": 100.0,
+      "resolution": 0.5,
+      "layers": [
+        "L1",
+        "L5"
+      ],
+      "sensor_id": "sensor_tank_level",
+      "object_ids": [
+        "tank_roof_main"
+      ],
+      "description": "Roof tank water level as a percentage of usable capacity."
+    },
+    {
+      "id": "elec.main.power_w",
+      "kind": "sampled",
+      "aggregation": "mean_over_period",
+      "unit": "W",
+      "nominal_period_s": 1.0,
+      "value_min": 0.0,
+      "value_max": 15939.0,
+      "resolution": 1.0,
+      "layers": [
+        "L2",
+        "L3",
+        "L5"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "db_main"
+      ],
+      "description": "Total active power at the incomer."
+    },
+    {
+      "id": "elec.main.voltage_v",
+      "kind": "sampled",
+      "aggregation": "mean_over_period",
+      "unit": "V",
+      "nominal_period_s": 1.0,
+      "value_min": 0.0,
+      "value_max": 300.0,
+      "resolution": 0.1,
+      "layers": [
+        "L2",
+        "L5"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "db_main"
+      ],
+      "description": "RMS supply voltage at the incomer (measured upstream of the main switch)."
+    },
+    {
+      "id": "elec.circuit.circ_lights_gf.current_a",
+      "kind": "sampled",
+      "aggregation": "mean_over_period",
+      "unit": "A",
+      "nominal_period_s": 1.0,
+      "value_min": 0.0,
+      "value_max": 50.0,
+      "resolution": 0.01,
+      "layers": [
+        "L2",
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_lights_gf"
+      ],
+      "description": "RMS current of final circuit circ_lights_gf."
+    },
+    {
+      "id": "elec.circuit.circ_lights_gf.energy_wh",
+      "kind": "sampled",
+      "aggregation": "sum_over_period",
+      "unit": "Wh",
+      "nominal_period_s": 60.0,
+      "value_min": 0.0,
+      "value_max": 42.166667,
+      "resolution": 1.0,
+      "layers": [
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_lights_gf"
+      ],
+      "description": "Active energy of final circuit circ_lights_gf over the period."
+    },
+    {
+      "id": "elec.circuit.circ_lights_1f.current_a",
+      "kind": "sampled",
+      "aggregation": "mean_over_period",
+      "unit": "A",
+      "nominal_period_s": 1.0,
+      "value_min": 0.0,
+      "value_max": 50.0,
+      "resolution": 0.01,
+      "layers": [
+        "L2",
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_lights_1f"
+      ],
+      "description": "RMS current of final circuit circ_lights_1f."
+    },
+    {
+      "id": "elec.circuit.circ_lights_1f.energy_wh",
+      "kind": "sampled",
+      "aggregation": "sum_over_period",
+      "unit": "Wh",
+      "nominal_period_s": 60.0,
+      "value_min": 0.0,
+      "value_max": 42.166667,
+      "resolution": 1.0,
+      "layers": [
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_lights_1f"
+      ],
+      "description": "Active energy of final circuit circ_lights_1f over the period."
+    },
+    {
+      "id": "elec.circuit.circ_sockets_living.current_a",
+      "kind": "sampled",
+      "aggregation": "mean_over_period",
+      "unit": "A",
+      "nominal_period_s": 1.0,
+      "value_min": 0.0,
+      "value_max": 100.0,
+      "resolution": 0.01,
+      "layers": [
+        "L2",
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_sockets_living"
+      ],
+      "description": "RMS current of final circuit circ_sockets_living."
+    },
+    {
+      "id": "elec.circuit.circ_sockets_living.energy_wh",
+      "kind": "sampled",
+      "aggregation": "sum_over_period",
+      "unit": "Wh",
+      "nominal_period_s": 60.0,
+      "value_min": 0.0,
+      "value_max": 84.333333,
+      "resolution": 1.0,
+      "layers": [
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_sockets_living"
+      ],
+      "description": "Active energy of final circuit circ_sockets_living over the period."
+    },
+    {
+      "id": "elec.circuit.circ_sockets_kitchen.current_a",
+      "kind": "sampled",
+      "aggregation": "mean_over_period",
+      "unit": "A",
+      "nominal_period_s": 1.0,
+      "value_min": 0.0,
+      "value_max": 100.0,
+      "resolution": 0.01,
+      "layers": [
+        "L2",
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_sockets_kitchen"
+      ],
+      "description": "RMS current of final circuit circ_sockets_kitchen."
+    },
+    {
+      "id": "elec.circuit.circ_sockets_kitchen.energy_wh",
+      "kind": "sampled",
+      "aggregation": "sum_over_period",
+      "unit": "Wh",
+      "nominal_period_s": 60.0,
+      "value_min": 0.0,
+      "value_max": 84.333333,
+      "resolution": 1.0,
+      "layers": [
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_sockets_kitchen"
+      ],
+      "description": "Active energy of final circuit circ_sockets_kitchen over the period."
+    },
+    {
+      "id": "elec.circuit.circ_sockets_kitchen_wet.current_a",
+      "kind": "sampled",
+      "aggregation": "mean_over_period",
+      "unit": "A",
+      "nominal_period_s": 1.0,
+      "value_min": 0.0,
+      "value_max": 100.0,
+      "resolution": 0.01,
+      "layers": [
+        "L2",
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_sockets_kitchen_wet"
+      ],
+      "description": "RMS current of final circuit circ_sockets_kitchen_wet."
+    },
+    {
+      "id": "elec.circuit.circ_sockets_kitchen_wet.energy_wh",
+      "kind": "sampled",
+      "aggregation": "sum_over_period",
+      "unit": "Wh",
+      "nominal_period_s": 60.0,
+      "value_min": 0.0,
+      "value_max": 84.333333,
+      "resolution": 1.0,
+      "layers": [
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_sockets_kitchen_wet"
+      ],
+      "description": "Active energy of final circuit circ_sockets_kitchen_wet over the period."
+    },
+    {
+      "id": "elec.circuit.circ_sockets_yard.current_a",
+      "kind": "sampled",
+      "aggregation": "mean_over_period",
+      "unit": "A",
+      "nominal_period_s": 1.0,
+      "value_min": 0.0,
+      "value_max": 100.0,
+      "resolution": 0.01,
+      "layers": [
+        "L2",
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_sockets_yard"
+      ],
+      "description": "RMS current of final circuit circ_sockets_yard."
+    },
+    {
+      "id": "elec.circuit.circ_sockets_yard.energy_wh",
+      "kind": "sampled",
+      "aggregation": "sum_over_period",
+      "unit": "Wh",
+      "nominal_period_s": 60.0,
+      "value_min": 0.0,
+      "value_max": 84.333333,
+      "resolution": 1.0,
+      "layers": [
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_sockets_yard"
+      ],
+      "description": "Active energy of final circuit circ_sockets_yard over the period."
+    },
+    {
+      "id": "elec.circuit.circ_sockets_outdoor.current_a",
+      "kind": "sampled",
+      "aggregation": "mean_over_period",
+      "unit": "A",
+      "nominal_period_s": 1.0,
+      "value_min": 0.0,
+      "value_max": 100.0,
+      "resolution": 0.01,
+      "layers": [
+        "L2",
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_sockets_outdoor"
+      ],
+      "description": "RMS current of final circuit circ_sockets_outdoor."
+    },
+    {
+      "id": "elec.circuit.circ_sockets_outdoor.energy_wh",
+      "kind": "sampled",
+      "aggregation": "sum_over_period",
+      "unit": "Wh",
+      "nominal_period_s": 60.0,
+      "value_min": 0.0,
+      "value_max": 84.333333,
+      "resolution": 1.0,
+      "layers": [
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_sockets_outdoor"
+      ],
+      "description": "Active energy of final circuit circ_sockets_outdoor over the period."
+    },
+    {
+      "id": "elec.circuit.circ_sockets_bed4.current_a",
+      "kind": "sampled",
+      "aggregation": "mean_over_period",
+      "unit": "A",
+      "nominal_period_s": 1.0,
+      "value_min": 0.0,
+      "value_max": 100.0,
+      "resolution": 0.01,
+      "layers": [
+        "L2",
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_sockets_bed4"
+      ],
+      "description": "RMS current of final circuit circ_sockets_bed4."
+    },
+    {
+      "id": "elec.circuit.circ_sockets_bed4.energy_wh",
+      "kind": "sampled",
+      "aggregation": "sum_over_period",
+      "unit": "Wh",
+      "nominal_period_s": 60.0,
+      "value_min": 0.0,
+      "value_max": 84.333333,
+      "resolution": 1.0,
+      "layers": [
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_sockets_bed4"
+      ],
+      "description": "Active energy of final circuit circ_sockets_bed4 over the period."
+    },
+    {
+      "id": "elec.circuit.circ_sockets_1f.current_a",
+      "kind": "sampled",
+      "aggregation": "mean_over_period",
+      "unit": "A",
+      "nominal_period_s": 1.0,
+      "value_min": 0.0,
+      "value_max": 100.0,
+      "resolution": 0.01,
+      "layers": [
+        "L2",
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_sockets_1f"
+      ],
+      "description": "RMS current of final circuit circ_sockets_1f."
+    },
+    {
+      "id": "elec.circuit.circ_sockets_1f.energy_wh",
+      "kind": "sampled",
+      "aggregation": "sum_over_period",
+      "unit": "Wh",
+      "nominal_period_s": 60.0,
+      "value_min": 0.0,
+      "value_max": 84.333333,
+      "resolution": 1.0,
+      "layers": [
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_sockets_1f"
+      ],
+      "description": "Active energy of final circuit circ_sockets_1f over the period."
+    },
+    {
+      "id": "elec.circuit.circ_ac_living.current_a",
+      "kind": "sampled",
+      "aggregation": "mean_over_period",
+      "unit": "A",
+      "nominal_period_s": 1.0,
+      "value_min": 0.0,
+      "value_max": 100.0,
+      "resolution": 0.01,
+      "layers": [
+        "L2",
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_ac_living"
+      ],
+      "description": "RMS current of final circuit circ_ac_living."
+    },
+    {
+      "id": "elec.circuit.circ_ac_living.energy_wh",
+      "kind": "sampled",
+      "aggregation": "sum_over_period",
+      "unit": "Wh",
+      "nominal_period_s": 60.0,
+      "value_min": 0.0,
+      "value_max": 84.333333,
+      "resolution": 1.0,
+      "layers": [
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_ac_living"
+      ],
+      "description": "Active energy of final circuit circ_ac_living over the period."
+    },
+    {
+      "id": "elec.circuit.circ_ac_master.current_a",
+      "kind": "sampled",
+      "aggregation": "mean_over_period",
+      "unit": "A",
+      "nominal_period_s": 1.0,
+      "value_min": 0.0,
+      "value_max": 80.0,
+      "resolution": 0.01,
+      "layers": [
+        "L2",
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_ac_master"
+      ],
+      "description": "RMS current of final circuit circ_ac_master."
+    },
+    {
+      "id": "elec.circuit.circ_ac_master.energy_wh",
+      "kind": "sampled",
+      "aggregation": "sum_over_period",
+      "unit": "Wh",
+      "nominal_period_s": 60.0,
+      "value_min": 0.0,
+      "value_max": 67.466667,
+      "resolution": 1.0,
+      "layers": [
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_ac_master"
+      ],
+      "description": "Active energy of final circuit circ_ac_master over the period."
+    },
+    {
+      "id": "elec.circuit.circ_ac_bed2.current_a",
+      "kind": "sampled",
+      "aggregation": "mean_over_period",
+      "unit": "A",
+      "nominal_period_s": 1.0,
+      "value_min": 0.0,
+      "value_max": 80.0,
+      "resolution": 0.01,
+      "layers": [
+        "L2",
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_ac_bed2"
+      ],
+      "description": "RMS current of final circuit circ_ac_bed2."
+    },
+    {
+      "id": "elec.circuit.circ_ac_bed2.energy_wh",
+      "kind": "sampled",
+      "aggregation": "sum_over_period",
+      "unit": "Wh",
+      "nominal_period_s": 60.0,
+      "value_min": 0.0,
+      "value_max": 67.466667,
+      "resolution": 1.0,
+      "layers": [
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_ac_bed2"
+      ],
+      "description": "Active energy of final circuit circ_ac_bed2 over the period."
+    },
+    {
+      "id": "elec.circuit.circ_ac_bed3.current_a",
+      "kind": "sampled",
+      "aggregation": "mean_over_period",
+      "unit": "A",
+      "nominal_period_s": 1.0,
+      "value_min": 0.0,
+      "value_max": 80.0,
+      "resolution": 0.01,
+      "layers": [
+        "L2",
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_ac_bed3"
+      ],
+      "description": "RMS current of final circuit circ_ac_bed3."
+    },
+    {
+      "id": "elec.circuit.circ_ac_bed3.energy_wh",
+      "kind": "sampled",
+      "aggregation": "sum_over_period",
+      "unit": "Wh",
+      "nominal_period_s": 60.0,
+      "value_min": 0.0,
+      "value_max": 67.466667,
+      "resolution": 1.0,
+      "layers": [
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_ac_bed3"
+      ],
+      "description": "Active energy of final circuit circ_ac_bed3 over the period."
+    },
+    {
+      "id": "elec.circuit.circ_ac_bed4.current_a",
+      "kind": "sampled",
+      "aggregation": "mean_over_period",
+      "unit": "A",
+      "nominal_period_s": 1.0,
+      "value_min": 0.0,
+      "value_max": 80.0,
+      "resolution": 0.01,
+      "layers": [
+        "L2",
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_ac_bed4"
+      ],
+      "description": "RMS current of final circuit circ_ac_bed4."
+    },
+    {
+      "id": "elec.circuit.circ_ac_bed4.energy_wh",
+      "kind": "sampled",
+      "aggregation": "sum_over_period",
+      "unit": "Wh",
+      "nominal_period_s": 60.0,
+      "value_min": 0.0,
+      "value_max": 67.466667,
+      "resolution": 1.0,
+      "layers": [
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_ac_bed4"
+      ],
+      "description": "Active energy of final circuit circ_ac_bed4 over the period."
+    },
+    {
+      "id": "elec.circuit.circ_wh_bath_master.current_a",
+      "kind": "sampled",
+      "aggregation": "mean_over_period",
+      "unit": "A",
+      "nominal_period_s": 1.0,
+      "value_min": 0.0,
+      "value_max": 100.0,
+      "resolution": 0.01,
+      "layers": [
+        "L2",
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_wh_bath_master"
+      ],
+      "description": "RMS current of final circuit circ_wh_bath_master."
+    },
+    {
+      "id": "elec.circuit.circ_wh_bath_master.energy_wh",
+      "kind": "sampled",
+      "aggregation": "sum_over_period",
+      "unit": "Wh",
+      "nominal_period_s": 60.0,
+      "value_min": 0.0,
+      "value_max": 84.333333,
+      "resolution": 1.0,
+      "layers": [
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_wh_bath_master"
+      ],
+      "description": "Active energy of final circuit circ_wh_bath_master over the period."
+    },
+    {
+      "id": "elec.circuit.circ_wh_bath2.current_a",
+      "kind": "sampled",
+      "aggregation": "mean_over_period",
+      "unit": "A",
+      "nominal_period_s": 1.0,
+      "value_min": 0.0,
+      "value_max": 100.0,
+      "resolution": 0.01,
+      "layers": [
+        "L2",
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_wh_bath2"
+      ],
+      "description": "RMS current of final circuit circ_wh_bath2."
+    },
+    {
+      "id": "elec.circuit.circ_wh_bath2.energy_wh",
+      "kind": "sampled",
+      "aggregation": "sum_over_period",
+      "unit": "Wh",
+      "nominal_period_s": 60.0,
+      "value_min": 0.0,
+      "value_max": 84.333333,
+      "resolution": 1.0,
+      "layers": [
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_wh_bath2"
+      ],
+      "description": "Active energy of final circuit circ_wh_bath2 over the period."
+    },
+    {
+      "id": "elec.circuit.circ_wh_bath3.current_a",
+      "kind": "sampled",
+      "aggregation": "mean_over_period",
+      "unit": "A",
+      "nominal_period_s": 1.0,
+      "value_min": 0.0,
+      "value_max": 100.0,
+      "resolution": 0.01,
+      "layers": [
+        "L2",
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_wh_bath3"
+      ],
+      "description": "RMS current of final circuit circ_wh_bath3."
+    },
+    {
+      "id": "elec.circuit.circ_wh_bath3.energy_wh",
+      "kind": "sampled",
+      "aggregation": "sum_over_period",
+      "unit": "Wh",
+      "nominal_period_s": 60.0,
+      "value_min": 0.0,
+      "value_max": 84.333333,
+      "resolution": 1.0,
+      "layers": [
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_wh_bath3"
+      ],
+      "description": "Active energy of final circuit circ_wh_bath3 over the period."
+    },
+    {
+      "id": "elec.circuit.circ_wh_bath4.current_a",
+      "kind": "sampled",
+      "aggregation": "mean_over_period",
+      "unit": "A",
+      "nominal_period_s": 1.0,
+      "value_min": 0.0,
+      "value_max": 100.0,
+      "resolution": 0.01,
+      "layers": [
+        "L2",
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_wh_bath4"
+      ],
+      "description": "RMS current of final circuit circ_wh_bath4."
+    },
+    {
+      "id": "elec.circuit.circ_wh_bath4.energy_wh",
+      "kind": "sampled",
+      "aggregation": "sum_over_period",
+      "unit": "Wh",
+      "nominal_period_s": 60.0,
+      "value_min": 0.0,
+      "value_max": 84.333333,
+      "resolution": 1.0,
+      "layers": [
+        "L3"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "circ_wh_bath4"
+      ],
+      "description": "Active energy of final circuit circ_wh_bath4 over the period."
+    },
+    {
+      "id": "elec.rcd.rcd_main.residual_ma",
+      "kind": "sampled",
+      "aggregation": "mean_over_period",
+      "unit": "mA",
+      "nominal_period_s": 1.0,
+      "value_min": 0.0,
+      "value_max": 300.0,
+      "resolution": 0.1,
+      "layers": [
+        "L2"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "rcd_main"
+      ],
+      "description": "RMS residual (earth leakage) current through RCCB rcd_main, including every circuit downstream of it."
+    },
+    {
+      "id": "elec.rcd.rcd_sockets.residual_ma",
+      "kind": "sampled",
+      "aggregation": "mean_over_period",
+      "unit": "mA",
+      "nominal_period_s": 1.0,
+      "value_min": 0.0,
+      "value_max": 300.0,
+      "resolution": 0.1,
+      "layers": [
+        "L2"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "rcd_sockets"
+      ],
+      "description": "RMS residual (earth leakage) current through RCCB rcd_sockets, including every circuit downstream of it."
+    },
+    {
+      "id": "elec.rcd.rcd_wh_bath_master.residual_ma",
+      "kind": "sampled",
+      "aggregation": "mean_over_period",
+      "unit": "mA",
+      "nominal_period_s": 1.0,
+      "value_min": 0.0,
+      "value_max": 300.0,
+      "resolution": 0.1,
+      "layers": [
+        "L2"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "rcd_wh_bath_master"
+      ],
+      "description": "RMS residual (earth leakage) current through RCCB rcd_wh_bath_master, including every circuit downstream of it."
+    },
+    {
+      "id": "elec.rcd.rcd_wh_bath2.residual_ma",
+      "kind": "sampled",
+      "aggregation": "mean_over_period",
+      "unit": "mA",
+      "nominal_period_s": 1.0,
+      "value_min": 0.0,
+      "value_max": 300.0,
+      "resolution": 0.1,
+      "layers": [
+        "L2"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "rcd_wh_bath2"
+      ],
+      "description": "RMS residual (earth leakage) current through RCCB rcd_wh_bath2, including every circuit downstream of it."
+    },
+    {
+      "id": "elec.rcd.rcd_wh_bath3.residual_ma",
+      "kind": "sampled",
+      "aggregation": "mean_over_period",
+      "unit": "mA",
+      "nominal_period_s": 1.0,
+      "value_min": 0.0,
+      "value_max": 300.0,
+      "resolution": 0.1,
+      "layers": [
+        "L2"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "rcd_wh_bath3"
+      ],
+      "description": "RMS residual (earth leakage) current through RCCB rcd_wh_bath3, including every circuit downstream of it."
+    },
+    {
+      "id": "elec.rcd.rcd_wh_bath4.residual_ma",
+      "kind": "sampled",
+      "aggregation": "mean_over_period",
+      "unit": "mA",
+      "nominal_period_s": 1.0,
+      "value_min": 0.0,
+      "value_max": 300.0,
+      "resolution": 0.1,
+      "layers": [
+        "L2"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "rcd_wh_bath4"
+      ],
+      "description": "RMS residual (earth leakage) current through RCCB rcd_wh_bath4, including every circuit downstream of it."
+    },
+    {
+      "id": "elec.appliance.app_fridge_kitchen.power_w",
+      "kind": "sampled",
+      "aggregation": "mean_over_period",
+      "unit": "W",
+      "nominal_period_s": 1.0,
+      "value_min": 0.0,
+      "value_max": 3289.0,
+      "resolution": 0.1,
+      "layers": [
+        "L3"
+      ],
+      "sensor_id": "sensor_plug_fridge",
+      "object_ids": [
+        "app_fridge_kitchen"
+      ],
+      "description": "Active power of app_fridge_kitchen measured by its smart plug."
+    },
+    {
+      "id": "elec.protection.trip",
+      "kind": "event",
+      "aggregation": "event",
+      "unit": "none",
+      "nominal_period_s": null,
+      "value_min": null,
+      "value_max": null,
+      "resolution": null,
+      "layers": [
+        "L2"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "rcd_main",
+        "rcd_sockets",
+        "rcd_wh_bath_master",
+        "rcd_wh_bath2",
+        "rcd_wh_bath3",
+        "rcd_wh_bath4",
+        "mcb_lights_gf",
+        "mcb_lights_1f",
+        "mcb_sockets_living",
+        "mcb_sockets_kitchen",
+        "mcb_sockets_kitchen_wet",
+        "mcb_sockets_yard",
+        "mcb_sockets_outdoor",
+        "mcb_sockets_bed4",
+        "mcb_sockets_1f",
+        "mcb_ac_living",
+        "mcb_ac_master",
+        "mcb_ac_bed2",
+        "mcb_ac_bed3",
+        "mcb_ac_bed4",
+        "mcb_wh_bath_master",
+        "mcb_wh_bath2",
+        "mcb_wh_bath3",
+        "mcb_wh_bath4"
+      ],
+      "event_payload": "protection_device_state",
+      "description": "Tripped/reset changes of protective devices (aux contacts; no cause)."
+    },
+    {
+      "id": "elec.supply.state",
+      "kind": "event",
+      "aggregation": "event",
+      "unit": "none",
+      "nominal_period_s": null,
+      "value_min": null,
+      "value_max": null,
+      "resolution": null,
+      "layers": [
+        "L2",
+        "L5"
+      ],
+      "sensor_id": "sensor_db_monitor",
+      "object_ids": [
+        "db_main"
+      ],
+      "event_payload": "supply_state",
+      "description": "Mains lost/restored at the incomer."
+    },
+    {
+      "id": "weather.outdoor.temp_c",
+      "kind": "sampled",
+      "aggregation": "instant",
+      "unit": "degC",
+      "nominal_period_s": 3600.0,
+      "value_min": -10.0,
+      "value_max": 50.0,
+      "resolution": 0.1,
+      "layers": [
+        "L3"
+      ],
+      "sensor_id": "sensor_weather_feed",
+      "object_ids": [],
+      "description": "Outdoor air temperature at 2 m."
+    },
+    {
+      "id": "weather.outdoor.rh_pct",
+      "kind": "sampled",
+      "aggregation": "instant",
+      "unit": "%",
+      "nominal_period_s": 3600.0,
+      "value_min": 0.0,
+      "value_max": 100.0,
+      "resolution": 1.0,
+      "layers": [
+        "L2",
+        "L3"
+      ],
+      "sensor_id": "sensor_weather_feed",
+      "object_ids": [],
+      "description": "Outdoor relative humidity at 2 m."
+    },
+    {
+      "id": "weather.precip_mm",
+      "kind": "sampled",
+      "aggregation": "sum_over_period",
+      "unit": "mm",
+      "nominal_period_s": 3600.0,
+      "value_min": 0.0,
+      "value_max": 200.0,
+      "resolution": 0.1,
+      "layers": [
+        "L2"
+      ],
+      "sensor_id": "sensor_weather_feed",
+      "object_ids": [],
+      "description": "Precipitation over the preceding hour."
+    }
+  ]
+}

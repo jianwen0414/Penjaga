@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://penjaga.invalid/contract/lab/fault_spec.schema.json",
+  "title": "FaultSpec",
+  "description": "LAB NAMESPACE: fault to inject into the simulator (PRD §12.2) via the M2 control-plane API. Never visible to detection (import rules forbid penjaga_detect from importing penjaga_contract.lab).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "fault_type",
+    "location_id",
+    "magnitude",
+    "progression"
+  ],
+  "properties": {
+    "fault_id": {
+      "type": "string",
+      "pattern": "^flt_[0-9a-z]{6,32}$",
+      "description": "Assigned by the simulator when accepted."
+    },
+    "fault_type": {
+      "$ref": "#/$defs/FaultType"
+    },
+    "location_id": {
+      "$ref": "../core/common.schema.json#/$defs/NullableObjectId",
+      "description": "Contract element where the fault occurs; null for supply-level faults (U1-U3). Valid kinds per fault type are published by GET /sim/v1/faults/catalogue."
+    },
+    "magnitude": {
+      "title": "FaultMagnitude",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "value",
+        "unit"
+      ],
+      "properties": {
+        "value": {
+          "type": "number",
+          "minimum": 0
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        }
+      }
+    },
+    "progression": {
+      "$ref": "#/$defs/Progression"
+    },
+    "start_at": {
+      "$ref": "../core/common.schema.json#/$defs/NullableHouseTime",
+      "description": "House time to start; null means now."
+    },
+    "duration_s": {
+      "description": "Null means until cleared.",
+      "type": [
+        "number",
+        "null"
+      ],
+      "exclusiveMinimum": 0
+    }
+  },
+  "$defs": {
+    "FaultType": {
+      "title": "FaultType",
+      "type": "string",
+      "enum": [
+        "W1",
+        "W2",
+        "W3",
+        "W4",
+        "W5",
+        "E1",
+        "E2",
+        "E3",
+        "A1",
+        "A2",
+        "A3",
+        "A4",
+        "U1",
+        "U2",
+        "U3"
+      ],
+      "description": "W1 dripping tap, W2 running/leaking WC cistern, W3 roof-tank float-valve fault (overflow), W4 concealed pipe leak, W5 burst pipe, E1 sustained circuit overload, E2 rising earth leakage, E3 repeated protective-device trips, A1 aircon filter clogging, A2 aircon low refrigerant, A3 fridge door-seal failure, A4 fridge compressor wear (rising running power, short-cycling), U1 scheduled water disruption, U2 unannounced supply drop, U3 planned power outage."
+    },
+    "Progression": {
+      "title": "Progression",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "title": "ProgressionKind",
+          "type": "string",
+          "enum": [
+            "constant",
+            "intermittent",
+            "worsening"
+          ]
+        },
+        "on_fraction": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "description": "intermittent: fraction of time the fault is active."
+        },
+        "cycle_s": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "intermittent: mean on+off cycle length."
+        },
+        "growth_per_day": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "worsening: multiplicative growth of magnitude per day (e.g. 0.05 = +5%/day)."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "intermittent"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "on_fraction",
+              "cycle_s"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "worsening"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "growth_per_day"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
