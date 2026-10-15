@@ -131,6 +131,7 @@ def test_episode_directory(tmp_path: Path, location: Any, ctx: ContractContext) 
     assert sorted(p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()) == [
         "manifest.json",
         "observed/events.jsonl",
+        "observed/meta.json",
         "observed/readings.parquet",
         "truth/days.jsonl",
         "truth/truth.jsonl",
@@ -158,6 +159,12 @@ def test_episode_directory(tmp_path: Path, location: Any, ctx: ContractContext) 
         schema_registry.validate("lab", "truth_record", record)
     again = json.loads((root / "manifest.json").read_text())
     assert again["episode_id"] == m.episode_id
+    meta = json.loads((root / "observed" / "meta.json").read_text())
+    assert meta["window"] == {
+        "from": at(START, 12.0).isoformat(),
+        "to": at(START, 24.0).isoformat(),
+    }
+    assert set(meta["streams"]) == set(per_stream)
 
 
 def test_episode_is_reproducible(tmp_path: Path) -> None:
@@ -192,7 +199,7 @@ def test_observed_files_carry_no_ground_truth(tmp_path: Path, location: Any) -> 
     m = manifest(duration_days=0.25, faults=[spec.model_dump(mode="json", exclude_none=True)])
     run_episode(m, tmp_path / "ep")
     observed = tmp_path / "ep" / "observed"
-    events = (observed / "events.jsonl").read_text()
+    events = (observed / "events.jsonl").read_text() + (observed / "meta.json").read_text()
     table = pq.read_table(observed / "readings.parquet")
     strings = set(pc.unique(table.column("stream").cast(pa.string())).to_pylist())
     strings |= set(pc.unique(table.column("quality").cast(pa.string())).to_pylist())

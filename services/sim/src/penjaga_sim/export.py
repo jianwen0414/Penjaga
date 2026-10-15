@@ -1,11 +1,12 @@
 """Turn generated days into contract documents and episode files.
 
 ``ingest_messages`` gives the IngestMessage documents ({type, data}) for one window of house
-time, as the live runner publishes them to M4 (D-016). ``run_episode`` writes one
+time, as the live service publishes them to M4 (D-019). ``run_episode`` writes one
 EpisodeManifest to a directory laid out so that what detection may see and what it must never
 see are separate trees:
 
-    manifest.json               the manifest, as given
+    manifest.json               the manifest, as given (it lists the injected faults)
+    observed/meta.json          house id, episode window, streams, generator: all a replay needs
     observed/readings.parquet   stream, ts_us, value, quality: exactly what the sensors reported
     observed/events.jsonl       Event documents
     truth/truth.jsonl           TruthRecord documents (validated against the lab schema)
@@ -272,6 +273,16 @@ def run_episode(
             fh.write(json.dumps(d) + "\n")
     (partial / "manifest.json").write_text(
         json.dumps(manifest_document(manifest), indent=2) + "\n", encoding="utf-8"
+    )
+    meta = {
+        "house_id": manifest.house_id,
+        "window": {"from": _iso(t0, world.zone), "to": _iso(t1, world.zone)},
+        "streams": stream_ids,
+        "event_streams": sorted(s.id for s in world.event_streams),
+        "generator": GENERATOR_VERSION,
+    }
+    (partial / "observed" / "meta.json").write_text(
+        json.dumps(meta, indent=2) + "\n", encoding="utf-8"
     )
     partial.rename(out_dir)
     return {
