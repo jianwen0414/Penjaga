@@ -123,9 +123,12 @@ def ingest_messages(
             if not sel.size:
                 continue
             raw = sd.values[sel]
-            values = [None if np.isnan(v) else float(v) for v in raw]
-            flags = QUALITY_NAMES[sd.quality[sel]].tolist()
-            quality: Any = flags[0] if len(set(flags)) == 1 else flags
+            values: list[float | None] = raw.tolist()
+            for i in np.flatnonzero(np.isnan(raw)):
+                values[i] = None
+            codes = sd.quality[sel]
+            uniform = bool(np.all(codes == codes[0]))
+            quality: Any = QUALITY_NAMES[codes[0]] if uniform else QUALITY_NAMES[codes].tolist()
             doc = {
                 "house_id": _house_id(world),
                 "stream": sid,
