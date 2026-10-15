@@ -2,16 +2,24 @@
 
 from __future__ import annotations
 
+import contextlib
+from collections.abc import AsyncIterator
 from datetime import date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
 import numpy as np
 
+from penjaga_contract.core import ClockMode, ClockState, ResetCommand
 from penjaga_contract.lab import AnomalySpec, EpisodeManifest, FaultSpec
-from penjaga_contract.validate import load_context
+from penjaga_contract.validate import (
+    load_context,
+    validate_event_document,
+    validate_reading_batch_document,
+)
 from penjaga_sim import GENERATOR_VERSION
 from penjaga_sim.faults import UNIT
+from penjaga_sim.stream_client import StreamUnavailableError
 from penjaga_sim.world import DayOutput, World, WorldConfig
 
 SEED = 7
@@ -113,3 +121,55 @@ def meter_litres(out: DayOutput) -> float:
     """Volume the water meter reported over the day."""
     flow = out.streams["water.main.flow_lpm"]
     return float(np.nansum(flow.values) * flow.period_us / US / 60.0)
+
+
+class FakeStream:
+    """In-memory stand-in for M4: a settable clock, resets, and a recording ingest socket.
+
+    Every message sent is checked against the contract (schema plus semantic rules), so a test
+    using it also proves the simulator only emits valid documents.
+    """
+
+    def __init__(self, start: datetime, *, episode: int = 1, speed: float = 60.0) -> None:
+        self.now = start
+        self.episode = episode
+        self.speed = speed
+        self.sent: list[dict[str, Any]] = []
+        self.fail_sends = 0  # the next n sends raise, as a dropped connection would
+        self.resets: list[ResetCommand] = []
+
+    def advance(self, seconds: float) -> None:
+        self.now += timedelta(seconds=seconds)
+
+    async def clock(self) -> ClockState:
+        return ClockState(
+            house_time=self.now,
+            mode=ClockMode.accelerated,
+            speed=self.speed,
+            effective_speed=self.speed,
+            paused=False,
+            episode=self.episode,
+        )
+
+    async def reset(self, command: ResetCommand) -> ClockState:
+        self.resets.append(command)
+        self.episode += 1
+        self.now = command.start
+        self.speed = command.speed
+        return await self.clock()
+
+    @contextlib.asynccontextmanager
+    async def ingest(self) -> AsyncIterator[FakeStream]:
+        yield self
+
+    async def send(self, messages: list[dict[str, Any]]) -> None:
+        if self.fail_sends:
+            self.fail_sends -= 1
+            raise StreamUnavailableError("simulated dropped connection")
+        ctx = load_context()
+        for m in messages:
+            check = (
+                validate_reading_batch_document if m["type"] == "batch" else validate_event_document
+            )
+            check(m["data"], ctx).raise_for_errors(m["type"])
+        self.sent.extend(messages)

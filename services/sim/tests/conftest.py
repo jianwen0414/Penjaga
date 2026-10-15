@@ -34,3 +34,8 @@ def location() -> Callable[[str], str]:
         return str(entries[fault_type]["locations"][0])
 
     return first
+
+
+@pytest.fixture
+def anyio_backend() -> str:
+    return "asyncio"

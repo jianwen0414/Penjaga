@@ -693,16 +693,26 @@ name = "penjaga-sim"
 version = "0.1.0"
 source = { editable = "services/sim" }
 dependencies = [
+    { name = "anyio" },
+    { name = "fastapi" },
+    { name = "httpx2" },
     { name = "numpy" },
     { name = "penjaga-contract" },
     { name = "pyarrow" },
+    { name = "uvicorn", extra = ["standard"] },
+    { name = "websockets" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "anyio", specifier = ">=4.15.1,<5" },
+    { name = "fastapi", specifier = ">=0.143.1,<0.144" },
+    { name = "httpx2", specifier = ">=2.13.1,<2.14" },
     { name = "numpy", specifier = ">=2.5.4,<3" },
     { name = "penjaga-contract", editable = "packages/contract" },
     { name = "pyarrow", specifier = ">=26.0.0,<27" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.54.0,<0.55" },
+    { name = "websockets", specifier = ">=17.2,<18" },
 ]
 
 [[package]]
@@ -710,6 +720,7 @@ name = "penjaga-stream"
 version = "0.1.0"
 source = { editable = "services/stream" }
 dependencies = [
+    { name = "anyio" },
     { name = "duckdb" },
     { name = "fastapi" },
     { name = "numpy" },
@@ -721,6 +732,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "anyio", specifier = ">=4.15.1,<5" },
     { name = "duckdb", specifier = ">=1.5.6,<1.6" },
     { name = "fastapi", specifier = ">=0.143.1,<0.144" },
     { name = "numpy", specifier = ">=2.5.4,<3" },

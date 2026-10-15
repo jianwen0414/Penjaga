@@ -8,6 +8,11 @@ dependencies = [
     "penjaga-contract",
     "numpy>=2.5.4,<3",
     "pyarrow>=26.0.0,<27",
+    "fastapi>=0.143.1,<0.144",
+    "uvicorn[standard]>=0.54.0,<0.55",
+    "websockets>=17.2,<18",
+    "httpx2>=2.13.1,<2.14",
+    "anyio>=4.15.1,<5",
 ]
 
 [project.scripts]
