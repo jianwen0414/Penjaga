@@ -6,10 +6,11 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Annotated
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from penjaga_contract.base import ContractModel
+from pydantic import AwareDatetime, ConfigDict, Field
 
 
-class FaultMagnitude(BaseModel):
+class FaultMagnitude(ContractModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -17,7 +18,7 @@ class FaultMagnitude(BaseModel):
     unit: Annotated[str, Field(max_length=32, min_length=1)]
 
 
-class FaultSpec(BaseModel):
+class FaultSpec(ContractModel):
     """
     LAB NAMESPACE: fault to inject into the simulator (PRD §12.2) via the M2 control-plane API. Never visible to detection (import rules forbid penjaga_detect from importing penjaga_contract.lab).
     """
@@ -75,7 +76,7 @@ class FaultType(StrEnum):
     U3 = "U3"
 
 
-class Progression(BaseModel):
+class Progression(ContractModel):
     model_config = ConfigDict(
         extra="forbid",
     )

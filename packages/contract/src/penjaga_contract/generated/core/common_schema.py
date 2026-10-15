@@ -6,7 +6,8 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Annotated, Any
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from penjaga_contract.base import ContractModel
+from pydantic import AwareDatetime, ConfigDict, Field
 
 type Common = Annotated[Any, Field(title="Common")]
 """
@@ -52,7 +53,7 @@ class Quality(StrEnum):
     stale = "stale"
 
 
-class Quantity(BaseModel):
+class Quantity(ContractModel):
     """
     A physical quantity with unit and optional 90% interval. Monetary values are never computed by detection; the M6 tariff calculator converts physical quantities to RM.
     """
@@ -85,7 +86,7 @@ class SpecBasis(StrEnum):
     datasheet = "datasheet"
 
 
-class TimeWindow(BaseModel):
+class TimeWindow(ContractModel):
     """
     Half-open house-time interval [from, to).
     """

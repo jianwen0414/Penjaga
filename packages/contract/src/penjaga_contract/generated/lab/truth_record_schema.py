@@ -6,7 +6,8 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Annotated, Any
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from penjaga_contract.base import ContractModel
+from pydantic import AwareDatetime, ConfigDict, Field
 
 from ..core import common_schema
 from . import fault_spec_schema
@@ -34,7 +35,7 @@ class TruthKind(StrEnum):
     legit_anomaly = "legit_anomaly"
 
 
-class TruthRecord(BaseModel):
+class TruthRecord(ContractModel):
     """
     LAB NAMESPACE: ground truth written by the simulator to the truth store only (PRD §12.1). Read by the M11 scorer and training pipelines, never by detection at inference time.
     """

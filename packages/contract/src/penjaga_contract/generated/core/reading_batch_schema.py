@@ -5,7 +5,8 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from penjaga_contract.base import ContractModel
+from pydantic import AwareDatetime, ConfigDict, Field
 
 from . import common_schema
 
@@ -18,7 +19,7 @@ A single flag applying to every sample, or one flag per sample.
 """
 
 
-class ReadingBatch(BaseModel):
+class ReadingBatch(ContractModel):
     """
     A run of regularly spaced samples from one sampled stream: sample i has timestamp t0 + i * period_s. Internal transport and storage format. Carries only what a real meter reports: there is deliberately no metadata field. Semantic rules (checked by penjaga_contract.validate): quality array length equals values length; a sample is null exactly when its quality is 'missing'; seq increases by one per batch per stream.
     """

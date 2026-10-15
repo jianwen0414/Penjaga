@@ -6,12 +6,13 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Annotated, Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from penjaga_contract.base import ContractModel
+from pydantic import AwareDatetime, ConfigDict, Field
 
 from . import common_schema
 
 
-class Candidate(BaseModel):
+class Candidate(ContractModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -49,7 +50,7 @@ class DetectionLayer(StrEnum):
     L5 = "L5"
 
 
-class EvidenceItem(BaseModel):
+class EvidenceItem(ContractModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -69,7 +70,7 @@ type EvidenceText = Annotated[
 ]
 
 
-class Finding(BaseModel):
+class Finding(ContractModel):
     """
     Output of a detection service (M5): structured, no prose, no LLM. A finding is one condition tracked over time: it keeps its id across revisions, and the same condition (same key) never opens a second active finding. Monetary impact is not part of a finding; the M6 tariff calculator converts 'quantities'. Semantic rules (checked by penjaga_contract.validate): candidate probabilities plus candidates_other_p sum to at most 1; first_seen <= last_seen <= updated_at.
     """
@@ -217,7 +218,7 @@ class L5FindingType(StrEnum):
     power_supply_interruption = "power_supply_interruption"
 
 
-class SeriesRef(BaseModel):
+class SeriesRef(ContractModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -231,7 +232,7 @@ class SeriesRef(BaseModel):
     bucket_s: Annotated[float, Field(gt=0.0)]
 
 
-class Source(BaseModel):
+class Source(ContractModel):
     model_config = ConfigDict(
         extra="forbid",
     )

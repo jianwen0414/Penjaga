@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://penjaga.invalid/contract/core/clock.schema.json",
+  "title": "Clock",
+  "description": "House-time clock messages (M4). The backend owns one house-time clock; every service reads it. Real mode runs at wall time; accelerated mode is controlled by the operator (Lab).",
+  "$defs": {
+    "ClockMode": {
+      "title": "ClockMode",
+      "type": "string",
+      "enum": [
+        "real",
+        "accelerated"
+      ]
+    },
+    "ClockState": {
+      "title": "ClockState",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "house_time",
+        "mode",
+        "speed",
+        "effective_speed",
+        "paused",
+        "episode"
+      ],
+      "properties": {
+        "house_time": {
+          "$ref": "common.schema.json#/$defs/HouseTime"
+        },
+        "mode": {
+          "$ref": "#/$defs/ClockMode"
+        },
+        "speed": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 86400,
+          "description": "Requested house seconds per wall second (1 in real mode)."
+        },
+        "effective_speed": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 86400,
+          "description": "Speed actually applied. Lower than speed when the governor slows house time so detection keeps up (data is never dropped); 0 while paused."
+        },
+        "paused": {
+          "type": "boolean"
+        },
+        "episode": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Increments on every world reset. Readings from different episodes never mix."
+        }
+      }
+    },
+    "ClockCommand": {
+      "title": "ClockCommand",
+      "description": "Operator change to an accelerated clock. jump_to must not be earlier than the current house time (house time is monotonic; use a reset to start over).",
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "speed": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 86400
+        },
+        "paused": {
+          "type": "boolean"
+        },
+        "jump_to": {
+          "$ref": "common.schema.json#/$defs/HouseTime"
+        }
+      }
+    },
+    "ResetCommand": {
+      "title": "ResetCommand",
+      "description": "Operator request to start a new episode: a fresh world at house time 'start'. Clears live state and starts a new store.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start",
+        "mode",
+        "speed"
+      ],
+      "properties": {
+        "start": {
+          "$ref": "common.schema.json#/$defs/HouseTime"
+        },
+        "mode": {
+          "$ref": "#/$defs/ClockMode"
+        },
+        "speed": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 86400
+        }
+      }
+    }
+  }
+}

@@ -6,7 +6,8 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from penjaga_contract.base import ContractModel
+from pydantic import ConfigDict, Field
 
 from . import common_schema
 
@@ -31,7 +32,7 @@ class EventPayloadType(StrEnum):
     supply_state = "supply_state"
 
 
-class StreamCatalogue(BaseModel):
+class StreamCatalogue(ContractModel):
     """
     Machine-readable stream catalogue (M0). It is the complete list of what detection may consume: no stream may exist that the real sensor kit could not provide. Generated from house.json by penjaga_contract.catalogue and checked for drift in tests.
     """
@@ -50,7 +51,7 @@ class StreamCatalogue(BaseModel):
     streams: Annotated[list[StreamDef], Field(min_length=1)]
 
 
-class StreamDef(BaseModel):
+class StreamDef(ContractModel):
     model_config = ConfigDict(
         extra="forbid",
     )

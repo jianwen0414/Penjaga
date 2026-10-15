@@ -39,6 +39,8 @@ DATAMODEL_CODEGEN_ARGS = [
     "jsonschema",
     "--output-model-type",
     "pydantic_v2.BaseModel",
+    "--base-class",
+    "penjaga_contract.base.ContractModel",
     "--target-python-version",
     "3.12",
     "--use-standard-collections",

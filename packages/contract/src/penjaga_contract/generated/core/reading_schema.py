@@ -5,12 +5,13 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from penjaga_contract.base import ContractModel
+from pydantic import AwareDatetime, ConfigDict, Field
 
 from . import common_schema
 
 
-class Reading(BaseModel):
+class Reading(ContractModel):
     """
     One sample from one sampled stream (PRD §10.4). Used at API edges and in single-value realtime messages. Carries only what a real meter reports: there is deliberately no metadata field.
     """

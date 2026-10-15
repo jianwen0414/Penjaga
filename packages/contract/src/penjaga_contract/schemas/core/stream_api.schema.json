@@ -1,0 +1,462 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://penjaga.invalid/contract/core/stream_api.schema.json",
+  "title": "StreamApi",
+  "description": "Payloads of the M4 stream service API (docs/design/interfaces.md): summaries, raw samples, stream status, live frames and the WebSocket message envelope.",
+  "$defs": {
+    "SummaryPoint": {
+      "title": "SummaryPoint",
+      "description": "Aggregate of one bucket [t, t + bucket_s).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "t",
+        "n",
+        "min",
+        "max",
+        "mean",
+        "last"
+      ],
+      "properties": {
+        "t": {
+          "$ref": "common.schema.json#/$defs/HouseTime"
+        },
+        "n": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of non-missing samples in the bucket."
+        },
+        "min": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "max": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "mean": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "last": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      }
+    },
+    "SummaryResponse": {
+      "title": "SummaryResponse",
+      "description": "Bucketed summary of one stream, at most 500 points (data minimisation, PRD §7.5). Empty buckets are omitted.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stream",
+        "unit",
+        "from",
+        "to",
+        "bucket_s",
+        "points"
+      ],
+      "properties": {
+        "stream": {
+          "$ref": "common.schema.json#/$defs/StreamId"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "from": {
+          "$ref": "common.schema.json#/$defs/HouseTime"
+        },
+        "to": {
+          "$ref": "common.schema.json#/$defs/HouseTime"
+        },
+        "bucket_s": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "points": {
+          "type": "array",
+          "maxItems": 500,
+          "items": {
+            "$ref": "#/$defs/SummaryPoint"
+          }
+        }
+      }
+    },
+    "RawSample": {
+      "title": "RawSample",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "t",
+        "value",
+        "quality"
+      ],
+      "properties": {
+        "t": {
+          "$ref": "common.schema.json#/$defs/HouseTime"
+        },
+        "value": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "quality": {
+          "$ref": "common.schema.json#/$defs/Quality"
+        }
+      }
+    },
+    "RawResponse": {
+      "title": "RawResponse",
+      "description": "Raw samples of one stream (operator and detector roles only), at most 100,000 samples.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stream",
+        "unit",
+        "from",
+        "to",
+        "samples"
+      ],
+      "properties": {
+        "stream": {
+          "$ref": "common.schema.json#/$defs/StreamId"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "from": {
+          "$ref": "common.schema.json#/$defs/HouseTime"
+        },
+        "to": {
+          "$ref": "common.schema.json#/$defs/HouseTime"
+        },
+        "samples": {
+          "type": "array",
+          "maxItems": 100000,
+          "items": {
+            "$ref": "#/$defs/RawSample"
+          }
+        }
+      }
+    },
+    "StreamStatus": {
+      "title": "StreamStatus",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stream",
+        "kind",
+        "last_at",
+        "samples",
+        "gaps",
+        "last_seq"
+      ],
+      "properties": {
+        "stream": {
+          "$ref": "common.schema.json#/$defs/StreamId"
+        },
+        "kind": {
+          "title": "StreamStatusKind",
+          "type": "string",
+          "enum": [
+            "sampled",
+            "event"
+          ]
+        },
+        "last_at": {
+          "$ref": "common.schema.json#/$defs/NullableHouseTime",
+          "description": "Timestamp of the latest sample or event received in this episode."
+        },
+        "samples": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Samples (or events) received in this episode."
+        },
+        "gaps": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Discontinuities detected (skipped batch numbers or time gaps)."
+        },
+        "last_seq": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "LiveStreamAggregate": {
+      "title": "LiveStreamAggregate",
+      "description": "Aggregate of the samples of one stream received since the previous live frame.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "t_last",
+        "n",
+        "min",
+        "max",
+        "mean",
+        "last"
+      ],
+      "properties": {
+        "t_last": {
+          "$ref": "common.schema.json#/$defs/HouseTime"
+        },
+        "n": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "min": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "max": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "mean": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "last": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      }
+    },
+    "LiveFrame": {
+      "title": "LiveFrame",
+      "description": "Periodic aggregated update for UI subscribers. Events are never aggregated: they are delivered as separate 'event' messages.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "house_time",
+        "streams"
+      ],
+      "properties": {
+        "house_time": {
+          "$ref": "common.schema.json#/$defs/HouseTime"
+        },
+        "streams": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/LiveStreamAggregate"
+          },
+          "description": "Keyed by stream id; only streams with new samples."
+        }
+      }
+    },
+    "Rejection": {
+      "title": "Rejection",
+      "description": "Why an ingested message was refused (codes from penjaga_contract.validate).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "codes",
+        "message"
+      ],
+      "properties": {
+        "stream": {
+          "$ref": "common.schema.json#/$defs/StreamId"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "codes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    },
+    "ResetNotice": {
+      "title": "ResetNotice",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "episode",
+        "start"
+      ],
+      "properties": {
+        "episode": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "start": {
+          "$ref": "common.schema.json#/$defs/HouseTime"
+        }
+      }
+    },
+    "BatchMessage": {
+      "title": "BatchMessage",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "batch"
+        },
+        "data": {
+          "$ref": "reading_batch.schema.json"
+        }
+      }
+    },
+    "EventMessage": {
+      "title": "EventMessage",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "event"
+        },
+        "data": {
+          "$ref": "event.schema.json"
+        }
+      }
+    },
+    "ClockMessage": {
+      "title": "ClockMessage",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "clock"
+        },
+        "data": {
+          "$ref": "clock.schema.json#/$defs/ClockState"
+        }
+      }
+    },
+    "FrameMessage": {
+      "title": "FrameMessage",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "frame"
+        },
+        "data": {
+          "$ref": "#/$defs/LiveFrame"
+        }
+      }
+    },
+    "ResetMessage": {
+      "title": "ResetMessage",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "reset"
+        },
+        "data": {
+          "$ref": "#/$defs/ResetNotice"
+        }
+      }
+    },
+    "RejectedMessage": {
+      "title": "RejectedMessage",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "rejected"
+        },
+        "data": {
+          "$ref": "#/$defs/Rejection"
+        }
+      }
+    },
+    "IngestMessage": {
+      "title": "IngestMessage",
+      "description": "What a producer (simulator or device gateway) sends to /stream/v1/ingest.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/BatchMessage"
+        },
+        {
+          "$ref": "#/$defs/EventMessage"
+        }
+      ]
+    },
+    "SubscriberMessage": {
+      "title": "SubscriberMessage",
+      "description": "What /stream/v1/subscribe (lossless, detector role) and /stream/v1/live (aggregated, app/operator) send.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/BatchMessage"
+        },
+        {
+          "$ref": "#/$defs/EventMessage"
+        },
+        {
+          "$ref": "#/$defs/ClockMessage"
+        },
+        {
+          "$ref": "#/$defs/FrameMessage"
+        },
+        {
+          "$ref": "#/$defs/ResetMessage"
+        },
+        {
+          "$ref": "#/$defs/RejectedMessage"
+        }
+      ]
+    }
+  }
+}

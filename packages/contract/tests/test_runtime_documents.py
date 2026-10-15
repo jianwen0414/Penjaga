@@ -238,3 +238,28 @@ def test_invalid_events_are_rejected(ctx, name, edit, code):
     doc = copy.deepcopy(examples.example_trip_event())
     edit(doc)
     assert code in _codes(validate_event_document(doc, ctx)), name
+
+
+def test_models_use_wire_names_by_default():
+    """Keyword fields (``from``) serialise by alias without callers passing by_alias=True."""
+    from penjaga_contract.core import SummaryResponse, TimeWindow
+
+    window = TimeWindow(from_="2026-10-16T00:00:00+08:00", to="2026-10-16T01:00:00+08:00")
+    assert "from" in window.model_dump()
+    assert "from_" not in window.model_dump_json()
+    parsed = SummaryResponse.model_validate_json(
+        '{"stream": "water.main.flow_lpm", "unit": "L/min", "from": "2026-10-16T00:00:00+08:00",'
+        ' "to": "2026-10-16T01:00:00+08:00", "bucket_s": 60, "points": []}'
+    )
+    assert parsed.from_.hour == 0
+
+
+def test_conditional_rules_need_the_validator(ctx):
+    """Characterisation: generated models check structure only. Conditional schema rules
+    (if/then, minProperties, not) are enforced by penjaga_contract.validate, so producers of
+    findings must always run validate_finding_document before publishing."""
+    doc = examples.example_floor_finding()
+    doc.pop("safety_guidance_key")
+    Finding.model_validate(doc)  # structurally fine...
+    codes = {i.code for i in validate_finding_document(doc, ctx).errors}
+    assert codes == {"schema.invalid"}  # ...but not a valid urgent finding

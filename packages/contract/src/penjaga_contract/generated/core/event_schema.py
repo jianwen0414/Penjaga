@@ -6,10 +6,11 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Annotated, Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from penjaga_contract.base import ContractModel
+from pydantic import AwareDatetime, ConfigDict, Field
 
 
-class Event(BaseModel):
+class Event(ContractModel):
     """
     A discrete event from an event stream. Events are never aggregated or dropped (PRD §14). Payloads carry only what the physical device reports: auxiliary contacts report tripped/reset state, not the cause.
     """
@@ -43,7 +44,7 @@ class MainsState(StrEnum):
     restored = "restored"
 
 
-class ProtectionDeviceState(BaseModel):
+class ProtectionDeviceState(ContractModel):
     """
     State change of a protective device (stream elec.protection.trip).
     """
@@ -67,7 +68,7 @@ class ProtectionState(StrEnum):
     reset = "reset"
 
 
-class SupplyState(BaseModel):
+class SupplyState(ContractModel):
     """
     Mains presence at the incomer (stream elec.supply.state).
     """

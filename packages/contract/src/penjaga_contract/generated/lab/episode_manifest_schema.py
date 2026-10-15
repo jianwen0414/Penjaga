@@ -6,13 +6,14 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Annotated, Any, Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from penjaga_contract.base import ContractModel
+from pydantic import AwareDatetime, ConfigDict, Field
 
 from ..core import common_schema
 from . import fault_spec_schema, truth_record_schema
 
 
-class AnomalySpec(BaseModel):
+class AnomalySpec(ContractModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -25,7 +26,7 @@ class AnomalySpec(BaseModel):
     params: dict[str, Any] | None = None
 
 
-class EpisodeManifest(BaseModel):
+class EpisodeManifest(ContractModel):
     """
     LAB NAMESPACE: one evaluation/training episode for M11. Everything needed to regenerate the episode deterministically. Test-split manifests are sealed (hash recorded) and every test run is logged.
     """

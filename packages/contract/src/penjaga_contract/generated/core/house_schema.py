@@ -7,12 +7,13 @@ from datetime import date
 from enum import IntEnum, StrEnum
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from penjaga_contract.base import ContractModel
+from pydantic import ConfigDict, Field
 
 from . import common_schema
 
 
-class Appliance(BaseModel):
+class Appliance(ContractModel):
     """
     Electric appliances name exactly one of circuit_id (dedicated circuit) or socket_group_id; gas items name neither.
     """
@@ -80,7 +81,7 @@ class ApplianceKind(StrEnum):
     lpg_hose = "lpg_hose"
 
 
-class Board(BaseModel):
+class Board(ContractModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -101,7 +102,7 @@ class Board(BaseModel):
     """
 
 
-class Circuit(BaseModel):
+class Circuit(ContractModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -131,7 +132,7 @@ class CircuitKind(StrEnum):
     dedicated = "dedicated"
 
 
-class DbMonitorSpec(BaseModel):
+class DbMonitorSpec(ContractModel):
     """
     Distribution-board monitor: a CT per final circuit and on the main incomer, voltage at the incomer, a residual current monitor per RCCB group, and auxiliary contacts on every protective device.
     """
@@ -153,7 +154,7 @@ class DbMonitorSpec(BaseModel):
     basis: common_schema.SpecBasis
 
 
-class ElectricalSystem(BaseModel):
+class ElectricalSystem(ContractModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -164,7 +165,7 @@ class ElectricalSystem(BaseModel):
     socket_groups: list[SocketGroup]
 
 
-class Fixture(BaseModel):
+class Fixture(ContractModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -215,7 +216,7 @@ class FixtureKind(StrEnum):
     garden_tap = "garden_tap"
 
 
-class Footprint(BaseModel):
+class Footprint(ContractModel):
     """
     Optional plan rectangle in metres (origin: front-left corner of the plot at ground level; x across the frontage, y towards the rear). To be filled by the M1 owner from the floor plan.
     """
@@ -229,7 +230,7 @@ class Footprint(BaseModel):
     depth_m: Annotated[float, Field(gt=0.0)]
 
 
-class House(BaseModel):
+class House(ContractModel):
     """
     Canonical house record (M0): structure, water system, electrical system, appliances and the sensor kit. Every referenceable element has a stable ObjectId whose prefix matches its kind. Cross-references, topology and regulatory rules are checked by the semantic validator (penjaga_contract.validate).
     """
@@ -265,7 +266,7 @@ class House(BaseModel):
     sensors: Annotated[list[Sensor], Field(min_length=1)]
 
 
-class Level(BaseModel):
+class Level(ContractModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -281,7 +282,7 @@ class LevelTechnology(StrEnum):
     pressure = "pressure"
 
 
-class Location(BaseModel):
+class Location(ContractModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -314,7 +315,7 @@ class MeterTechnology(StrEnum):
     mechanical = "mechanical"
 
 
-class Nameplate(BaseModel):
+class Nameplate(ContractModel):
     """
     Representative nameplate data. Only values with a cited source are recorded.
     """
@@ -336,7 +337,7 @@ class Nameplate(BaseModel):
     """
 
 
-class Pipe(BaseModel):
+class Pipe(ContractModel):
     """
     Pipe segment. upstream_id is the meter, a tank or another pipe.
     """
@@ -398,7 +399,7 @@ class Poles(IntEnum):
     integer_4 = 4
 
 
-class PressureSensorSpec(BaseModel):
+class PressureSensorSpec(ContractModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -408,7 +409,7 @@ class PressureSensorSpec(BaseModel):
     basis: common_schema.SpecBasis
 
 
-class ProtectiveDevice(BaseModel):
+class ProtectiveDevice(ContractModel):
     """
     RCCB (prefix rcd_) or MCB (prefix mcb_). upstream_device_id forms the protection chain from the main RCCB down to each circuit's MCB.
     """
@@ -465,7 +466,7 @@ class ProtectiveDeviceKind(StrEnum):
     mcb = "mcb"
 
 
-class Room(BaseModel):
+class Room(ContractModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -504,7 +505,7 @@ class RoomKind(StrEnum):
     roof_space = "roof_space"
 
 
-class Sensor(BaseModel):
+class Sensor(ContractModel):
     """
     Item of the Penjaga sensor kit. The stream catalogue (streams.json) maps every stream to exactly one sensor; detection may consume catalogue streams only.
     """
@@ -544,7 +545,7 @@ class SensorKind(StrEnum):
     weather_feed = "weather_feed"
 
 
-class SmartPlugSpec(BaseModel):
+class SmartPlugSpec(ContractModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -554,7 +555,7 @@ class SmartPlugSpec(BaseModel):
     basis: common_schema.SpecBasis
 
 
-class SocketGroup(BaseModel):
+class SocketGroup(ContractModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -584,7 +585,7 @@ class SocketGroup(BaseModel):
     outdoor: bool
 
 
-class Supply(BaseModel):
+class Supply(ContractModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -598,7 +599,7 @@ class SupplyPhases(IntEnum):
     integer_3 = 3
 
 
-class Tank(BaseModel):
+class Tank(ContractModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -634,7 +635,7 @@ class Tank(BaseModel):
     """
 
 
-class TankLevelSensorSpec(BaseModel):
+class TankLevelSensorSpec(ContractModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -654,7 +655,7 @@ class TripCurve(StrEnum):
     D = "D"
 
 
-class Valve(BaseModel):
+class Valve(ContractModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -694,7 +695,7 @@ class ValveKind(StrEnum):
     float = "float"
 
 
-class Wall(BaseModel):
+class Wall(ContractModel):
     """
     Structural element that can conceal services and can be faded in the 3D focus sequence (PRD §11.2). Only elements that carry or hide referenced services need an ID here; the 3D model may contain more.
     """
@@ -728,7 +729,7 @@ class WallKind(StrEnum):
     duct = "duct"
 
 
-class WaterMeter(BaseModel):
+class WaterMeter(ContractModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -753,7 +754,7 @@ class WaterMeter(BaseModel):
     """
 
 
-class WaterMeterSpec(BaseModel):
+class WaterMeterSpec(ContractModel):
     """
     Metrology per OIML R49 / ISO 4064 terms. Q1 = Q3 / ratio_r.
     """
@@ -773,7 +774,7 @@ class WaterMeterSpec(BaseModel):
     """
 
 
-class WaterSystem(BaseModel):
+class WaterSystem(ContractModel):
     """
     Water supply as a tree rooted at the measuring meter. Pipes name their upstream element; fixtures and valves name the pipe they sit on. Whether a fixture is fed from the main or the roof tank is derived from the topology, never stored.
     """
@@ -788,7 +789,7 @@ class WaterSystem(BaseModel):
     fixtures: Annotated[list[Fixture], Field(min_length=1)]
 
 
-class WeatherFeedSpec(BaseModel):
+class WeatherFeedSpec(ContractModel):
     model_config = ConfigDict(
         extra="forbid",
     )
