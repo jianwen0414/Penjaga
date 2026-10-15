@@ -1,0 +1,6 @@
+# Normalise line endings so generated files diff identically on Windows and Unix.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.glb binary
+*.parquet binary

@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+.venv-*/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+.import_linter_cache/
+
+# Node (generated TS tooling, teammates' apps)
+node_modules/
+
+# Runtime state, generated data, large artifacts (never committed)
+var/
+ml/artifacts/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Obsidian: per-user UI state stays local; shared vault settings are committed
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/workspaces.json
+.obsidian/cache/
+.trash/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+desktop.ini
