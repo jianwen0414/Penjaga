@@ -1,0 +1,15 @@
+{
+  "useMarkdownLinks": true,
+  "newLinkFormat": "relative",
+  "alwaysUpdateLinks": true,
+  "attachmentFolderPath": "docs/assets",
+  "showUnsupportedFiles": false,
+  "userIgnoreFilters": [
+    ".venv/",
+    "node_modules/",
+    "var/",
+    "ml/artifacts/",
+    "packages/contract/src/penjaga_contract/generated/",
+    "packages/contract/ts/generated/"
+  ]
+}
