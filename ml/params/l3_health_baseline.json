@@ -8,7 +8,7 @@
   "tuned_on": {
     "suite": "l3_v0",
     "split": "validation",
-    "generator": "penjaga-sim/2",
+    "generator": "penjaga-sim/3",
     "budget_false_alarms_per_house_month": 0.5,
     "objective": "highest recall within the false-alarm budget",
     "date": "2026-10-16"

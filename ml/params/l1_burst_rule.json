@@ -7,10 +7,83 @@
   "tuned_on": {
     "suite": "l1_v0",
     "split": "validation",
-    "generator": "penjaga-sim/2",
+    "generator": "penjaga-sim/3",
     "budget_false_alarms_per_house_month": 0.5,
     "objective": "highest recall within the false-alarm budget",
-    "date": "2026-10-16",
-    "note": "same rule and validation data as the burst parameters in l1_leak_model.json, where every candidate is listed"
-  }
+    "date": "2026-10-16"
+  },
+  "candidates": [
+    {
+      "params": {
+        "burst_lpm": 6,
+        "burst_window_s": 1800
+      },
+      "recall": 0.2,
+      "precision": 0.8108108108108109,
+      "false_alarms_per_house_month": 0.3171
+    },
+    {
+      "params": {
+        "burst_lpm": 6,
+        "burst_window_s": 3600
+      },
+      "recall": 0.2,
+      "precision": 1.0,
+      "false_alarms_per_house_month": 0.0
+    },
+    {
+      "params": {
+        "burst_lpm": 6,
+        "burst_window_s": 5400
+      },
+      "recall": 0.2,
+      "precision": 1.0,
+      "false_alarms_per_house_month": 0.0
+    },
+    {
+      "params": {
+        "burst_lpm": 6,
+        "burst_window_s": 7200
+      },
+      "recall": 0.2,
+      "precision": 1.0,
+      "false_alarms_per_house_month": 0.0
+    },
+    {
+      "params": {
+        "burst_lpm": 10,
+        "burst_window_s": 1800
+      },
+      "recall": 0.2,
+      "precision": 0.96875,
+      "false_alarms_per_house_month": 0.0453
+    },
+    {
+      "params": {
+        "burst_lpm": 10,
+        "burst_window_s": 3600
+      },
+      "recall": 0.2,
+      "precision": 1.0,
+      "false_alarms_per_house_month": 0.0
+    },
+    {
+      "params": {
+        "burst_lpm": 10,
+        "burst_window_s": 5400
+      },
+      "recall": 0.2,
+      "precision": 1.0,
+      "false_alarms_per_house_month": 0.0
+    },
+    {
+      "params": {
+        "burst_lpm": 10,
+        "burst_window_s": 7200
+      },
+      "recall": 0.2,
+      "precision": 1.0,
+      "false_alarms_per_house_month": 0.0
+    }
+  ]
 }
