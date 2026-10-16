@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import time
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
@@ -52,6 +53,14 @@ READINGS_SCHEMA = pa.schema(
         ("quality", pa.dictionary(pa.int8(), pa.string())),
     ]
 )
+
+# Delta-encoded timestamps and byte-stream-split floats halve the file (7.5 -> 4.0 MB per house
+# day with the full kit, measured) at no cost in write time; stream and quality stay dictionaries.
+PARQUET_OPTIONS: dict[str, Any] = {
+    "compression": "zstd",
+    "use_dictionary": ["stream", "quality"],
+    "column_encoding": {"ts_us": "DELTA_BINARY_PACKED", "value": "BYTE_STREAM_SPLIT"},
+}
 
 
 @dataclass
@@ -227,6 +236,20 @@ def episode_window(manifest: EpisodeManifest) -> tuple[int, int]:
     return t0, t0 + round(manifest.duration_days * 86_400 * US)
 
 
+def _publish(partial: Path, out_dir: Path, attempts: int = 20) -> None:
+    """Rename the finished directory into place. On Windows a virus scanner or indexer can hold
+    a just-closed file for a moment and make the rename fail with "access denied", so retry
+    briefly before giving up."""
+    for attempt in range(attempts):
+        try:
+            partial.rename(out_dir)
+            return
+        except PermissionError:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(0.25 * (attempt + 1))
+
+
 def run_episode(
     manifest: EpisodeManifest, out_dir: Path, *, overwrite: bool = False
 ) -> dict[str, Any]:
@@ -249,7 +272,7 @@ def run_episode(
     n_readings = n_events = 0
     with (
         pq.ParquetWriter(
-            partial / "observed" / "readings.parquet", READINGS_SCHEMA, compression="zstd"
+            partial / "observed" / "readings.parquet", READINGS_SCHEMA, **PARQUET_OPTIONS
         ) as writer,
         (partial / "observed" / "events.jsonl").open("w", encoding="utf-8", newline="\n") as ev_fh,
     ):
@@ -284,7 +307,7 @@ def run_episode(
     (partial / "observed" / "meta.json").write_text(
         json.dumps(meta, indent=2) + "\n", encoding="utf-8"
     )
-    partial.rename(out_dir)
+    _publish(partial, out_dir)
     return {
         "episode_id": manifest.episode_id,
         "days": len(days),
