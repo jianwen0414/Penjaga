@@ -1,9 +1,10 @@
 {
   "detector": "l3_health_baseline",
   "params": {
-    "cusum_h": 8,
+    "cusum_h": 5,
     "cusum_k": 0.5,
-    "min_sd_fraction": 0.05
+    "min_sd_fraction": 0.05,
+    "ac_min_hours": 4
   },
   "tuned_on": {
     "suite": "l3_v0",
@@ -16,8 +17,8 @@
   "candidates": [
     {
       "params": {
+        "ac_min_hours": 1,
         "cusum_h": 5,
-        "cusum_k": 0.5,
         "min_sd_fraction": 0.05
       },
       "recall": 0.875,
@@ -26,8 +27,8 @@
     },
     {
       "params": {
+        "ac_min_hours": 1,
         "cusum_h": 5,
-        "cusum_k": 0.5,
         "min_sd_fraction": 0.1
       },
       "recall": 0.78125,
@@ -36,28 +37,8 @@
     },
     {
       "params": {
-        "cusum_h": 5,
-        "cusum_k": 1.0,
-        "min_sd_fraction": 0.05
-      },
-      "recall": 0.78125,
-      "precision": 0.703125,
-      "false_alarms_per_house_month": 0.2295
-    },
-    {
-      "params": {
-        "cusum_h": 5,
-        "cusum_k": 1.0,
-        "min_sd_fraction": 0.1
-      },
-      "recall": 0.78125,
-      "precision": 0.78,
-      "false_alarms_per_house_month": 0.1329
-    },
-    {
-      "params": {
+        "ac_min_hours": 1,
         "cusum_h": 8,
-        "cusum_k": 0.5,
         "min_sd_fraction": 0.05
       },
       "recall": 0.875,
@@ -66,8 +47,8 @@
     },
     {
       "params": {
+        "ac_min_hours": 1,
         "cusum_h": 8,
-        "cusum_k": 0.5,
         "min_sd_fraction": 0.1
       },
       "recall": 0.78125,
@@ -76,28 +57,8 @@
     },
     {
       "params": {
-        "cusum_h": 8,
-        "cusum_k": 1.0,
-        "min_sd_fraction": 0.05
-      },
-      "recall": 0.71875,
-      "precision": 0.7291666666666666,
-      "false_alarms_per_house_month": 0.157
-    },
-    {
-      "params": {
-        "cusum_h": 8,
-        "cusum_k": 1.0,
-        "min_sd_fraction": 0.1
-      },
-      "recall": 0.6875,
-      "precision": 0.7567567567567568,
-      "false_alarms_per_house_month": 0.1087
-    },
-    {
-      "params": {
+        "ac_min_hours": 1,
         "cusum_h": 12,
-        "cusum_k": 0.5,
         "min_sd_fraction": 0.05
       },
       "recall": 0.84375,
@@ -106,8 +67,8 @@
     },
     {
       "params": {
+        "ac_min_hours": 1,
         "cusum_h": 12,
-        "cusum_k": 0.5,
         "min_sd_fraction": 0.1
       },
       "recall": 0.75,
@@ -116,23 +77,123 @@
     },
     {
       "params": {
-        "cusum_h": 12,
-        "cusum_k": 1.0,
+        "ac_min_hours": 4,
+        "cusum_h": 5,
         "min_sd_fraction": 0.05
       },
+      "recall": 0.90625,
+      "precision": 0.6533333333333333,
+      "false_alarms_per_house_month": 0.314
+    },
+    {
+      "params": {
+        "ac_min_hours": 4,
+        "cusum_h": 5,
+        "min_sd_fraction": 0.1
+      },
       "recall": 0.71875,
-      "precision": 0.7777777777777778,
+      "precision": 0.75,
+      "false_alarms_per_house_month": 0.1208
+    },
+    {
+      "params": {
+        "ac_min_hours": 4,
+        "cusum_h": 8,
+        "min_sd_fraction": 0.05
+      },
+      "recall": 0.8125,
+      "precision": 0.7058823529411765,
+      "false_alarms_per_house_month": 0.1812
+    },
+    {
+      "params": {
+        "ac_min_hours": 4,
+        "cusum_h": 8,
+        "min_sd_fraction": 0.1
+      },
+      "recall": 0.625,
+      "precision": 0.8275862068965517,
+      "false_alarms_per_house_month": 0.0604
+    },
+    {
+      "params": {
+        "ac_min_hours": 4,
+        "cusum_h": 12,
+        "min_sd_fraction": 0.05
+      },
+      "recall": 0.75,
+      "precision": 0.7948717948717948,
       "false_alarms_per_house_month": 0.0966
     },
     {
       "params": {
+        "ac_min_hours": 4,
         "cusum_h": 12,
-        "cusum_k": 1.0,
         "min_sd_fraction": 0.1
       },
       "recall": 0.625,
-      "precision": 0.75,
-      "false_alarms_per_house_month": 0.0845
+      "precision": 0.8333333333333334,
+      "false_alarms_per_house_month": 0.0483
+    },
+    {
+      "params": {
+        "ac_min_hours": 8,
+        "cusum_h": 5,
+        "min_sd_fraction": 0.05
+      },
+      "recall": 0.71875,
+      "precision": 0.6607142857142857,
+      "false_alarms_per_house_month": 0.2295
+    },
+    {
+      "params": {
+        "ac_min_hours": 8,
+        "cusum_h": 5,
+        "min_sd_fraction": 0.1
+      },
+      "recall": 0.75,
+      "precision": 0.9354838709677419,
+      "false_alarms_per_house_month": 0.0242
+    },
+    {
+      "params": {
+        "ac_min_hours": 8,
+        "cusum_h": 8,
+        "min_sd_fraction": 0.05
+      },
+      "recall": 0.71875,
+      "precision": 0.8,
+      "false_alarms_per_house_month": 0.0966
+    },
+    {
+      "params": {
+        "ac_min_hours": 8,
+        "cusum_h": 8,
+        "min_sd_fraction": 0.1
+      },
+      "recall": 0.71875,
+      "precision": 0.9655172413793104,
+      "false_alarms_per_house_month": 0.0121
+    },
+    {
+      "params": {
+        "ac_min_hours": 8,
+        "cusum_h": 12,
+        "min_sd_fraction": 0.05
+      },
+      "recall": 0.71875,
+      "precision": 0.8529411764705882,
+      "false_alarms_per_house_month": 0.0604
+    },
+    {
+      "params": {
+        "ac_min_hours": 8,
+        "cusum_h": 12,
+        "min_sd_fraction": 0.1
+      },
+      "recall": 0.6875,
+      "precision": 0.9629629629629629,
+      "false_alarms_per_house_month": 0.0121
     }
   ]
 }
