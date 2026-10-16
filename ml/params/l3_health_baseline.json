@@ -1,0 +1,138 @@
+{
+  "detector": "l3_health_baseline",
+  "params": {
+    "cusum_h": 8,
+    "cusum_k": 0.5,
+    "min_sd_fraction": 0.05
+  },
+  "tuned_on": {
+    "suite": "l3_v0",
+    "split": "validation",
+    "generator": "penjaga-sim/2",
+    "budget_false_alarms_per_house_month": 0.5,
+    "objective": "highest recall within the false-alarm budget",
+    "date": "2026-10-16"
+  },
+  "candidates": [
+    {
+      "params": {
+        "cusum_h": 5,
+        "cusum_k": 0.5,
+        "min_sd_fraction": 0.05
+      },
+      "recall": 0.875,
+      "precision": 0.6421052631578947,
+      "false_alarms_per_house_month": 0.4107
+    },
+    {
+      "params": {
+        "cusum_h": 5,
+        "cusum_k": 0.5,
+        "min_sd_fraction": 0.1
+      },
+      "recall": 0.78125,
+      "precision": 0.6935483870967742,
+      "false_alarms_per_house_month": 0.2295
+    },
+    {
+      "params": {
+        "cusum_h": 5,
+        "cusum_k": 1.0,
+        "min_sd_fraction": 0.05
+      },
+      "recall": 0.78125,
+      "precision": 0.703125,
+      "false_alarms_per_house_month": 0.2295
+    },
+    {
+      "params": {
+        "cusum_h": 5,
+        "cusum_k": 1.0,
+        "min_sd_fraction": 0.1
+      },
+      "recall": 0.78125,
+      "precision": 0.78,
+      "false_alarms_per_house_month": 0.1329
+    },
+    {
+      "params": {
+        "cusum_h": 8,
+        "cusum_k": 0.5,
+        "min_sd_fraction": 0.05
+      },
+      "recall": 0.875,
+      "precision": 0.726027397260274,
+      "false_alarms_per_house_month": 0.2416
+    },
+    {
+      "params": {
+        "cusum_h": 8,
+        "cusum_k": 0.5,
+        "min_sd_fraction": 0.1
+      },
+      "recall": 0.78125,
+      "precision": 0.7924528301886793,
+      "false_alarms_per_house_month": 0.1329
+    },
+    {
+      "params": {
+        "cusum_h": 8,
+        "cusum_k": 1.0,
+        "min_sd_fraction": 0.05
+      },
+      "recall": 0.71875,
+      "precision": 0.7291666666666666,
+      "false_alarms_per_house_month": 0.157
+    },
+    {
+      "params": {
+        "cusum_h": 8,
+        "cusum_k": 1.0,
+        "min_sd_fraction": 0.1
+      },
+      "recall": 0.6875,
+      "precision": 0.7567567567567568,
+      "false_alarms_per_house_month": 0.1087
+    },
+    {
+      "params": {
+        "cusum_h": 12,
+        "cusum_k": 0.5,
+        "min_sd_fraction": 0.05
+      },
+      "recall": 0.84375,
+      "precision": 0.7966101694915254,
+      "false_alarms_per_house_month": 0.1449
+    },
+    {
+      "params": {
+        "cusum_h": 12,
+        "cusum_k": 0.5,
+        "min_sd_fraction": 0.1
+      },
+      "recall": 0.75,
+      "precision": 0.7954545454545454,
+      "false_alarms_per_house_month": 0.1087
+    },
+    {
+      "params": {
+        "cusum_h": 12,
+        "cusum_k": 1.0,
+        "min_sd_fraction": 0.05
+      },
+      "recall": 0.71875,
+      "precision": 0.7777777777777778,
+      "false_alarms_per_house_month": 0.0966
+    },
+    {
+      "params": {
+        "cusum_h": 12,
+        "cusum_k": 1.0,
+        "min_sd_fraction": 0.1
+      },
+      "recall": 0.625,
+      "precision": 0.75,
+      "false_alarms_per_house_month": 0.0845
+    }
+  ]
+}
