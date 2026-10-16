@@ -13,6 +13,9 @@ fault_start_days = [3.0, 8.0]  # a fault starts at a uniform time this many days
 anomaly_prob = 0.35  # share of episodes with one imposed legitimate anomaly
 anomaly_types = ["guests", "holiday_absence", "festive_cooking", "night_bucket_fill", "washer_delay_timer"]
 anomaly_days = [1, 3]  # length of an imposed anomaly, whole days
+# Water sensors only: L1 reads nothing else, and the full kit's 1 s electrical streams would
+# make each episode ~50x larger. The house and water physics are the same either way.
+sensors = ["sensor_water_meter_main", "sensor_water_pressure_inlet", "sensor_tank_level"]
 
 [split.train]
 years = [2023]

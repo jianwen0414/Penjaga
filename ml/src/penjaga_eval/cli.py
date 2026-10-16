@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from penjaga_eval import episodes, sealing
+from penjaga_eval import episodes, registry, sealing, train_l1
 from penjaga_eval.markdown import render
 from penjaga_eval.run import evaluate, headline, write
 from penjaga_eval.suites import SPLITS, load_suite, manifests
@@ -62,6 +62,9 @@ def main(argv: list[str] | None = None) -> int:
     rn.add_argument("--param", action="append", default=[], help="detector.name=value")
     rn.add_argument("--limit", type=int, help="first N episodes (not for test)")
     rn.add_argument("--markdown", type=Path, help="also write a readable summary here")
+    tr = sub.add_parser("train-l1", help="train the L1 leak model on the train split")
+    tr.add_argument("--suite", required=True)
+    tr.add_argument("--seed", type=int, default=0)
     tn = sub.add_parser("tune", help="choose parameters on the validation split")
     tn.add_argument("--suite", required=True)
     tn.add_argument("--detector", required=True)
@@ -76,6 +79,19 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{len(paths)} episodes under {args.episodes_root}")
     elif args.command == "seal":
         print(json.dumps(sealing.seal(suite), indent=2))
+    elif args.command == "train-l1":
+        record = train_l1.train(
+            suite, root=args.episodes_root, seed=args.seed, workers=args.workers
+        )
+        # the artifact path joins any tuned parameters (the threshold is tuned afterwards)
+        tuned = {**registry.tuned("l1_leak_model"), "artifact": record["artifact"]}
+        params_path = registry.PARAMS_DIR / "l1_leak_model.json"
+        params_path.parent.mkdir(parents=True, exist_ok=True)
+        params_path.write_text(
+            json.dumps({"detector": "l1_leak_model", "params": tuned}, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        print(json.dumps(record["trained_on"], indent=2))
     elif args.command == "tune":
         grid = {}
         for item in args.grid:

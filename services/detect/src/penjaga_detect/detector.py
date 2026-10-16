@@ -25,6 +25,7 @@ class DetectorInfo:
     kind: str  # rule, model or baseline
     version: str  # semver of the detector's logic and parameters
     model: str | None = None
+    model_card: str | None = None  # docs/models/<name>.md, required for trained models
     streams: frozenset[str] | None = None  # sampled streams it reads (None: all)
     event_streams: frozenset[str] = frozenset()  # event streams it reads
 
@@ -32,6 +33,8 @@ class DetectorInfo:
         out = {"detector": self.name, "kind": self.kind, "version": self.version}
         if self.model is not None:
             out["model"] = self.model
+        if self.model_card is not None:
+            out["model_card"] = self.model_card
         return out
 
 

@@ -45,6 +45,7 @@ def test_water_cut_is_found_with_the_tank_outlook() -> None:
     assert 5 <= minutes_late <= 15  # the 10-minute mean falls below 0.5 bar
     assert "tank_water_l" in opened.quantities
     assert cleared.status.value == "cleared"
+    assert cleared.cleared_at is not None
     assert at(START, 21.0) < cleared.cleared_at <= at(START, 21.5)
 
 

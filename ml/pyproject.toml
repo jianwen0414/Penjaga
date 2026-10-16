@@ -9,6 +9,7 @@ dependencies = [
     "penjaga-sim",
     "penjaga-detect",
     "numpy>=2.5.4,<3",
+    "scikit-learn>=1.9.1,<1.10",
     "pyarrow>=26.0.0,<27",
 ]
 

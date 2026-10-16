@@ -68,9 +68,10 @@ def tune(
     else:
         best = min(candidates, key=lambda c: (fa(c), -(c["recall"] or 0.0)))
         note = "no setting met the budget: fewest false alarms"
+    previous = registry.tuned(detector, params_dir)  # e.g. a model's artifact path
     record = {
         "detector": detector,
-        "params": best["params"],
+        "params": {**previous, **best["params"]},
         "tuned_on": {
             "suite": suite.name,
             "split": "validation",

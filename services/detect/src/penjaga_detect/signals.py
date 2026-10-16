@@ -50,6 +50,18 @@ class Carry:
             self.ts, self.values = ts[keep], values[keep]
         return ts, values, first_new
 
+    def extend_untrimmed(self, s: Series) -> tuple[Ints, Floats, int]:
+        """Like ``extend`` but keep everything until ``trim``: for detectors that look back
+        from decision times inside the chunk rather than from its last sample."""
+        first_new = self.ts.size
+        self.ts = np.concatenate((self.ts, s.ts_us))
+        self.values = np.concatenate((self.values, s.values))
+        return self.ts, self.values, first_new
+
+    def trim(self, now_us: int) -> None:
+        keep = self.ts > now_us - self.keep_us
+        self.ts, self.values = self.ts[keep], self.values[keep]
+
 
 @dataclass
 class TierState:

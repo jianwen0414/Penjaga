@@ -10,6 +10,8 @@ fault_start_days = [1.0, 5.0]
 anomaly_prob = 0.35
 anomaly_types = ["guests", "holiday_absence", "heatwave", "night_bucket_fill"]
 anomaly_days = [1, 2]
+# Water sensors for water cuts; the board monitor reports mains lost and restored.
+sensors = ["sensor_water_meter_main", "sensor_water_pressure_inlet", "sensor_tank_level", "sensor_db_monitor"]
 
 [split.train]
 years = [2023]

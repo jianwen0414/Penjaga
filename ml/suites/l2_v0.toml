@@ -12,6 +12,8 @@ fault_start_days = [2.0, 7.0]
 anomaly_prob = 0.35
 anomaly_types = ["guests", "heatwave", "festive_cooking", "aircon_setpoint_change", "occupancy_change"]
 anomaly_days = [1, 3]
+# The board monitor (currents, residual currents, trips) and weather context.
+sensors = ["sensor_db_monitor", "sensor_weather_feed"]
 
 [split.train]
 years = [2023]

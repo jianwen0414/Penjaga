@@ -99,3 +99,28 @@ def test_tuning_uses_validation_and_records_its_choice(
     assert registry.tuned("l1_mnf_baseline", tmp_path) == {"threshold_lpm": 0.05}
     with pytest.raises(KeyError, match="unknown parameters"):
         registry.parameters("l1_mnf_baseline", {"nope": 1})
+
+
+def test_l1_training_records_provenance(tiny: Suite, episodes_root: Path, tmp_path: Path) -> None:
+    from penjaga_eval.train_l1 import train
+
+    record = train(
+        tiny,
+        root=episodes_root,
+        artifact=tmp_path / "model.pkl",
+        card_data=tmp_path / "card.json",
+        workers=1,
+        folds=2,
+    )
+    assert record["trained_on"]["split"] == "train"
+    assert set(record["trained_on"]["labels"]) <= {"none", "W2", "W5"}
+    assert (tmp_path / "model.pkl").exists()
+    params = registry.parameters("l1_leak_model", {"artifact": str(tmp_path / "model.pkl")})
+    detector = registry.build("l1_leak_model", HouseContext.canonical(), params)
+    assert detector.info.kind == "model"
+
+
+def test_generation_refuses_a_nearly_full_disk(tmp_path: Path) -> None:
+    with pytest.raises(episodes.DiskSpaceError, match="GB free"):
+        episodes.check_free_space(tmp_path, minimum=2**62)
+    episodes.check_free_space(tmp_path, minimum=0)

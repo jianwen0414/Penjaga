@@ -56,6 +56,7 @@ class Suite:
     anomaly_types: tuple[str, ...]
     anomaly_days: tuple[int, int]
     splits: dict[str, SplitSpec]
+    sensors: tuple[str, ...] | None = None  # sensor kit; None = the full kit
 
     @property
     def seed(self) -> int:
@@ -88,6 +89,7 @@ def load_suite(name: str, directory: Path = SUITES_DIR) -> Suite:
         anomaly_types=tuple(raw["anomaly_types"]),
         anomaly_days=(int(raw["anomaly_days"][0]), int(raw["anomaly_days"][1])),
         splits=splits,
+        sensors=tuple(raw["sensors"]) if "sensors" in raw else None,
     )
     _check(suite)
     return suite
@@ -99,6 +101,10 @@ def _check(suite: Suite) -> None:
         for b in years[i + 1 :]:
             if a & b:
                 raise SuiteError(f"{suite.name}: splits share weather years {sorted(a & b)}")
+    if suite.sensors is not None:
+        house_sensors = {s.id for s in load_context().house.sensors}
+        if not suite.sensors or not set(suite.sensors) <= house_sensors:
+            raise SuiteError(f"{suite.name}: sensors must be a non-empty subset of the house's")
     known = set(load_calibration().table("household.archetypes"))
     for split, spec in suite.splits.items():
         if not set(spec.archetypes) <= known:
@@ -120,7 +126,7 @@ def manifests(suite: Suite, split: str) -> list[EpisodeManifest]:
     spec = suite.splits[split]
     ctx = load_context()
     zone = ZoneInfo(ctx.house.location.timezone)
-    sensors = sorted(s.id for s in ctx.house.sensors)
+    sensors = sorted(suite.sensors or (s.id for s in ctx.house.sensors))
     plan: list[str | None] = [
         t for t in suite.fault_types for _ in range(spec.episodes_per_fault_type)
     ]

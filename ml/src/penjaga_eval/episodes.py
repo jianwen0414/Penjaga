@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
@@ -17,6 +18,22 @@ from penjaga_sim import GENERATOR_VERSION
 from penjaga_sim.export import manifest_document, run_episode
 
 DEFAULT_ROOT = Path("var/eval/episodes")
+MIN_FREE_BYTES = 5 * 1024**3  # never let generation fill the disk
+
+
+class DiskSpaceError(RuntimeError):
+    pass
+
+
+def check_free_space(root: Path, minimum: int = MIN_FREE_BYTES) -> None:
+    """Refuse to generate when the disk holding ``root`` is nearly full."""
+    root.mkdir(parents=True, exist_ok=True)
+    free = shutil.disk_usage(root).free
+    if free < minimum:
+        raise DiskSpaceError(
+            f"only {free / 1024**3:.1f} GB free under {root}; episode generation needs at least "
+            f"{minimum / 1024**3:.0f} GB (delete old episodes under {root} first)"
+        )
 
 
 def episode_dir(root: Path, manifest: EpisodeManifest) -> Path:
@@ -50,6 +67,7 @@ def ensure(manifests: list[EpisodeManifest], root: Path, workers: int | None = N
         if not _is_current(p, m)
     ]
     if todo:
+        check_free_space(root)
         n = workers if workers is not None else max(1, (os.cpu_count() or 2) - 1)
         if n == 1 or len(todo) == 1:
             for item in todo:
