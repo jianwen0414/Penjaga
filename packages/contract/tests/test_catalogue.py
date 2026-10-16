@@ -84,6 +84,15 @@ def test_catalogue_follows_kit(house_doc):
     assert "water.tank.level_pct" not in ids
 
 
+def test_supply_state_needs_backup_power(house_doc):
+    # Without its own backup supply the board monitor goes dark with the mains (D-018).
+    dbm = next(s for s in house_doc["sensors"] if s["kind"] == "db_monitor")
+    dbm["spec"]["backup_power"] = False
+    ids = {s["id"] for s in build_catalogue(house_doc)["streams"]}
+    assert "elec.supply.state" not in ids
+    assert "elec.protection.trip" in ids
+
+
 def test_drift_is_detected(house_doc, streams_doc):
     streams_doc["streams"][0]["resolution"] = 0.5
     codes = {i.code for i in validate_catalogue_document(streams_doc, house_doc).errors}

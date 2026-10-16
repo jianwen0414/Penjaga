@@ -92,3 +92,12 @@ def test_malformed_datetimes_are_rejected(value: str):
 def test_malformed_dates_are_rejected(value: str):
     with contextlib.suppress(ValueError):
         assert not schema_registry.is_rfc3339_full_date(value)
+
+
+def test_validator_for_a_definition():
+    assert (
+        schema_registry.error_messages("lab", "sim_api", {"record_id": "x"}, "AnomalyCreated") == []
+    )
+    assert schema_registry.error_messages("lab", "sim_api", {}, "AnomalyCreated")
+    with pytest.raises(KeyError):
+        schema_registry.validator("lab", "sim_api", "NoSuchType")

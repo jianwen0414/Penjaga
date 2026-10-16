@@ -8,7 +8,7 @@ from penjaga_contract.house import ElementKind, HouseIndex
 def test_load_validates_and_indexes_every_element(index: HouseIndex):
     assert index.house_id == "elmina_g6_demo"
     assert len(index.ids(ElementKind.room)) == 17
-    assert len(index.ids(ElementKind.fixture)) == 21
+    assert len(index.ids(ElementKind.fixture)) == 22
     assert len(index.ids(ElementKind.circuit)) == 18
     assert len(index.ids(ElementKind.rccb)) == 6
     assert len(index.ids(ElementKind.mcb)) == 18
@@ -18,7 +18,7 @@ def test_load_validates_and_indexes_every_element(index: HouseIndex):
     assert len(index.ids(ElementKind.pipe)) == 13
     assert len(index.ids(ElementKind.valve)) == 11
     assert len(index.ids(ElementKind.socket_group)) == 14
-    assert len(index.ids(ElementKind.appliance)) == 20
+    assert len(index.ids(ElementKind.appliance)) == 21
     assert len(index.ids(ElementKind.sensor)) == 6
 
 
@@ -44,7 +44,11 @@ def test_prd_example_ids_exist(index: HouseIndex):
 
 
 def test_supply_sources(index: HouseIndex):
-    assert set(index.main_fed_fixtures) == {"fix_kitchen_sink_tap", "fix_porch_garden_tap"}
+    assert set(index.main_fed_fixtures) == {
+        "fix_kitchen_sink_tap",
+        "fix_kitchen_ro_purifier",
+        "fix_porch_garden_tap",
+    }
     assert len(index.tank_fed_fixtures) == 19
     assert index.supply_source("fix_bath2_wc_cistern") == "tank"
 

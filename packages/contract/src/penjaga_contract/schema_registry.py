@@ -65,26 +65,36 @@ def registry() -> Registry[Any]:
 
 
 @cache
-def validator(namespace: str, name: str) -> Draft202012Validator:
-    """Validator for ``<namespace>/<name>.schema.json`` with offline refs and format assertion."""
+def validator(namespace: str, name: str, definition: str | None = None) -> Draft202012Validator:
+    """Validator for ``<namespace>/<name>.schema.json`` (or one of its ``$defs``) with offline
+    refs and format assertion."""
     schema = read_json(schema_path(namespace, name))
     Draft202012Validator.check_schema(schema)
+    if definition is not None:
+        if definition not in schema.get("$defs", {}):
+            raise KeyError(f"{namespace}/{name} has no $defs/{definition}")
+        schema = {"$ref": f"{schema['$id']}#/$defs/{definition}"}
     return Draft202012Validator(schema, registry=registry(), format_checker=FORMAT_CHECKER)
 
 
-def iter_errors(namespace: str, name: str, instance: Any) -> Iterator[ValidationError]:
+def iter_errors(
+    namespace: str, name: str, instance: Any, definition: str | None = None
+) -> Iterator[ValidationError]:
     """All schema violations of ``instance``, deepest-first ordering left to jsonschema."""
-    return validator(namespace, name).iter_errors(instance)
+    return validator(namespace, name, definition).iter_errors(instance)
 
 
-def error_messages(namespace: str, name: str, instance: Any) -> list[str]:
+def error_messages(
+    namespace: str, name: str, instance: Any, definition: str | None = None
+) -> list[str]:
     """Human-readable schema violations, each prefixed with its JSON path."""
     messages = []
-    for err in sorted(iter_errors(namespace, name, instance), key=lambda e: list(e.path)):
+    errors = iter_errors(namespace, name, instance, definition)
+    for err in sorted(errors, key=lambda e: list(e.path)):
         messages.append(f"{err.json_path}: {err.message}")
     return messages
 
 
-def validate(namespace: str, name: str, instance: Any) -> None:
+def validate(namespace: str, name: str, instance: Any, definition: str | None = None) -> None:
     """Raise ``jsonschema.ValidationError`` (the most relevant one) if ``instance`` is invalid."""
-    validator(namespace, name).validate(instance)
+    validator(namespace, name, definition).validate(instance)

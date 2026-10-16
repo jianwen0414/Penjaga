@@ -9,5 +9,5 @@ of truth. ``penjaga_contract.generated`` is generated from the schemas (see
 episode manifests). Detection code must never import it; import-linter enforces this.
 """
 
-CONTRACT_VERSION = "1.1.0"
+CONTRACT_VERSION = "1.2.0"
 SCHEMA_VERSION = "1.0"

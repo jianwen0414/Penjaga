@@ -195,6 +195,16 @@ NEGATIVE_CASES: list[tuple[str, Mutation, str]] = [
         "app.fixture",
     ),
     (
+        "purifier serving a sink tap",
+        _set(APPLIANCES, "app_ro_purifier_kitchen", fixture_id="fix_kitchen_sink_tap"),
+        "app.fixture",
+    ),
+    (
+        "purifier without its fixture",
+        _pop_key(APPLIANCES, "app_ro_purifier_kitchen", "fixture_id"),
+        "app.fixture",
+    ),
+    (
         "aircon nameplate incomplete",
         lambda d: by_id(APPLIANCES(d), "app_ac_bed2")["nameplate"].pop("nominal_hp"),
         "app.nameplate",

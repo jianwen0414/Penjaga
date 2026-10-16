@@ -296,16 +296,17 @@ def build_catalogue(house: dict[str, Any]) -> dict[str, Any]:
                 description="Tripped/reset changes of protective devices (aux contacts; no cause).",
             )
         )
-    streams.append(
-        _event(
-            "elec.supply.state",
-            payload="supply_state",
-            layers=["L2", "L5"],
-            sensor_id=dbm["id"],
-            object_ids=[board_id],
-            description="Mains lost/restored at the incomer.",
+    if dspec["backup_power"]:  # without it the monitor goes dark with the mains (D-018)
+        streams.append(
+            _event(
+                "elec.supply.state",
+                payload="supply_state",
+                layers=["L2", "L5"],
+                sensor_id=dbm["id"],
+                object_ids=[board_id],
+                description="Mains lost/restored at the incomer.",
+            )
         )
-    )
 
     weather = _optional(sensors, "weather_feed")
     if weather is not None:

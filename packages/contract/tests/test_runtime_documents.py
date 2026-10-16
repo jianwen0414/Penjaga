@@ -47,6 +47,12 @@ FINDING_CASES: list[tuple[str, Callable[[], dict[str, Any]], Edit, str]] = [
         "schema.invalid",
     ),
     (
+        "guidance key not in the registry",
+        examples.example_floor_finding,
+        lambda d: d.update(safety_guidance_key="sg_overload"),
+        "schema.invalid",
+    ),
+    (
         "rule confidence below 1",
         examples.example_floor_finding,
         lambda d: d.update(confidence=0.9),

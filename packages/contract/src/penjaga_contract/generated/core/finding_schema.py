@@ -158,7 +158,7 @@ class Finding(ContractModel):
     """
     Instant in house time (see M4): an RFC 3339 date-time, which always carries an explicit UTC offset (validators must assert the format). Services emit +08:00 (Asia/Kuala_Lumpur).
     """
-    safety_guidance_key: Annotated[str | None, Field(pattern="^sg_[a-z0-9_]+$")] = None
+    safety_guidance_key: SafetyGuidanceKey | None = None
     """
     Key of reviewed safety guidance text held in the knowledge base. Required for urgent findings.
     """
@@ -216,6 +216,16 @@ class L3FindingType(StrEnum):
 class L5FindingType(StrEnum):
     water_supply_interruption = "water_supply_interruption"
     power_supply_interruption = "power_supply_interruption"
+
+
+class SafetyGuidanceKey(StrEnum):
+    """
+    Reviewed safety guidance an urgent finding points to. The knowledge base (M6) holds the reviewed text for every key; the agent and apps show that text and never write their own. sg_circuit_overload: a circuit draws more than 1.45x its MCB rating. sg_repeated_trips: the same protective device tripped repeatedly. sg_burst_pipe: continuous high water flow (shut the main stop valve).
+    """
+
+    sg_circuit_overload = "sg_circuit_overload"
+    sg_repeated_trips = "sg_repeated_trips"
+    sg_burst_pipe = "sg_burst_pipe"
 
 
 class SeriesRef(ContractModel):

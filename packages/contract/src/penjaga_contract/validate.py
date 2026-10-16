@@ -47,7 +47,11 @@ SENSOR_COUNT: dict[str, tuple[int, int | None]] = {
     "weather_feed": (0, 1),
     "smart_plug": (0, None),
 }
-APPLIANCE_FIXTURE_KIND = {"water_heater": "shower", "washing_machine": "washing_machine_tap"}
+APPLIANCE_FIXTURE_KIND = {
+    "water_heater": "shower",
+    "washing_machine": "washing_machine_tap",
+    "water_purifier": "water_purifier",
+}
 REG36_WET_MAX_MA = 10.0
 REG36_HAND_HELD_MAX_MA = 30.0
 REG36_GENERAL_MAX_MA = 100.0
@@ -448,6 +452,8 @@ def _check_appliance_fixture(ctx: _HouseCtx, path: str, app: Mapping[str, Any]) 
             r.error("app.fixture", path, "a water heater must name the shower it serves")
         if app.get("circuit_id") is None:
             r.error("app.dedicated_kind", path, "a water heater needs a dedicated circuit")
+    if app["kind"] == "water_purifier" and fixture_id is None:
+        r.error("app.fixture", path, "a water purifier must name the purifier fixture it powers")
 
 
 NAMEPLATE_REQUIRED: dict[str, tuple[str, ...]] = {

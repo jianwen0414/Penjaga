@@ -17,17 +17,37 @@ from penjaga_contract.generated.lab.fault_spec_schema import (
     Progression,
     ProgressionKind,
 )
+from penjaga_contract.generated.lab.sim_api_schema import (
+    AnomalyCreated,
+    CatalogueEntry,
+    FaultState,
+    FaultView,
+    RandomFaultRequest,
+    ResetRequest,
+    ResetResponse,
+    SimHealth,
+    SimStatus,
+)
 from penjaga_contract.generated.lab.truth_record_schema import AnomalyType, TruthKind, TruthRecord
 
 __all__ = [
+    "AnomalyCreated",
     "AnomalySpec",
     "AnomalyType",
+    "CatalogueEntry",
     "EpisodeManifest",
     "FaultMagnitude",
     "FaultSpec",
+    "FaultState",
     "FaultType",
+    "FaultView",
     "Progression",
     "ProgressionKind",
+    "RandomFaultRequest",
+    "ResetRequest",
+    "ResetResponse",
+    "SimHealth",
+    "SimStatus",
     "Split",
     "TruthKind",
     "TruthRecord",

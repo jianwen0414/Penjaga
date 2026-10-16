@@ -44,7 +44,8 @@ export type FixtureKind =
   | "sink_tap"
   | "washing_machine_tap"
   | "laundry_tap"
-  | "garden_tap";
+  | "garden_tap"
+  | "water_purifier";
 export type SupplyPhases = 1 | 3;
 /**
  * RCCB (prefix rcd_) or MCB (prefix mcb_). upstream_device_id forms the protection chain from the main RCCB down to each circuit's MCB.
@@ -77,7 +78,8 @@ export type ApplianceKind =
   | "router"
   | "gas_hob"
   | "lpg_cylinder"
-  | "lpg_hose";
+  | "lpg_hose"
+  | "water_purifier";
 /**
  * Stable, unique, human-readable ID of a physical element: <kind-prefix>_<descriptor>, lowercase snake_case. The prefix must match the element kind (enforced by the semantic validator).
  */
@@ -478,6 +480,10 @@ export interface DbMonitorSpec {
    * Auxiliary/fault-signal contacts report tripped/reset state per device. They do not report the cause of a trip.
    */
   aux_contacts: boolean;
+  /**
+   * The monitor has its own backup supply (battery or supercapacitor), so it reports mains loss and keeps measuring through a power cut. Without it the supply-state stream is not published.
+   */
+  backup_power: boolean;
   basis: SpecBasis;
 }
 /**

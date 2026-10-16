@@ -79,6 +79,7 @@ class ApplianceKind(StrEnum):
     gas_hob = "gas_hob"
     lpg_cylinder = "lpg_cylinder"
     lpg_hose = "lpg_hose"
+    water_purifier = "water_purifier"
 
 
 class Board(ContractModel):
@@ -151,6 +152,10 @@ class DbMonitorSpec(ContractModel):
     """
     Auxiliary/fault-signal contacts report tripped/reset state per device. They do not report the cause of a trip.
     """
+    backup_power: bool
+    """
+    The monitor has its own backup supply (battery or supercapacitor), so it reports mains loss and keeps measuring through a power cut. Without it the supply-state stream is not published.
+    """
     basis: common_schema.SpecBasis
 
 
@@ -214,6 +219,7 @@ class FixtureKind(StrEnum):
     washing_machine_tap = "washing_machine_tap"
     laundry_tap = "laundry_tap"
     garden_tap = "garden_tap"
+    water_purifier = "water_purifier"
 
 
 class Footprint(ContractModel):

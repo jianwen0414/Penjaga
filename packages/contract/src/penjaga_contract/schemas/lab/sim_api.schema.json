@@ -1,0 +1,307 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://penjaga.invalid/contract/lab/sim_api.schema.json",
+  "title": "SimApi",
+  "description": "LAB NAMESPACE: request and response bodies of the M2 simulator control plane /sim/v1 (operator role only). Fault and anomaly requests use FaultSpec and AnomalySpec; ground truth is returned as TruthRecord. Never visible to detection.",
+  "$defs": {
+    "SimHealth": {
+      "title": "SimHealth",
+      "description": "GET /sim/v1/health (unauthenticated: nothing here helps reconstruct the world).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "episode",
+        "generator"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "ok"
+        },
+        "episode": {
+          "$ref": "#/$defs/NullableEpisode"
+        },
+        "generator": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "NullableEpisode": {
+      "title": "NullableEpisode",
+      "description": "The M4 clock episode the simulator is publishing; null before the first world reset.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "SimStatus": {
+      "title": "SimStatus",
+      "description": "GET /sim/v1/status.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "episode",
+        "seed",
+        "archetype",
+        "enabled_sensors",
+        "published_until",
+        "messages_sent",
+        "faults",
+        "last_error"
+      ],
+      "properties": {
+        "episode": {
+          "$ref": "#/$defs/NullableEpisode"
+        },
+        "seed": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "archetype": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "enabled_sensors": {
+          "description": "Sensor-kit ablation in force; null means the full kit.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "uniqueItems": true,
+          "items": {
+            "$ref": "../core/common.schema.json#/$defs/ObjectId"
+          }
+        },
+        "published_until": {
+          "$ref": "../core/common.schema.json#/$defs/NullableHouseTime",
+          "description": "House time up to which readings have been sent (rounded up to the second)."
+        },
+        "messages_sent": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "faults": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Faults in the current world (any state)."
+        },
+        "last_error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "ResetRequest": {
+      "title": "ResetRequest",
+      "description": "POST /sim/v1/world/reset: M4's clock and store are reset and a fresh world begins.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start"
+      ],
+      "properties": {
+        "start": {
+          "$ref": "../core/common.schema.json#/$defs/HouseTime"
+        },
+        "mode": {
+          "$ref": "../core/clock.schema.json#/$defs/ClockMode",
+          "description": "Clock mode; omitted or null means accelerated."
+        },
+        "speed": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0,
+          "maximum": 86400,
+          "description": "House seconds per wall second in accelerated mode; omitted or null means 60."
+        },
+        "seed": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "Null draws a fresh seed."
+        },
+        "archetype": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "Household archetype; null draws one."
+        },
+        "enabled_sensor_ids": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "../core/common.schema.json#/$defs/ObjectId"
+          },
+          "description": "Sensor-kit ablation; null for the full kit."
+        }
+      }
+    },
+    "ResetResponse": {
+      "title": "ResetResponse",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "clock",
+        "status"
+      ],
+      "properties": {
+        "clock": {
+          "$ref": "../core/clock.schema.json#/$defs/ClockState"
+        },
+        "status": {
+          "$ref": "#/$defs/SimStatus"
+        }
+      }
+    },
+    "RandomFaultRequest": {
+      "title": "RandomFaultRequest",
+      "description": "POST /sim/v1/faults/random: a plausible fault of this type at a random valid location and magnitude.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fault_type"
+      ],
+      "properties": {
+        "fault_type": {
+          "$ref": "fault_spec.schema.json#/$defs/FaultType"
+        },
+        "start_at": {
+          "$ref": "../core/common.schema.json#/$defs/NullableHouseTime",
+          "description": "Null means now."
+        }
+      }
+    },
+    "FaultState": {
+      "title": "FaultState",
+      "description": "Relative to published house time.",
+      "type": "string",
+      "enum": [
+        "scheduled",
+        "active",
+        "ended"
+      ]
+    },
+    "FaultView": {
+      "title": "FaultView",
+      "description": "A fault as the operator sees it: the accepted spec, its schedule and state.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fault_id",
+        "spec",
+        "start",
+        "end",
+        "state"
+      ],
+      "properties": {
+        "fault_id": {
+          "type": "string",
+          "pattern": "^flt_[0-9a-z]{6,32}$"
+        },
+        "spec": {
+          "$ref": "fault_spec.schema.json"
+        },
+        "start": {
+          "$ref": "../core/common.schema.json#/$defs/HouseTime"
+        },
+        "end": {
+          "$ref": "../core/common.schema.json#/$defs/NullableHouseTime",
+          "description": "Null while the fault runs until cleared."
+        },
+        "state": {
+          "$ref": "#/$defs/FaultState"
+        }
+      }
+    },
+    "CatalogueEntry": {
+      "title": "CatalogueEntry",
+      "description": "GET /sim/v1/faults/catalogue: what the Lab may inject for one fault type.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fault_type",
+        "layer",
+        "magnitude_unit",
+        "magnitude_range",
+        "locations",
+        "requires_duration"
+      ],
+      "properties": {
+        "fault_type": {
+          "$ref": "fault_spec.schema.json#/$defs/FaultType"
+        },
+        "layer": {
+          "$ref": "../core/common.schema.json#/$defs/Layer"
+        },
+        "magnitude_unit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "magnitude_range": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "minItems": 2,
+          "maxItems": 2,
+          "items": false,
+          "description": "Calibrated [low, high] of the magnitude."
+        },
+        "locations": {
+          "type": "array",
+          "items": {
+            "$ref": "../core/common.schema.json#/$defs/ObjectId"
+          },
+          "description": "Valid location_id values; empty for supply-level faults."
+        },
+        "requires_duration": {
+          "type": "boolean"
+        }
+      }
+    },
+    "AnomalyCreated": {
+      "title": "AnomalyCreated",
+      "description": "POST /sim/v1/anomalies.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_id"
+      ],
+      "properties": {
+        "record_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

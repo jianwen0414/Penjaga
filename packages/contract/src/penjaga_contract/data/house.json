@@ -113,6 +113,7 @@
       { "id": "fix_bath4_shower", "name": "Bathroom 4 shower", "kind": "shower", "room_id": "room_bath4", "pipe_id": "pipe_bath4_cold_supply", "install_date": "2024-06-01" },
       { "id": "fix_bath4_bidet_spray", "name": "Bathroom 4 bidet spray", "kind": "bidet_spray", "room_id": "room_bath4", "pipe_id": "pipe_bath4_cold_supply", "install_date": "2024-06-01" },
       { "id": "fix_kitchen_sink_tap", "name": "Dry kitchen sink tap (direct from main)", "kind": "sink_tap", "room_id": "room_kitchen", "pipe_id": "pipe_kitchen_direct", "install_date": "2024-06-01" },
+      { "id": "fix_kitchen_ro_purifier", "name": "RO water purifier (countertop, dry kitchen)", "kind": "water_purifier", "room_id": "room_kitchen", "pipe_id": "pipe_kitchen_direct", "install_date": "2024-06-15" },
       { "id": "fix_kitchen_wet_sink_tap", "name": "Wet kitchen sink tap", "kind": "sink_tap", "room_id": "room_kitchen_wet", "pipe_id": "pipe_kitchen_wet_supply", "install_date": "2024-06-01" },
       { "id": "fix_yard_washer_tap", "name": "Washing machine tap", "kind": "washing_machine_tap", "room_id": "room_yard", "pipe_id": "pipe_yard_supply", "install_date": "2024-06-01" },
       { "id": "fix_yard_laundry_tap", "name": "Yard laundry tap", "kind": "laundry_tap", "room_id": "room_yard", "pipe_id": "pipe_yard_supply", "install_date": "2024-06-01" },
@@ -201,6 +202,7 @@
     { "id": "app_kettle_kitchen", "name": "Electric kettle", "kind": "kettle", "room_id": "room_kitchen", "socket_group_id": "sock_kitchen_counter", "install_date": "2023-03-05" },
     { "id": "app_microwave_kitchen", "name": "Microwave oven", "kind": "microwave", "room_id": "room_kitchen", "socket_group_id": "sock_kitchen_counter", "install_date": "2020-08-15" },
     { "id": "app_airfryer_kitchen", "name": "Air fryer", "kind": "air_fryer", "room_id": "room_kitchen", "socket_group_id": "sock_kitchen_counter", "install_date": "2024-12-01" },
+    { "id": "app_ro_purifier_kitchen", "name": "RO water purifier (pump and heater)", "kind": "water_purifier", "room_id": "room_kitchen", "socket_group_id": "sock_kitchen_counter", "fixture_id": "fix_kitchen_ro_purifier", "install_date": "2024-06-15" },
     { "id": "app_tv_living", "name": "Television", "kind": "television", "room_id": "room_living", "socket_group_id": "sock_living_tv", "install_date": "2024-07-20" },
     { "id": "app_router_living", "name": "Wi-Fi router", "kind": "router", "room_id": "room_living", "socket_group_id": "sock_living_tv", "install_date": "2024-07-01" },
     { "id": "app_hob_kitchen_wet", "name": "Gas hob", "kind": "gas_hob", "room_id": "room_kitchen_wet", "install_date": "2024-07-05" },
@@ -234,7 +236,7 @@
       "name": "Distribution board monitor",
       "kind": "db_monitor",
       "mounted_on_id": "db_main",
-      "spec": { "current_accuracy_pct": 1.0, "current_resolution_a": 0.01, "residual_resolution_ma": 0.1, "residual_range_max_ma": 300, "voltage_resolution_v": 0.1, "power_resolution_w": 1, "energy_resolution_wh": 1, "aux_contacts": true, "basis": "design_target" }
+      "spec": { "current_accuracy_pct": 1.0, "current_resolution_a": 0.01, "residual_resolution_ma": 0.1, "residual_range_max_ma": 300, "voltage_resolution_v": 0.1, "power_resolution_w": 1, "energy_resolution_wh": 1, "aux_contacts": true, "backup_power": true, "basis": "design_target" }
     },
     {
       "id": "sensor_plug_fridge",

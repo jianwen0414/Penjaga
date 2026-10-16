@@ -160,8 +160,7 @@
       "$ref": "common.schema.json#/$defs/HouseTime"
     },
     "safety_guidance_key": {
-      "type": "string",
-      "pattern": "^sg_[a-z0-9_]+$",
+      "$ref": "#/$defs/SafetyGuidanceKey",
       "description": "Key of reviewed safety guidance text held in the knowledge base. Required for urgent findings."
     },
     "source": {
@@ -518,6 +517,16 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 200
+    },
+    "SafetyGuidanceKey": {
+      "title": "SafetyGuidanceKey",
+      "description": "Reviewed safety guidance an urgent finding points to. The knowledge base (M6) holds the reviewed text for every key; the agent and apps show that text and never write their own. sg_circuit_overload: a circuit draws more than 1.45x its MCB rating. sg_repeated_trips: the same protective device tripped repeatedly. sg_burst_pipe: continuous high water flow (shut the main stop valve).",
+      "type": "string",
+      "enum": [
+        "sg_circuit_overload",
+        "sg_repeated_trips",
+        "sg_burst_pipe"
+      ]
     }
   }
 }

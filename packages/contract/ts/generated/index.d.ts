@@ -11,4 +11,5 @@ export type * as core_stream_api from "./core/stream_api";
 export type * as core_streams from "./core/streams";
 export type * as lab_episode_manifest from "./lab/episode_manifest";
 export type * as lab_fault_spec from "./lab/fault_spec";
+export type * as lab_sim_api from "./lab/sim_api";
 export type * as lab_truth_record from "./lab/truth_record";

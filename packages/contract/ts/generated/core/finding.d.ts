@@ -62,10 +62,7 @@ export type Finding = {
   first_seen: HouseTime;
   last_seen: HouseTime;
   updated_at: HouseTime;
-  /**
-   * Key of reviewed safety guidance text held in the knowledge base. Required for urgent findings.
-   */
-  safety_guidance_key?: string;
+  safety_guidance_key?: SafetyGuidanceKey;
   source: Source;
 };
 export type FindingStatus = "active" | "cleared" | "superseded";
@@ -124,6 +121,10 @@ export type EvidenceText = string;
  */
 export type StreamId = string;
 /**
+ * Key of reviewed safety guidance text held in the knowledge base. Required for urgent findings.
+ */
+export type SafetyGuidanceKey = "sg_circuit_overload" | "sg_repeated_trips" | "sg_burst_pipe";
+/**
  * This interface was referenced by `undefined`'s JSON-Schema
  * via the `definition` "Source".
  */
@@ -156,6 +157,13 @@ export type L3FindingType = "aircon_efficiency_decline" | "fridge_duty_cycle_ris
  * via the `definition` "L5FindingType".
  */
 export type L5FindingType = "water_supply_interruption" | "power_supply_interruption";
+/**
+ * Reviewed safety guidance an urgent finding points to. The knowledge base (M6) holds the reviewed text for every key; the agent and apps show that text and never write their own. sg_circuit_overload: a circuit draws more than 1.45x its MCB rating. sg_repeated_trips: the same protective device tripped repeatedly. sg_burst_pipe: continuous high water flow (shut the main stop valve).
+ *
+ * This interface was referenced by `undefined`'s JSON-Schema
+ * via the `definition` "SafetyGuidanceKey".
+ */
+export type SafetyGuidanceKey1 = "sg_circuit_overload" | "sg_repeated_trips" | "sg_burst_pipe";
 
 /**
  * This interface was referenced by `undefined`'s JSON-Schema

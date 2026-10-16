@@ -50,7 +50,7 @@ def test_first_observation_opens_a_finding_with_a_deterministic_id(tracker: Find
 
 
 MODEL = {"confidence_kind": "calibrated_probability"}
-URGENT = {"severity": "urgent", "safety_guidance_key": "sg_overload"}
+URGENT = {"severity": "urgent", "safety_guidance_key": "sg_circuit_overload"}
 
 
 def test_revisions_only_for_material_changes(tracker: FindingTracker) -> None:
