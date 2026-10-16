@@ -74,3 +74,11 @@ def test_sealing(tmp_path: Path, tiny: object) -> None:
     with pytest.raises(SealError, match="changed since they were sealed"):
         seal(tiny, tmp_path)
     assert seal(tiny, tmp_path, reseal=True)["digest"] == record["digest"]
+
+
+@pytest.mark.parametrize("name", ["l1_v0", "l2_v0"])
+def test_every_shipped_suite_builds_valid_manifests(name: str) -> None:
+    suite = load_suite(name)
+    for split in ("train", "validation", "test"):
+        for m in manifests(suite, split):
+            schema_registry.validate("lab", "episode_manifest", manifest_document(m))
