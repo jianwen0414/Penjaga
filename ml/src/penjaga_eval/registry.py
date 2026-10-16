@@ -16,6 +16,7 @@ from typing import Any
 from penjaga_detect.baselines.mnf import MnfBaseline, MnfParams
 from penjaga_detect.detector import Detector, HouseContext
 from penjaga_detect.l2_floor import FloorParams, L2SafetyFloor
+from penjaga_detect.l5_supply import L5SupplyDetector, SupplyParams
 
 PARAMS_DIR = Path(__file__).resolve().parents[2] / "params"
 
@@ -29,6 +30,7 @@ class Entry:
 REGISTRY: dict[str, Entry] = {
     "l1_mnf_baseline": Entry(MnfBaseline, MnfParams),
     "l2_safety_floor": Entry(L2SafetyFloor, FloorParams),
+    "l5_supply": Entry(L5SupplyDetector, SupplyParams),
 }
 
 

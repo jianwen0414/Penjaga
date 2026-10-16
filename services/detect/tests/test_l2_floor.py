@@ -10,7 +10,8 @@ import pytest
 from penjaga_contract.core import Finding
 from penjaga_detect.chunk import Chunk, EventRecord, Series
 from penjaga_detect.detector import HouseContext
-from penjaga_detect.l2_floor import L2SafetyFloor, rolling_mean
+from penjaga_detect.l2_floor import L2SafetyFloor
+from penjaga_detect.signals import rolling_mean
 from penjaga_sim.testing import START, at, fault, new_world
 
 US = 1_000_000

@@ -1,0 +1,30 @@
+# L5 v0: supply interruptions U1 (scheduled water disruption), U2 (unannounced water supply
+# drop) and U3 (power outage), one week per episode, with fault-free houses. Same split rules
+# as l1_v0.
+
+name = "l5_v0"
+layers = ["L5"]
+days = 7
+fault_types = ["U1", "U2", "U3"]
+fault_start_days = [1.0, 5.0]
+anomaly_prob = 0.35
+anomaly_types = ["guests", "holiday_absence", "heatwave", "night_bucket_fill"]
+anomaly_days = [1, 2]
+
+[split.train]
+years = [2023]
+archetypes = ["working_family", "retired_couple", "young_couple", "large_family"]
+episodes_per_fault_type = 10
+fault_free_episodes = 10
+
+[split.validation]
+years = [2024]
+archetypes = ["working_family", "retired_couple", "young_couple", "large_family"]
+episodes_per_fault_type = 6
+fault_free_episodes = 6
+
+[split.test]
+years = [2025]
+archetypes = ["working_family", "retired_couple", "young_couple", "large_family", "shift_family"]
+episodes_per_fault_type = 8
+fault_free_episodes = 8
