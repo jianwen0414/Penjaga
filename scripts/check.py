@@ -27,6 +27,7 @@ SOURCE_DIRS = [
     "services/sim/tools",
     "services/detect/src",
     "ml/src",
+    "ml/tools",
     "scripts",
     "spikes",
 ]
