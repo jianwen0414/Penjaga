@@ -1,0 +1,11 @@
+# Detectors the live detection service runs (penjaga-detect serve). Parameters are the tuned
+# ones in ml/params. A detector is deployed only after it wins on M11 against a baseline
+# (PRD §15.1); docs/DECISIONS.md D-022 records this set. Candidates (l1_leak_model) are not run.
+
+deployed = [
+    "l1_mnf_baseline",
+    "l1_burst_rule",
+    "l2_safety_floor",
+    "l3_health_baseline",
+    "l5_supply",
+]

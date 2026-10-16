@@ -8,7 +8,15 @@ dependencies = [
     "penjaga-contract",
     "numpy>=2.5.4,<3",
     "scikit-learn>=1.9.1,<1.10",
+    "fastapi>=0.143.1,<0.144",
+    "uvicorn[standard]>=0.54.0,<0.55",
+    "websockets>=17.2,<18",
+    "httpx2>=2.13.1,<2.14",
+    "anyio>=4.15.1,<5",
 ]
+
+[project.scripts]
+penjaga-detect = "penjaga_detect.cli:main"
 
 [build-system]
 requires = ["hatchling>=1.32.4,<2"]

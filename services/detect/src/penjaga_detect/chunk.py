@@ -69,6 +69,29 @@ def _us(text: str) -> int:
     return int(moment.replace(microsecond=0).timestamp()) * US + moment.microsecond
 
 
+def batch_samples(
+    data: Mapping[str, Any],
+) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.float64], npt.NDArray[np.uint8]]:
+    """Timestamps, values (NaN where missing) and quality codes of a ReadingBatch document."""
+    n = len(data["values"])
+    period = round(float(data["period_s"]) * US)
+    ts = _us(data["t0"]) + np.arange(n, dtype=np.int64) * period
+    values = np.fromiter(
+        (np.nan if v is None else v for v in data["values"]), dtype=np.float64, count=n
+    )
+    flags = data["quality"]
+    if isinstance(flags, list):
+        codes = np.fromiter((QUALITY_CODES[f] for f in flags), dtype=np.uint8, count=n)
+    else:
+        codes = np.full(n, QUALITY_CODES[flags], dtype=np.uint8)
+    return ts, values, codes
+
+
+def event_record(data: Mapping[str, Any]) -> EventRecord:
+    """An Event document as the detectors see it."""
+    return EventRecord(_us(data["ts"]), data["stream"], dict(data["payload"]))
+
+
 def chunk_from_messages(
     house_id: str, t0_us: int, t1_us: int, messages: Iterable[Mapping[str, Any]]
 ) -> Chunk:
@@ -80,22 +103,11 @@ def chunk_from_messages(
     for m in messages:
         data = m["data"]
         if m["type"] == "event":
-            event_us = _us(data["ts"])
-            if t0_us < event_us <= t1_us:
-                events.append(EventRecord(event_us, data["stream"], dict(data["payload"])))
+            event = event_record(data)
+            if t0_us < event.ts_us <= t1_us:
+                events.append(event)
             continue
-        n = len(data["values"])
-        period = round(float(data["period_s"]) * US)
-        ts_arr = _us(data["t0"]) + np.arange(n, dtype=np.int64) * period
-        values = np.fromiter(
-            (np.nan if v is None else v for v in data["values"]), dtype=np.float64, count=n
-        )
-        flags = data["quality"]
-        if isinstance(flags, list):
-            codes = np.fromiter((QUALITY_CODES[f] for f in flags), dtype=np.uint8, count=n)
-        else:
-            codes = np.full(n, QUALITY_CODES[flags], dtype=np.uint8)
-        parts.setdefault(data["stream"], []).append((ts_arr, values, codes))
+        parts.setdefault(data["stream"], []).append(batch_samples(data))
     series: dict[str, Series] = {}
     for stream, pieces in parts.items():
         ts = np.concatenate([p[0] for p in pieces])
