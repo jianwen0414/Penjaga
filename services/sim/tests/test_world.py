@@ -250,8 +250,8 @@ def test_post_outage_refill_is_recorded() -> None:
 # Day-1 totals of the reference world. If a change to the simulator moves these, the generator's
 # output has changed: bump penjaga_sim.GENERATOR_VERSION and update the numbers here.
 FINGERPRINT = {
-    "water_true_l": 784.38,
-    "water_registered_l": 777.567,
+    "water_true_l": 791.71,
+    "water_registered_l": 784.789,
     "energy_kwh": 11.229,
     "kwh.app_fridge_kitchen": 1.182,
 }
@@ -263,3 +263,21 @@ def test_generator_fingerprint(baseline: World) -> None:
     assert got == pytest.approx(FINGERPRINT, rel=1e-6), (
         f"generator output changed: bump GENERATOR_VERSION and update FINGERPRINT to {got}"
     )
+
+
+def test_night_toilet_visits_follow_the_sourced_rates() -> None:
+    """Elders wake to void about 1.6 times a night, working-age adults about 0.65 (DS-026)."""
+    from penjaga_sim.household import DayModifiers, _Planner
+
+    for archetype, expected in (("retired_couple", 1.6), ("young_couple", 0.65)):
+        world = new_world(archetype=archetype)
+        cisterns = {b.wc for b in world.model.bathrooms.values()}
+        visits = people = 0
+        for k in range(200):
+            planner = _Planner(world.model, archetype, START + timedelta(days=k), DayModifiers())
+            for i, o in enumerate(planner.occupants()):
+                before = len(planner.water)
+                planner.night_voids(i, o)
+                visits += sum(u.fixture in cisterns for u in planner.water[before:])
+                people += 1
+        assert visits / people == pytest.approx(expected, rel=0.12)

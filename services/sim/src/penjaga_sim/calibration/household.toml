@@ -51,6 +51,7 @@ wake_weekend = { dist = "normal", mean = 480, sd = 60, low = 360, high = 660, un
 weekend_outing_prob = { dist = "fixed", value = 0.6, unit = "1", basis = "assumption", note = "Share of weekend days with an outing (shopping, visits)." }
 weekend_outing_start = { dist = "uniform", low = 600, high = 960, unit = "min", basis = "assumption", note = "Outings start between 10:00 and 16:00." }
 weekend_outing_hours = { dist = "uniform", low = 2, high = 6, unit = "h", basis = "assumption", note = "Outing length 2-6 h." }
+night_voids_mean = { dist = "fixed", value = 0.65, unit = "1/night", basis = "derived", source = "DS-026", note = "Poisson mean fitted to working-age adults: about 42-54% wake to void at least once and 13-22% at least twice (DS-026, Hong Kong men 18-60); 57.3% of Malaysian adults report nocturia (DS-027)." }
 
 [roles.child]
 wake_weekday = { dist = "normal", mean = 375, sd = 15, low = 330, high = 420, unit = "min", basis = "assumption", note = "School-day waking around 06:15." }
@@ -61,6 +62,7 @@ wake_weekend = { dist = "normal", mean = 495, sd = 45, low = 390, high = 600, un
 weekend_outing_prob = { dist = "fixed", value = 0.5, unit = "1", basis = "assumption", note = "Children join some weekend outings." }
 weekend_outing_start = { dist = "uniform", low = 600, high = 960, unit = "min", basis = "assumption", note = "Same window as adult outings." }
 weekend_outing_hours = { dist = "uniform", low = 2, high = 5, unit = "h", basis = "assumption", note = "Outing length 2-5 h." }
+night_voids_mean = { dist = "fixed", value = 0.15, unit = "1/night", basis = "assumption", note = "School-age children rarely wake to void; no Malaysian figure found, so a low rate is assumed." }
 
 [roles.elder]
 wake_weekday = { dist = "normal", mean = 360, sd = 25, low = 300, high = 420, unit = "min", basis = "assumption", note = "Early riser around 06:00." }
@@ -70,12 +72,14 @@ outing_prob = { dist = "fixed", value = 0.25, unit = "1", basis = "assumption", 
 outing_start = { dist = "uniform", low = 450, high = 600, unit = "min", basis = "assumption", note = "Morning outings 07:30-10:00." }
 outing_hours = { dist = "uniform", low = 1, high = 3, unit = "h", basis = "assumption", note = "Outing length 1-3 h." }
 nap_prob = { dist = "fixed", value = 0.6, unit = "1", basis = "assumption", note = "Share of days with an afternoon nap (bedroom aircon may run)." }
+night_voids_mean = { dist = "fixed", value = 1.6, unit = "1/night", basis = "derived", source = "DS-026", note = "Poisson mean fitted to men over 60: 79-85% void at least once and 44-56% at least twice a night (DS-026)." }
 
 [roles.shift_worker]
 sleep_day_start = { dist = "normal", mean = 510, sd = 20, low = 470, high = 560, unit = "min", basis = "assumption", note = "After a night shift, sleeps from around 08:30." }
 wake_afternoon = { dist = "normal", mean = 900, sd = 30, low = 840, high = 960, unit = "min", basis = "assumption", note = "After day sleep, wakes around 15:00." }
 leave_evening = { dist = "normal", mean = 1290, sd = 15, low = 1260, high = 1320, unit = "min", basis = "assumption", note = "Leaves for a 22:00 shift around 21:30." }
 return_morning = { dist = "normal", mean = 450, sd = 15, low = 420, high = 480, unit = "min", basis = "assumption", note = "Returns around 07:30." }
+night_voids_mean = { dist = "fixed", value = 0.65, unit = "1/night", basis = "derived", source = "DS-026", note = "As working-age adults, applied to whichever block the shift worker sleeps in." }
 
 # ------------------------------------------------------------------ bathroom routines (per person)
 [bath]
@@ -88,6 +92,7 @@ wc_uses_per_awake_home_day = { dist = "fixed", value = 5.0, unit = "1/day", basi
 wc_full_flush_prob = { dist = "fixed", value = 0.4, unit = "1", basis = "assumption", note = "Share of full (vs half) flushes on a dual-flush cistern." }
 bidet_prob = { dist = "fixed", value = 0.85, unit = "1", basis = "assumption", note = "Hand bidet spray use per WC visit (common in Malaysian bathrooms)." }
 bidet_seconds = { dist = "uniform", low = 15, high = 45, unit = "s", basis = "assumption", note = "Spray duration per use." }
+night_basin_prob = { dist = "fixed", value = 0.5, unit = "1", basis = "assumption", note = "Share of night-time toilet visits followed by a hand wash at the basin." }
 basin_uses_per_awake_home_day = { dist = "fixed", value = 7.0, unit = "1/day", basis = "assumption", note = "Handwashing and teeth; sized with DS-013 (31.5 L/person/day for hand washing and teeth)." }
 basin_seconds = { dist = "lognormal", median = 30, sigma = 0.5, low = 5, high = 180, unit = "s", basis = "assumption", note = "Short taps; occasional long ones." }
 routine_seconds = { dist = "uniform", low = 50, high = 100, unit = "s", basis = "assumption", note = "Each session uses the basin tap at reduced flow." }

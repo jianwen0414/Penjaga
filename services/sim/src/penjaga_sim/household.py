@@ -255,15 +255,19 @@ class _Planner:
         if 0 <= start < N:
             self.water.append(WaterUse(fixture, start, min(dur, N - start), lpm, heater))
 
-    def _wc(self, bath: str, t: int) -> None:
+    def _wc(self, bath: str, t: int, g: np.random.Generator | None = None) -> None:
+        """A WC visit at ``t``: optional bidet spray, then the flush refill. Draws come from
+        ``g`` (default: the household stream)."""
+        g = self.r if g is None else g
+        cal = self.cal
         fx = self.model.bathrooms[bath]
-        if fx.bidet and self.chance("bath.bidet_prob"):
-            secs = self.p("bath.bidet_seconds")
-            self._add_water(fx.bidet, t, secs, sample(self.cal, "water.fixtures.bidet_lpm", self.r))
+        if fx.bidet and g.random() < cal.value("household.bath.bidet_prob"):
+            secs = sample(cal, "household.bath.bidet_seconds", g)
+            self._add_water(fx.bidet, t, secs, sample(cal, "water.fixtures.bidet_lpm", g))
             t += int(secs)
-        full = self.chance("bath.wc_full_flush_prob")
-        litres = self.cal.value("water.fixtures.wc_full_l" if full else "water.fixtures.wc_half_l")
-        fill = sample(self.cal, "water.fixtures.wc_fill_lpm", self.r)
+        full = g.random() < cal.value("household.bath.wc_full_flush_prob")
+        litres = cal.value("water.fixtures.wc_full_l" if full else "water.fixtures.wc_half_l")
+        fill = sample(cal, "water.fixtures.wc_fill_lpm", g)
         self._add_water(fx.wc, t + int(self.t("wc_flush_delay_s")), 60 * litres / fill, fill)
 
     # ------------------------------------------------------------------ activities
@@ -336,6 +340,25 @@ class _Planner:
                         self.p("bath.routine_seconds"),
                         sample(self.cal, "water.fixtures.routine_basin_lpm", self.r),
                     )
+
+    def night_voids(self, index: int, o: Occupant) -> None:
+        """Toilet visits while asleep (nocturia, DS-026/DS-027): a Poisson count per sleep day,
+        each a WC visit and sometimes a hand wash. Own random stream, so adding or tuning it
+        never shifts the rest of the household's day."""
+        g = rng(self.model.seed, "day", self.day.toordinal(), "night_voids", index)
+        base = "roles.worker" if o.role == "guest" else f"roles.{o.role}"
+        count = int(g.poisson(self.cal.value(f"household.{base}.night_voids_mean")))
+        if not count or not o.asleep.any():
+            return
+        times = np.sort(g.choice(np.flatnonzero(o.asleep), size=count, replace=False))
+        fx = self.model.bathrooms[o.bathroom]
+        for t in times:
+            self._wc(o.bathroom, int(t), g)
+            if g.random() < self.cal.value("household.bath.night_basin_prob"):
+                lpm = sample(self.cal, "water.fixtures.basin_lpm", g)
+                self._add_water(
+                    fx.basin, int(t) + 60, sample(self.cal, "household.bath.basin_seconds", g), lpm
+                )
 
     def kitchen(self, occ: list[Occupant]) -> None:
         awake_home = np.zeros(N, np.bool_)
@@ -610,8 +633,9 @@ def plan_day(
     """Plan one house day for ``archetype`` (deterministic in seed and date)."""
     planner = _Planner(model, archetype, day, mods or DayModifiers())
     occupants = planner.occupants()
-    for o in occupants:
+    for i, o in enumerate(occupants):
         planner.bathroom(o)
+        planner.night_voids(i, o)
     planner.kitchen(occupants)
     planner.laundry(occupants)
     planner.outdoor(occupants)
