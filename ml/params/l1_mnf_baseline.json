@@ -1,0 +1,152 @@
+{
+  "detector": "l1_mnf_baseline",
+  "params": {
+    "nights": 1,
+    "threshold_lpm": 0.02
+  },
+  "tuned_on": {
+    "suite": "l1_v0",
+    "split": "validation",
+    "generator": "penjaga-sim/2",
+    "budget_false_alarms_per_house_month": 0.5,
+    "objective": "highest recall within the false-alarm budget",
+    "date": "2026-10-16"
+  },
+  "candidates": [
+    {
+      "params": {
+        "nights": 1,
+        "threshold_lpm": 0.02
+      },
+      "recall": 0.95,
+      "precision": 1.0,
+      "false_alarms_per_house_month": 0.0
+    },
+    {
+      "params": {
+        "nights": 1,
+        "threshold_lpm": 0.03
+      },
+      "recall": 0.95,
+      "precision": 0.9743589743589743,
+      "false_alarms_per_house_month": 0.0453
+    },
+    {
+      "params": {
+        "nights": 1,
+        "threshold_lpm": 0.05
+      },
+      "recall": 0.85,
+      "precision": 1.0,
+      "false_alarms_per_house_month": 0.0
+    },
+    {
+      "params": {
+        "nights": 1,
+        "threshold_lpm": 0.08
+      },
+      "recall": 0.775,
+      "precision": 1.0,
+      "false_alarms_per_house_month": 0.0
+    },
+    {
+      "params": {
+        "nights": 1,
+        "threshold_lpm": 0.12
+      },
+      "recall": 0.7,
+      "precision": 1.0,
+      "false_alarms_per_house_month": 0.0
+    },
+    {
+      "params": {
+        "nights": 2,
+        "threshold_lpm": 0.02
+      },
+      "recall": 0.95,
+      "precision": 1.0,
+      "false_alarms_per_house_month": 0.0
+    },
+    {
+      "params": {
+        "nights": 2,
+        "threshold_lpm": 0.03
+      },
+      "recall": 0.925,
+      "precision": 1.0,
+      "false_alarms_per_house_month": 0.0
+    },
+    {
+      "params": {
+        "nights": 2,
+        "threshold_lpm": 0.05
+      },
+      "recall": 0.85,
+      "precision": 1.0,
+      "false_alarms_per_house_month": 0.0
+    },
+    {
+      "params": {
+        "nights": 2,
+        "threshold_lpm": 0.08
+      },
+      "recall": 0.75,
+      "precision": 1.0,
+      "false_alarms_per_house_month": 0.0
+    },
+    {
+      "params": {
+        "nights": 2,
+        "threshold_lpm": 0.12
+      },
+      "recall": 0.7,
+      "precision": 1.0,
+      "false_alarms_per_house_month": 0.0
+    },
+    {
+      "params": {
+        "nights": 3,
+        "threshold_lpm": 0.02
+      },
+      "recall": 0.95,
+      "precision": 1.0,
+      "false_alarms_per_house_month": 0.0
+    },
+    {
+      "params": {
+        "nights": 3,
+        "threshold_lpm": 0.03
+      },
+      "recall": 0.925,
+      "precision": 1.0,
+      "false_alarms_per_house_month": 0.0
+    },
+    {
+      "params": {
+        "nights": 3,
+        "threshold_lpm": 0.05
+      },
+      "recall": 0.85,
+      "precision": 1.0,
+      "false_alarms_per_house_month": 0.0
+    },
+    {
+      "params": {
+        "nights": 3,
+        "threshold_lpm": 0.08
+      },
+      "recall": 0.75,
+      "precision": 1.0,
+      "false_alarms_per_house_month": 0.0
+    },
+    {
+      "params": {
+        "nights": 3,
+        "threshold_lpm": 0.12
+      },
+      "recall": 0.7,
+      "precision": 1.0,
+      "false_alarms_per_house_month": 0.0
+    }
+  ]
+}

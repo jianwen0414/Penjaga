@@ -148,3 +148,25 @@ def test_burst_rule_needs_continuous_high_flow() -> None:
     assert bursts[0].safety_guidance_key == "sg_burst_pipe"
     hours = (bursts[0].first_seen.timestamp() - T0 / US) / 3600
     assert 14.4 <= hours <= 14.6  # once a 30-minute window is all high flow
+
+
+class _UnsureModel(_FixedModel):
+    """Leak certain, kind split evenly between W1 and W2."""
+
+    def predict_proba(self, x: np.ndarray) -> np.ndarray:
+        return np.array([[0.45, 0.45, 0.1]])
+
+
+def test_unsure_kind_is_reported_as_unexplained_night_flow(tmp_path: Path) -> None:
+    path = tmp_path / "unsure.pkl"
+    payload = {
+        "estimator": _UnsureModel(),
+        "classes": ["W1", "W2", "none"],
+        "features": list(FEATURES),
+        "version": "1.0.0",
+    }
+    path.write_bytes(pickle.dumps(payload))
+    flow = flow_series(2, lambda ts: np.where(night(ts), 0.3, 1.0))
+    findings = feed(L1LeakModel(HouseContext.canonical(), L1Params(artifact=str(path))), flow, 6)
+    assert findings
+    assert {f.type.value for f in findings} == {"night_flow_unexplained"}

@@ -58,6 +58,7 @@ TAPS = {
 class L1Params:
     artifact: str = ""  # path to the trained model; empty = feature collection only
     threshold: float = 0.5  # P(leak) to report; chosen on validation
+    type_confidence: float = 0.6  # share of P(leak) the top kind needs to be named; validation
     clear_nights: int = 2
     burst_lpm: float = 6.0
     burst_window_s: float = 1800.0
@@ -160,7 +161,9 @@ class L1LeakModel:
             self.state.quiet = 0
             leak_classes = [c for c in classes if c != "none"]
             best = max(leak_classes, key=lambda c: proba[classes.index(c)])
-            self._observe_leak(row, best, p_leak, t0, t1)
+            # unsure which kind of leak: say "unexplained night flow" rather than guess a kind
+            share = float(proba[classes.index(best)]) / p_leak
+            self._observe_leak(row, best, p_leak, t0, t1, specific=share >= self.p.type_confidence)
         elif self.tracker.is_open(self.leak_key):
             self.state.quiet += 1
             if self.state.quiet >= self.p.clear_nights:
@@ -168,7 +171,7 @@ class L1LeakModel:
                 self.state.quiet = 0
 
     def _observe_leak(
-        self, row: dict[str, float], leak: str, p_leak: float, t0: int, t1: int
+        self, row: dict[str, float], leak: str, p_leak: float, t0: int, t1: int, *, specific: bool
     ) -> None:
         candidates = self._candidates(leak)
         evidence: list[dict[str, Any]] = [
@@ -183,7 +186,7 @@ class L1LeakModel:
             self.tracker.observe(
                 Observation(
                     key=self.leak_key,
-                    type=LEAK_TYPES[leak],
+                    type=LEAK_TYPES[leak] if specific else "night_flow_unexplained",
                     severity="act_soon" if leak == "W5" else "heads_up",
                     confidence=p_leak,
                     confidence_kind="calibrated_probability",

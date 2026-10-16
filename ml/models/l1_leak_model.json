@@ -1,0 +1,50 @@
+{
+  "model": "l1_leak_model",
+  "version": "1.0.0",
+  "artifact": "ml/artifacts/l1_leak_model.pkl",
+  "artifact_sha256": "32ae25a92fb7bcadb7f3949f984ca053703ae97e51c9d5a758e84f1aa1107502",
+  "trained_on": {
+    "suite": "l1_v0",
+    "split": "train",
+    "generator": "penjaga-sim/2",
+    "episodes": 72,
+    "nights": 1008,
+    "labels": {
+      "W1": 103,
+      "W2": 100,
+      "W3": 102,
+      "W4": 91,
+      "W5": 100,
+      "none": 512
+    }
+  },
+  "estimator": {
+    "kind": "HistGradientBoostingClassifier + CalibratedClassifierCV(temperature)",
+    "learning_rate": 0.05,
+    "max_iter": 300,
+    "class_weight": "balanced",
+    "calibration_folds": "GroupKFold(5) by episode",
+    "seed": 0,
+    "scikit_learn": "1.9.1"
+  },
+  "features": [
+    "mnf",
+    "q50",
+    "frac_flowing",
+    "n_events",
+    "event_litres_median",
+    "event_litres_max",
+    "longest_run_min",
+    "interval_median_min",
+    "interval_cv",
+    "max_flow",
+    "tank_slope_pct_per_h",
+    "tank_level_mean",
+    "pressure_mean",
+    "day_min",
+    "mnf_delta",
+    "frac_flowing_delta",
+    "mnf_trend"
+  ],
+  "created": "2026-10-16T02:34:09+00:00"
+}

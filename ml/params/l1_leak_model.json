@@ -1,0 +1,92 @@
+{
+  "detector": "l1_leak_model",
+  "params": {
+    "artifact": "ml/artifacts/l1_leak_model.pkl",
+    "threshold": 0.8,
+    "type_confidence": 0.9,
+    "burst_lpm": 6,
+    "burst_window_s": 3600
+  },
+  "tuned_on": {
+    "suite": "l1_v0",
+    "split": "validation",
+    "generator": "penjaga-sim/2",
+    "budget_false_alarms_per_house_month": 0.5,
+    "objective": "highest recall within the false-alarm budget",
+    "date": "2026-10-16"
+  },
+  "candidates": [
+    {
+      "params": {
+        "burst_lpm": 6,
+        "burst_window_s": 1800
+      },
+      "recall": 0.95,
+      "precision": 0.9066666666666666,
+      "false_alarms_per_house_month": 0.3171
+    },
+    {
+      "params": {
+        "burst_lpm": 6,
+        "burst_window_s": 3600
+      },
+      "recall": 0.95,
+      "precision": 1.0,
+      "false_alarms_per_house_month": 0.0
+    },
+    {
+      "params": {
+        "burst_lpm": 6,
+        "burst_window_s": 5400
+      },
+      "recall": 0.95,
+      "precision": 1.0,
+      "false_alarms_per_house_month": 0.0
+    },
+    {
+      "params": {
+        "burst_lpm": 6,
+        "burst_window_s": 7200
+      },
+      "recall": 0.95,
+      "precision": 1.0,
+      "false_alarms_per_house_month": 0.0
+    },
+    {
+      "params": {
+        "burst_lpm": 10,
+        "burst_window_s": 1800
+      },
+      "recall": 0.95,
+      "precision": 0.9855072463768116,
+      "false_alarms_per_house_month": 0.0453
+    },
+    {
+      "params": {
+        "burst_lpm": 10,
+        "burst_window_s": 3600
+      },
+      "recall": 0.95,
+      "precision": 1.0,
+      "false_alarms_per_house_month": 0.0
+    },
+    {
+      "params": {
+        "burst_lpm": 10,
+        "burst_window_s": 5400
+      },
+      "recall": 0.95,
+      "precision": 1.0,
+      "false_alarms_per_house_month": 0.0
+    },
+    {
+      "params": {
+        "burst_lpm": 10,
+        "burst_window_s": 7200
+      },
+      "recall": 0.95,
+      "precision": 1.0,
+      "false_alarms_per_house_month": 0.0
+    }
+  ]
+}
