@@ -35,12 +35,16 @@ from penjaga_contract.lab import (
     RandomFaultRequest,
     ResetRequest,
     ResetResponse,
+    ScenarioApplied,
+    ScenarioPreset,
+    ScenarioRequest,
     SimHealth,
     SimStatus,
     TruthRecord,
 )
 from penjaga_sim import GENERATOR_VERSION
 from penjaga_sim.faults import ActiveFault, catalogue
+from penjaga_sim.scenarios import UnknownScenarioError
 from penjaga_sim.service import NoWorldError, SimService, WorldReset, fault_view
 from penjaga_sim.stream_client import StreamUnavailableError
 from penjaga_sim.world import UnknownFaultError, WorldConflictError, WorldError
@@ -114,6 +118,7 @@ def create_app(service: SimService, *, operator_token: str, autostart: bool = Tr
     # Starlette picks the handler of the nearest class in the exception's MRO
     app.add_exception_handler(NoWorldError, error(status.HTTP_503_SERVICE_UNAVAILABLE))
     app.add_exception_handler(UnknownFaultError, error(status.HTTP_404_NOT_FOUND))
+    app.add_exception_handler(UnknownScenarioError, error(status.HTTP_404_NOT_FOUND))
     app.add_exception_handler(WorldConflictError, error(status.HTTP_409_CONFLICT))
     app.add_exception_handler(WorldError, error(status.HTTP_422_UNPROCESSABLE_CONTENT))
     app.add_exception_handler(StreamUnavailableError, error(status.HTTP_502_BAD_GATEWAY))
@@ -180,6 +185,24 @@ def create_app(service: SimService, *, operator_token: str, autostart: bool = Tr
         clock = await service.reset(request)
         response = {"clock": clock.model_dump(mode="json"), "status": service.status()}
         return document(response, api, "ResetResponse")
+
+    @app.get(f"{PREFIX}/scenarios", dependencies=auth, response_model=list[ScenarioPreset])
+    async def get_scenarios() -> JSONResponse:
+        docs = [s.document() for s in service.scenarios().values()]
+        return document(docs, api, "ScenarioPreset", many=True)
+
+    @app.post(
+        f"{PREFIX}/scenarios/{{name}}/apply", dependencies=auth, response_model=ScenarioApplied
+    )
+    async def post_scenario(name: str, body: ScenarioRequest) -> JSONResponse:
+        applied = await service.apply_scenario(
+            name,
+            seed=body.seed,
+            start=body.start,
+            mode=DEFAULT_MODE if body.mode is None else body.mode,
+            speed=DEFAULT_SPEED if body.speed is None else body.speed,
+        )
+        return document(applied, api, "ScenarioApplied")
 
     @app.get(f"{PREFIX}/truth", dependencies=auth, response_model=list[TruthRecord])
     async def get_truth() -> JSONResponse:

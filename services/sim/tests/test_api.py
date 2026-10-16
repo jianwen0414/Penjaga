@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,7 @@ from jsonschema import Draft202012Validator
 
 from penjaga_contract import schema_registry
 from penjaga_sim.api import ContractViolationError, create_app, document
+from penjaga_sim.scenarios import period_start
 from penjaga_sim.service import SimConfig, SimService
 from penjaga_sim.stream_client import StreamUnavailableError
 from penjaga_sim.testing import START, FakeStream, at, fault
@@ -210,3 +212,47 @@ def test_openapi_documents_the_control_plane(h: Harness) -> None:
     paths = h.client.get("/sim/v1/openapi.json").json()["paths"]
     for path in ("/sim/v1/faults", "/sim/v1/faults/random", "/sim/v1/world/reset", "/sim/v1/truth"):
         assert path in paths
+
+
+# ---------------------------------------------------------------------------- scenario presets
+
+
+def test_scenario_presets_are_listed(h: Harness) -> None:
+    presets = h.get("/scenarios").json()
+    for p in presets:
+        check(p, "sim_api.schema.json#/$defs/ScenarioPreset")
+    names = {p["name"] for p in presets}
+    assert {"quiet_baseline", "leaky_bathroom", "hot_spell_aircon", "surprise"} <= names
+
+
+def test_applying_a_preset_resets_and_draws_reproducibly(h: Harness) -> None:
+    h.step()
+    body = {"seed": 11, "start": at(START, 0.0).isoformat(), "speed": 600}
+    first = h.post("/scenarios/leaky_bathroom/apply", body)
+    assert first.status_code == 200, first.text
+    applied = first.json()
+    check(applied, "sim_api.schema.json#/$defs/ScenarioApplied")
+    assert applied["seed"] == 11
+    assert applied["status"]["archetype"] == "working_family"
+    (fault_view,) = applied["faults"]
+    assert fault_view["spec"]["fault_type"] in {"W1", "W2"}
+    start = datetime.fromisoformat(fault_view["start"])
+    assert at(START, 12.0) <= start <= at(START, 72.0)  # start_day in [0.5, 3.0]
+    again = h.post("/scenarios/leaky_bathroom/apply", body).json()
+    assert again["faults"][0]["spec"] | {"fault_id": None} == fault_view["spec"] | {
+        "fault_id": None
+    }
+    assert again["clock"]["episode"] == applied["clock"]["episode"] + 1
+
+
+def test_presets_with_anomalies_and_fixed_periods(h: Harness) -> None:
+    h.step()
+    away = h.post("/scenarios/burst_while_away/apply", {"seed": 3}).json()
+    assert len(away["anomalies"]) == 1
+    assert [f["spec"]["fault_type"] for f in away["faults"]] == ["W5"]
+    hot = h.post("/scenarios/hot_spell_aircon/apply", {"seed": 3})
+    assert hot.status_code == 200, hot.text
+    assert hot.json()["clock"]["episode_start"].startswith(period_start("hottest_week").isoformat())
+    fixed = {"start": at(START).isoformat()}
+    assert h.post("/scenarios/hot_spell_aircon/apply", fixed).status_code == 422
+    assert h.post("/scenarios/nope/apply", {}).status_code == 404

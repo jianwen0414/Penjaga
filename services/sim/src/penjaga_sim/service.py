@@ -24,6 +24,7 @@ import contextlib
 import json
 import logging
 import os
+import secrets
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -36,6 +37,8 @@ from penjaga_contract import schema_registry
 from penjaga_contract.core import ClockMode, ClockState, ResetCommand
 from penjaga_contract.lab import AnomalySpec, FaultSpec
 from penjaga_contract.validate import load_context
+from penjaga_sim import scenarios
+from penjaga_sim.calibration import load_calibration
 from penjaga_sim.export import SeqCounters, ingest_messages
 from penjaga_sim.faults import ActiveFault, random_spec, spec_document
 from penjaga_sim.rng import rng
@@ -142,23 +145,26 @@ class SimService:
     async def reset(self, request: WorldReset) -> ClockState:
         """Reset M4 to a new episode and start a matching world."""
         async with self.lock:
-            previous = (self.seed, self.archetype, self.enabled_sensors)
-            if request.seed is not None:
-                self.seed = request.seed
-            if request.archetype is not None:
-                self.archetype = request.archetype
-            self.enabled_sensors = request.enabled_sensors
-            try:
-                # check the configuration before touching M4, so a bad request changes nothing
-                self._new_world(house_date(request.start))
-                clock = await self.client.reset(
-                    ResetCommand(start=request.start, mode=request.mode, speed=request.speed)
-                )
-            except Exception:
-                self.seed, self.archetype, self.enabled_sensors = previous
-                raise
-            self._adopt(clock)
-            return clock
+            return await self._reset_locked(request)
+
+    async def _reset_locked(self, request: WorldReset) -> ClockState:
+        previous = (self.seed, self.archetype, self.enabled_sensors)
+        if request.seed is not None:
+            self.seed = request.seed
+        if request.archetype is not None:
+            self.archetype = request.archetype
+        self.enabled_sensors = request.enabled_sensors
+        try:
+            # check the configuration before touching M4, so a bad request changes nothing
+            self._new_world(house_date(request.start))
+            clock = await self.client.reset(
+                ResetCommand(start=request.start, mode=request.mode, speed=request.speed)
+            )
+        except Exception:
+            self.seed, self.archetype, self.enabled_sensors = previous
+            raise
+        self._adopt(clock)
+        return clock
 
     # ------------------------------------------------------------------ publishing
 
@@ -227,6 +233,60 @@ class SimService:
             self.random_draws += 1
             self._write_truth()
             return fault
+
+    async def apply_scenario(
+        self,
+        name: str,
+        *,
+        seed: int | None,
+        start: datetime | None,
+        mode: ClockMode,
+        speed: float,
+    ) -> dict[str, Any]:
+        """Reset to a preset's household and period, then draw its faults and anomalies
+        (``scenarios.toml``); everything under one lock, so nothing is published in between."""
+        presets = self.scenarios()
+        if name not in presets:
+            raise scenarios.UnknownScenarioError(f"no scenario preset {name!r}")
+        scenario = presets[name]
+        async with self.lock:
+            zone = ZoneInfo(load_context().house.location.timezone)
+            if scenario.period != "any":
+                if start is not None:
+                    raise WorldError(f"{name} starts in its {scenario.period}; omit 'start'")
+                start = scenarios.start_of(scenarios.period_start(scenario.period), zone)
+            elif start is None:
+                today = house_date((await self.client.clock()).house_time)
+                start = scenarios.start_of(today, zone)
+            chosen = secrets.randbelow(2**53) if seed is None else seed
+            reset = WorldReset(start, mode, speed, chosen, scenario.archetype, None)
+            clock = await self._reset_locked(reset)
+            world = self.require_world()
+            faults = []
+            for i, draw in enumerate(scenario.faults):
+                r = rng(chosen, "scenario", name, i)
+                fault_type = str(r.choice(draw.types))
+                when = start + timedelta(days=float(r.uniform(*draw.start_day)))
+                spec = random_spec(world.model, fault_type, when, r)
+                faults.append(world.inject(spec, now_us=self._now_us(world)))
+            records = [
+                world.impose(AnomalySpec.model_validate(scenarios.anomaly_document(a, start)))
+                for a in scenario.anomalies
+            ]
+            self._write_truth()
+            return {
+                "preset": name,
+                "seed": chosen,
+                "clock": clock.model_dump(mode="json"),
+                "status": self.status(),
+                "faults": [fault_view(world, f, world.published_until_us) for f in faults],
+                "anomalies": records,
+            }
+
+    @staticmethod
+    def scenarios() -> dict[str, scenarios.Scenario]:
+        archetypes = frozenset(load_calibration().table("household.archetypes"))
+        return scenarios.load_scenarios(archetypes)
 
     async def clear(self, fault_id: str) -> ActiveFault:
         async with self.lock:

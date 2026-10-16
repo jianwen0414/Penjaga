@@ -1,0 +1,66 @@
+# Scenario presets for the Lab (PRD §13): a household, a weather period, and faults *drawn*
+# at random from the calibrated catalogue (type, location, magnitude, start), never scripted
+# outcomes. Applying a preset resets the world. The same seed gives the same draws.
+#
+# period: "any" starts on the requested date (default: today in house time). "hottest_week" /
+#   "wettest_week" start on the week with the highest 7-day mean temperature / precipitation in
+#   the latest year of the cached weather record (DS-009), computed from the data.
+# faults: each entry adds one fault of a type drawn uniformly from `types`, starting a uniform
+#   number of days after the start within `start_day`.
+# anomalies: legitimate behaviour imposed on whole days (`start_day` is a whole day offset).
+
+[quiet_baseline]
+description = "Normal life with no faults: what every detector must stay quiet on."
+archetype = "working_family"
+
+[leaky_bathroom]
+description = "One water fault drawn at random, a dripping fixture or a running cistern, starting in the first three days."
+archetype = "working_family"
+faults = [{ types = ["W1", "W2"], start_day = [0.5, 3.0] }]
+
+[hidden_leak]
+description = "A leak on a concealed pipe or a stuck tank float valve, starting in the first three days."
+archetype = "young_couple"
+faults = [{ types = ["W3", "W4"], start_day = [0.5, 3.0] }]
+
+[burst_while_away]
+description = "The family is away for three days and a pipe bursts while the house is empty."
+archetype = "working_family"
+anomalies = [{ type = "holiday_absence", start_day = 1, days = 3 }]
+faults = [{ types = ["W5"], start_day = [1.5, 3.5] }]
+
+[hot_spell_aircon]
+description = "The hottest week in the weather record; one air conditioner loses efficiency."
+archetype = "working_family"
+period = "hottest_week"
+faults = [{ types = ["A1", "A2"], start_day = [0.5, 2.0] }]
+
+[wet_spell_power]
+description = "The wettest week in the weather record, with a power cut and a circuit that trips repeatedly."
+archetype = "large_family"
+period = "wettest_week"
+faults = [
+    { types = ["U3"], start_day = [0.5, 3.0] },
+    { types = ["E3"], start_day = [0.5, 3.0] },
+]
+
+[elderly_home_electrical]
+description = "A retired couple's home with an overloaded circuit or slowly rising earth leakage."
+archetype = "retired_couple"
+faults = [{ types = ["E1", "E2"], start_day = [0.5, 3.0] }]
+
+[festive_gathering]
+description = "Two days of festive cooking with guests (legitimate heavy use), and one fault drawn from any layer."
+archetype = "large_family"
+anomalies = [
+    { type = "festive_cooking", start_day = 1, days = 2 },
+    { type = "guests", start_day = 1, days = 2 },
+]
+faults = [{ types = ["W2", "W4", "E1", "A3", "U1"], start_day = [0.5, 4.0] }]
+
+[surprise]
+description = "One fault of any type, anywhere, starting within two days."
+archetype = "working_family"
+faults = [
+    { types = ["W1", "W2", "W3", "W4", "W5", "E1", "E2", "E3", "A1", "A2", "A3", "A4", "U1", "U2", "U3"], start_day = [0.5, 2.0] },
+]
