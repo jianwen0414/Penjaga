@@ -1,8 +1,12 @@
 """``/sim/v1``: the simulator control plane the Lab calls (operator role only).
 
-Fault and anomaly bodies are the contract's lab types (FaultSpec, AnomalySpec). The remaining
-request and response shapes are defined here and published in the OpenAPI document
-(``/sim/v1/openapi.json``) until they are agreed for the contract (D-019).
+Every request and response body is a contract lab type (``lab/sim_api.schema.json``,
+``FaultSpec``, ``AnomalySpec``, ``TruthRecord``), so the Lab UI uses the generated TypeScript
+types. The OpenAPI document is served at ``/sim/v1/openapi.json``.
+
+Responses are the service's own contract documents, checked against the JSON Schema before
+they leave (a violation is a server bug: 500). They are not re-serialised through the
+generated models, which would add nulls the schema forbids.
 
 Errors: 401 without the operator token; 404 unknown fault; 409 conflicts with published house
 time; 422 invalid request; 502 the stream service failed; 503 no episode yet.
@@ -19,12 +23,24 @@ from typing import Annotated, Any
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
-from penjaga_contract.core import ClockMode, ClockState
-from penjaga_contract.lab import AnomalySpec, FaultSpec, FaultType
+from penjaga_contract import schema_registry
+from penjaga_contract.core import ClockMode
+from penjaga_contract.lab import (
+    AnomalyCreated,
+    AnomalySpec,
+    CatalogueEntry,
+    FaultSpec,
+    FaultView,
+    RandomFaultRequest,
+    ResetRequest,
+    ResetResponse,
+    SimHealth,
+    SimStatus,
+    TruthRecord,
+)
 from penjaga_sim import GENERATOR_VERSION
-from penjaga_sim.faults import catalogue
+from penjaga_sim.faults import ActiveFault, catalogue
 from penjaga_sim.service import NoWorldError, SimService, WorldReset, fault_view
 from penjaga_sim.stream_client import StreamUnavailableError
 from penjaga_sim.world import UnknownFaultError, WorldConflictError, WorldError
@@ -33,43 +49,25 @@ PREFIX = "/sim/v1"
 BEARER = HTTPBearer(auto_error=False)  # module level: FastAPI resolves annotations here
 
 
-class _Body(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+# The generated ResetRequest also accepts an explicit null for optional fields
+# (datamodel-codegen makes them nullable); null means the service default.
+DEFAULT_MODE: ClockMode = WorldReset.mode
+DEFAULT_SPEED: float = WorldReset.speed
 
 
-class ResetRequest(_Body):
-    """Start a new episode: M4's clock and store are reset, and a fresh world begins."""
-
-    start: AwareDatetime
-    mode: ClockMode = ClockMode.accelerated
-    speed: Annotated[float, Field(gt=0, le=86_400)] = 60.0
-    seed: Annotated[int | None, Field(ge=0, le=2**53 - 1)] = None
-    archetype: str | None = None
-    enabled_sensor_ids: list[str] | None = Field(
-        default=None, description="Sensor-kit ablation; omit for the full kit."
-    )
+class ContractViolationError(RuntimeError):
+    """The simulator produced a response that breaks the contract (a bug, never the caller's)."""
 
 
-class RandomFaultRequest(_Body):
-    fault_type: FaultType
-    start_at: AwareDatetime | None = Field(default=None, description="Omit for 'now'.")
-
-
-class FaultView(BaseModel):
-    fault_id: str
-    spec: dict[str, Any]
-    start: str
-    end: str | None
-    state: str = Field(description="scheduled, active or ended, relative to published time")
-
-
-class AnomalyCreated(BaseModel):
-    record_id: str
-
-
-class ResetResponse(BaseModel):
-    clock: ClockState
-    status: dict[str, Any]
+def document(
+    doc: Any, schema: str, definition: str | None = None, *, many: bool = False, code: int = 200
+) -> JSONResponse:
+    """``doc`` as the response, after full JSON Schema validation against the lab contract."""
+    for item in doc if many else [doc]:
+        problems = schema_registry.error_messages("lab", schema, item, definition)
+        if problems:
+            raise ContractViolationError(f"{definition or schema}: {'; '.join(problems)}")
+    return JSONResponse(doc, status_code=code)
 
 
 def create_app(service: SimService, *, operator_token: str, autostart: bool = True) -> FastAPI:
@@ -120,66 +118,71 @@ def create_app(service: SimService, *, operator_token: str, autostart: bool = Tr
     app.add_exception_handler(WorldError, error(status.HTTP_422_UNPROCESSABLE_CONTENT))
     app.add_exception_handler(StreamUnavailableError, error(status.HTTP_502_BAD_GATEWAY))
 
-    @app.get(f"{PREFIX}/health")
-    async def health() -> dict[str, Any]:
+    api = "sim_api"
+
+    @app.get(f"{PREFIX}/health", response_model=SimHealth)
+    async def health() -> JSONResponse:
         # unauthenticated: nothing here may help reconstruct the world (no seed, no faults)
-        return {"status": "ok", "episode": service.episode, "generator": GENERATOR_VERSION}
+        body = {"status": "ok", "episode": service.episode, "generator": GENERATOR_VERSION}
+        return document(body, api, "SimHealth")
 
-    @app.get(f"{PREFIX}/status", dependencies=auth)
-    async def get_status() -> dict[str, Any]:
-        return service.status()
+    @app.get(f"{PREFIX}/status", dependencies=auth, response_model=SimStatus)
+    async def get_status() -> JSONResponse:
+        return document(service.status(), api, "SimStatus")
 
-    @app.get(f"{PREFIX}/faults/catalogue", dependencies=auth)
-    async def get_catalogue() -> list[dict[str, Any]]:
+    @app.get(f"{PREFIX}/faults/catalogue", dependencies=auth, response_model=list[CatalogueEntry])
+    async def get_catalogue() -> JSONResponse:
         world = service.require_world()
-        return catalogue(world.model)
+        return document(catalogue(world.model), api, "CatalogueEntry", many=True)
+
+    def view(fault: ActiveFault, code: int = 200) -> JSONResponse:
+        world = service.require_world()
+        return document(
+            fault_view(world, fault, world.published_until_us), api, "FaultView", code=code
+        )
 
     @app.post(f"{PREFIX}/faults", dependencies=auth, status_code=201, response_model=FaultView)
-    async def post_fault(spec: FaultSpec) -> dict[str, Any]:
-        fault = await service.inject(spec)
-        world = service.require_world()
-        return fault_view(world, fault, world.published_until_us)
+    async def post_fault(spec: FaultSpec) -> JSONResponse:
+        return view(await service.inject(spec), 201)
 
     @app.post(
         f"{PREFIX}/faults/random", dependencies=auth, status_code=201, response_model=FaultView
     )
-    async def post_random_fault(body: RandomFaultRequest) -> dict[str, Any]:
-        fault = await service.inject_random(body.fault_type.value, body.start_at)
-        world = service.require_world()
-        return fault_view(world, fault, world.published_until_us)
+    async def post_random_fault(body: RandomFaultRequest) -> JSONResponse:
+        return view(await service.inject_random(body.fault_type.value, body.start_at), 201)
 
     @app.get(f"{PREFIX}/faults", dependencies=auth, response_model=list[FaultView])
-    async def get_faults() -> list[dict[str, Any]]:
-        return service.faults()
+    async def get_faults() -> JSONResponse:
+        return document(service.faults(), api, "FaultView", many=True)
 
     @app.delete(f"{PREFIX}/faults/{{fault_id}}", dependencies=auth, response_model=FaultView)
-    async def delete_fault(fault_id: str) -> dict[str, Any]:
-        fault = await service.clear(fault_id)
-        world = service.require_world()
-        return fault_view(world, fault, world.published_until_us)
+    async def delete_fault(fault_id: str) -> JSONResponse:
+        return view(await service.clear(fault_id))
 
     @app.post(
         f"{PREFIX}/anomalies", dependencies=auth, status_code=201, response_model=AnomalyCreated
     )
-    async def post_anomaly(spec: AnomalySpec) -> AnomalyCreated:
-        return AnomalyCreated(record_id=await service.impose(spec))
+    async def post_anomaly(spec: AnomalySpec) -> JSONResponse:
+        body = {"record_id": await service.impose(spec)}
+        return document(body, api, "AnomalyCreated", code=201)
 
     @app.post(f"{PREFIX}/world/reset", dependencies=auth, response_model=ResetResponse)
-    async def post_reset(body: ResetRequest) -> ResetResponse:
+    async def post_reset(body: ResetRequest) -> JSONResponse:
         sensors = None if body.enabled_sensor_ids is None else frozenset(body.enabled_sensor_ids)
         request = WorldReset(
             start=body.start,
-            mode=body.mode,
-            speed=body.speed,
+            mode=DEFAULT_MODE if body.mode is None else body.mode,
+            speed=DEFAULT_SPEED if body.speed is None else body.speed,
             seed=body.seed,
             archetype=body.archetype,
             enabled_sensors=sensors,
         )
         clock = await service.reset(request)
-        return ResetResponse(clock=clock, status=service.status())
+        response = {"clock": clock.model_dump(mode="json"), "status": service.status()}
+        return document(response, api, "ResetResponse")
 
-    @app.get(f"{PREFIX}/truth", dependencies=auth)
-    async def get_truth() -> list[dict[str, Any]]:
-        return service.truth_records()
+    @app.get(f"{PREFIX}/truth", dependencies=auth, response_model=list[TruthRecord])
+    async def get_truth() -> JSONResponse:
+        return document(service.truth_records(), "truth_record", many=True)
 
     return app

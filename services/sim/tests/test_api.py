@@ -8,13 +8,16 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from jsonschema import Draft202012Validator
 
-from penjaga_sim.api import create_app
+from penjaga_contract import schema_registry
+from penjaga_sim.api import ContractViolationError, create_app, document
 from penjaga_sim.service import SimConfig, SimService
 from penjaga_sim.stream_client import StreamUnavailableError
 from penjaga_sim.testing import START, FakeStream, at, fault
 
 TOKEN = "test-operator-token-0123456789"
+LAB = "https://penjaga.invalid/contract/lab/"
 AUTH = {"Authorization": f"Bearer {TOKEN}"}
 
 
@@ -47,6 +50,51 @@ def h(tmp_path: Path) -> Iterator[Harness]:
 
 def spec_doc(spec: Any) -> dict[str, Any]:
     return {**spec.model_dump(mode="json", exclude_none=True), "location_id": spec.location_id}
+
+
+def check(instance: Any, ref: str) -> None:
+    """Full JSON Schema validation (the generated models are laxer, e.g. on nulls)."""
+    validator = Draft202012Validator(
+        {"$ref": LAB + ref},
+        registry=schema_registry.registry(),
+        format_checker=schema_registry.FORMAT_CHECKER,
+    )
+    errors = [e.message for e in validator.iter_errors(instance)]
+    assert errors == [], (ref, errors)
+
+
+def test_responses_follow_the_contract(h: Harness, location: Any) -> None:
+    api = "sim_api.schema.json#/$defs/"
+    check(h.client.get("/sim/v1/health").json(), api + "SimHealth")
+    check(h.get("/status").json(), api + "SimStatus")  # before the first step: nulls
+    h.step()
+    check(h.get("/status").json(), api + "SimStatus")
+    catalogue = h.get("/faults/catalogue").json()
+    assert catalogue
+    for entry in catalogue:
+        check(entry, api + "CatalogueEntry")
+    r = h.post("/faults", spec_doc(fault("W2", location("W2"), 0.3, at(START, 9.0))))
+    check(r.json(), api + "FaultView")
+    r = h.post("/faults/random", {"fault_type": "U3", "start_at": None})
+    assert r.status_code == 201, r.text
+    check(r.json(), api + "FaultView")
+    for view in h.get("/faults").json():
+        check(view, api + "FaultView")
+    h.step(2 * 3600)
+    for record in h.get("/truth").json():
+        check(record, "truth_record.schema.json")
+    r = h.post("/world/reset", {"start": at(START, 0.0).isoformat(), "mode": None, "speed": None})
+    assert r.status_code == 200, r.text
+    check(r.json(), api + "ResetResponse")
+    assert r.json()["clock"]["mode"] == "accelerated"
+
+
+def test_a_response_that_breaks_the_contract_is_a_server_bug() -> None:
+    with pytest.raises(ContractViolationError, match="AnomalyCreated"):
+        document({"record_id": ""}, "sim_api", "AnomalyCreated")
+    with pytest.raises(ContractViolationError):
+        document([{"record_id": "tr_1"}, {}], "sim_api", "AnomalyCreated", many=True)
+    assert document({"record_id": "tr_1"}, "sim_api", "AnomalyCreated").status_code == 200
 
 
 def test_health_is_public_and_reveals_nothing(h: Harness) -> None:
