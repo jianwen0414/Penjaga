@@ -63,7 +63,7 @@ def night_rows(path: Path, house: HouseContext) -> tuple[list[npt.NDArray[np.flo
 def dataset(
     suite: Suite, split: str, root: Path, workers: int | None = None
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.str_], npt.NDArray[np.int64]]:
-    paths = episodes.ensure(manifests(suite, split), root, workers)
+    paths = episodes.ensure(manifests(suite, split), root, workers, suite.streams)
     house = HouseContext.canonical()
     xs: list[npt.NDArray[np.float64]] = []
     ys: list[str] = []

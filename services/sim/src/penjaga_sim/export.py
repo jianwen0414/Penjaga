@@ -18,10 +18,11 @@ timestamp (the end of its period) falls in that window.
 
 from __future__ import annotations
 
+import fnmatch
 import json
 import shutil
 import time
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -163,6 +164,8 @@ def _day_table(out: DayOutput, t0_us: int, t1_us: int, stream_ids: list[str]) ->
     code = {sid: i for i, sid in enumerate(stream_ids)}
     streams, ts, values, quality = [], [], [], []
     for sid, sd in out.streams.items():
+        if sid not in code:
+            continue  # not kept for this episode (storage filter)
         t = _timestamps(sd)
         keep = (t > t0_us) & (t <= t1_us)
         n = int(keep.sum())
@@ -250,11 +253,29 @@ def _publish(partial: Path, out_dir: Path, attempts: int = 20) -> None:
             time.sleep(0.25 * (attempt + 1))
 
 
+def kept_streams(manifest: EpisodeManifest, patterns: Sequence[str] | None) -> list[str]:
+    """Sampled streams of the manifest's sensor kit that match ``patterns`` (fnmatch), sorted.
+    ``patterns`` None keeps them all. A storage choice only: the physics is unchanged."""
+    ctx = load_context()
+    enabled = set(manifest.enabled_sensor_ids)
+    ids = [
+        s.id for s in ctx.catalogue.streams if s.kind.value == "sampled" and s.sensor_id in enabled
+    ]
+    if patterns is not None:
+        ids = [i for i in ids if any(fnmatch.fnmatchcase(i, pat) for pat in patterns)]
+    return sorted(ids)
+
+
 def run_episode(
-    manifest: EpisodeManifest, out_dir: Path, *, overwrite: bool = False
+    manifest: EpisodeManifest,
+    out_dir: Path,
+    *,
+    overwrite: bool = False,
+    streams: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """Generate an episode into ``out_dir`` (written to a sibling then renamed, so a directory
-    that exists is always complete). Returns summary statistics."""
+    that exists is always complete). ``streams`` (fnmatch patterns) limits which sampled
+    streams are stored. Returns summary statistics."""
     if out_dir.exists():
         if not overwrite:
             raise FileExistsError(f"{out_dir} exists")
@@ -267,7 +288,7 @@ def run_episode(
     world = world_for(manifest)
     t0, t1 = episode_window(manifest)
     counters = SeqCounters()
-    stream_ids = sorted(s.id for s in world.streams)
+    stream_ids = kept_streams(manifest, streams)
     days: list[dict[str, Any]] = []
     n_readings = n_events = 0
     with (

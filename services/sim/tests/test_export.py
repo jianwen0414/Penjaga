@@ -233,3 +233,18 @@ def test_manifest_faults_must_start_after_the_episode_start(location: Any) -> No
         world_for(manifest(faults=[at_start.model_dump(mode="json")]))
     just_after = fault("U3", None, 1, at(START, 1 / 3600), duration_s=600)
     world_for(manifest(faults=[just_after.model_dump(mode="json")]))
+
+
+def test_episode_can_store_only_selected_streams(tmp_path: Path) -> None:
+    m = manifest(duration_days=0.1)
+    run_episode(m, tmp_path / "ep", streams=["water.*", "elec.appliance.*"])
+    meta = json.loads((tmp_path / "ep" / "observed" / "meta.json").read_text())
+    assert meta["streams"] == [
+        "elec.appliance.app_fridge_kitchen.power_w",
+        "water.main.flow_lpm",
+        "water.main.pressure_bar",
+        "water.tank.level_pct",
+    ]
+    table = pq.read_table(tmp_path / "ep" / "observed" / "readings.parquet")
+    stored = set(pc.unique(table.column("stream").cast(pa.string())).to_pylist())
+    assert stored == set(meta["streams"])

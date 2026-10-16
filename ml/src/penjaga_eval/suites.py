@@ -57,6 +57,7 @@ class Suite:
     anomaly_days: tuple[int, int]
     splits: dict[str, SplitSpec]
     sensors: tuple[str, ...] | None = None  # sensor kit; None = the full kit
+    streams: tuple[str, ...] | None = None  # stored streams (fnmatch); None = all of the kit
 
     @property
     def seed(self) -> int:
@@ -90,6 +91,7 @@ def load_suite(name: str, directory: Path = SUITES_DIR) -> Suite:
         anomaly_days=(int(raw["anomaly_days"][0]), int(raw["anomaly_days"][1])),
         splits=splits,
         sensors=tuple(raw["sensors"]) if "sensors" in raw else None,
+        streams=tuple(raw["streams"]) if "streams" in raw else None,
     )
     _check(suite)
     return suite

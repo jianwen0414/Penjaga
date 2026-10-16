@@ -10,12 +10,13 @@ from __future__ import annotations
 import json
 import os
 import shutil
+from collections.abc import Sequence
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from penjaga_contract.lab import EpisodeManifest
 from penjaga_sim import GENERATOR_VERSION
-from penjaga_sim.export import manifest_document, run_episode
+from penjaga_sim.export import kept_streams, manifest_document, run_episode
 
 DEFAULT_ROOT = Path("var/eval/episodes")
 MIN_FREE_BYTES = 5 * 1024**3  # never let generation fill the disk
@@ -41,30 +42,38 @@ def episode_dir(root: Path, manifest: EpisodeManifest) -> Path:
     return root / generator / manifest.episode_id
 
 
-def _is_current(path: Path, manifest: EpisodeManifest) -> bool:
-    stored = path / "manifest.json"
-    if not (stored.exists() and (path / "observed" / "meta.json").exists()):
+def _is_current(path: Path, manifest: EpisodeManifest, streams: Sequence[str] | None) -> bool:
+    stored, meta = path / "manifest.json", path / "observed" / "meta.json"
+    if not (stored.exists() and meta.exists()):
         return False
-    return bool(json.loads(stored.read_text(encoding="utf-8")) == manifest_document(manifest))
+    if json.loads(stored.read_text(encoding="utf-8")) != manifest_document(manifest):
+        return False
+    kept = json.loads(meta.read_text(encoding="utf-8"))["streams"]
+    return bool(kept == kept_streams(manifest, streams))
 
 
-def _generate(args: tuple[str, str]) -> str:
-    manifest_json, out = args
+def _generate(args: tuple[str, str, tuple[str, ...] | None]) -> str:
+    manifest_json, out, streams = args
     manifest = EpisodeManifest.model_validate_json(manifest_json)
-    run_episode(manifest, Path(out), overwrite=True)
+    run_episode(manifest, Path(out), overwrite=True, streams=streams)
     return out
 
 
-def ensure(manifests: list[EpisodeManifest], root: Path, workers: int | None = None) -> list[Path]:
+def ensure(
+    manifests: list[EpisodeManifest],
+    root: Path,
+    workers: int | None = None,
+    streams: Sequence[str] | None = None,
+) -> list[Path]:
     """Episode directories for ``manifests`` (in order), generating the missing ones."""
     paths = [episode_dir(root, m) for m in manifests]
     for m in manifests:
         if m.generator_version != GENERATOR_VERSION:
             raise ValueError(f"{m.episode_id}: manifest generator {m.generator_version!r}")
     todo = [
-        (m.model_dump_json(by_alias=True), str(p))
+        (m.model_dump_json(by_alias=True), str(p), None if streams is None else tuple(streams))
         for m, p in zip(manifests, paths, strict=True)
-        if not _is_current(p, m)
+        if not _is_current(p, m, streams)
     ]
     if todo:
         check_free_space(root)

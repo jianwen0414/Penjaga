@@ -38,7 +38,7 @@ def evaluate(
             raise ValueError("test runs use the whole sealed split")
     if limit is not None:
         items = items[:limit]
-    paths = episodes.ensure(items, episodes_root, workers)
+    paths = episodes.ensure(items, episodes_root, workers, suite.streams)
     house = HouseContext.canonical()
     params = {name: registry.parameters(name, (overrides or {}).get(name)) for name in detectors}
     per_detector: dict[str, list[EpisodeResult]] = {name: [] for name in detectors}

@@ -124,3 +124,14 @@ def test_generation_refuses_a_nearly_full_disk(tmp_path: Path) -> None:
     with pytest.raises(episodes.DiskSpaceError, match="GB free"):
         episodes.check_free_space(tmp_path, minimum=2**62)
     episodes.check_free_space(tmp_path, minimum=0)
+
+
+def test_cache_follows_the_stream_filter(tiny: Suite, tmp_path: Path) -> None:
+    items = manifests(tiny, "validation")[:1]
+    (path,) = episodes.ensure(items, tmp_path, workers=1, streams=["water.*"])
+    first = (path / "observed" / "meta.json").stat().st_mtime_ns
+    episodes.ensure(items, tmp_path, workers=1, streams=["water.*"])
+    assert (path / "observed" / "meta.json").stat().st_mtime_ns == first  # reused
+    episodes.ensure(items, tmp_path, workers=1, streams=["water.main.*"])
+    meta = json.loads((path / "observed" / "meta.json").read_text())
+    assert meta["streams"] == ["water.main.flow_lpm", "water.main.pressure_bar"]  # regenerated

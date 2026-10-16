@@ -75,7 +75,9 @@ def main(argv: list[str] | None = None) -> int:
 
     suite = load_suite(args.suite)
     if args.command == "episodes":
-        paths = episodes.ensure(manifests(suite, args.split), args.episodes_root, args.workers)
+        paths = episodes.ensure(
+            manifests(suite, args.split), args.episodes_root, args.workers, suite.streams
+        )
         print(f"{len(paths)} episodes under {args.episodes_root}")
     elif args.command == "seal":
         print(json.dumps(sealing.seal(suite), indent=2))
