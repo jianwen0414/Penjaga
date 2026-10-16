@@ -18,6 +18,7 @@ from penjaga_detect.detector import Detector, HouseContext
 from penjaga_detect.l1_burst import BurstParams, L1BurstRule
 from penjaga_detect.l1_model import L1LeakModel, L1Params
 from penjaga_detect.l2_floor import FloorParams, L2SafetyFloor
+from penjaga_detect.l3_health import L3HealthBaseline, L3Params
 from penjaga_detect.l5_supply import L5SupplyDetector, SupplyParams
 
 PARAMS_DIR = Path(__file__).resolve().parents[2] / "params"
@@ -34,6 +35,7 @@ REGISTRY: dict[str, Entry] = {
     "l1_burst_rule": Entry(L1BurstRule, BurstParams),
     "l1_leak_model": Entry(L1LeakModel, L1Params),
     "l2_safety_floor": Entry(L2SafetyFloor, FloorParams),
+    "l3_health_baseline": Entry(L3HealthBaseline, L3Params),
     "l5_supply": Entry(L5SupplyDetector, SupplyParams),
 }
 

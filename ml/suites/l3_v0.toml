@@ -1,0 +1,34 @@
+# L3 v0: appliance degradation A1 (aircon filter clogging), A2 (aircon low refrigerant), A3
+# (fridge door seal) and A4 (fridge compressor wear) over nine weeks, with fault-free houses.
+# Faults start in weeks 4-5, after the detectors' commissioning baselines (1-2 weeks).
+# Same split rules as l1_v0.
+
+name = "l3_v0"
+layers = ["L3"]
+days = 63
+fault_types = ["A1", "A2", "A3", "A4"]
+fault_start_days = [21.0, 35.0]
+anomaly_prob = 0.35
+anomaly_types = ["guests", "heatwave", "aircon_setpoint_change", "festive_cooking"]
+anomaly_days = [1, 3]
+# The board monitor, the fridge plug and weather; only the streams L3 reads are stored.
+sensors = ["sensor_db_monitor", "sensor_plug_fridge", "sensor_weather_feed"]
+streams = ["elec.circuit.circ_ac_*.energy_wh", "elec.appliance.*", "weather.*"]
+
+[split.train]
+years = [2023]
+archetypes = ["working_family", "retired_couple", "young_couple", "large_family"]
+episodes_per_fault_type = 10
+fault_free_episodes = 10
+
+[split.validation]
+years = [2024]
+archetypes = ["working_family", "retired_couple", "young_couple", "large_family"]
+episodes_per_fault_type = 8
+fault_free_episodes = 8
+
+[split.test]
+years = [2025]
+archetypes = ["working_family", "retired_couple", "young_couple", "large_family", "shift_family"]
+episodes_per_fault_type = 10
+fault_free_episodes = 10

@@ -76,7 +76,7 @@ def test_sealing(tmp_path: Path, tiny: object) -> None:
     assert seal(tiny, tmp_path, reseal=True)["digest"] == record["digest"]
 
 
-@pytest.mark.parametrize("name", ["l1_v0", "l2_v0", "l5_v0"])
+@pytest.mark.parametrize("name", ["l1_v0", "l2_v0", "l3_v0", "l5_v0"])
 def test_every_shipped_suite_builds_valid_manifests(name: str) -> None:
     suite = load_suite(name)
     for split in ("train", "validation", "test"):
