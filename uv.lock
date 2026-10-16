@@ -756,22 +756,26 @@ name = "penjaga-eval"
 version = "0.1.0"
 source = { editable = "ml" }
 dependencies = [
+    { name = "fastapi" },
     { name = "numpy" },
     { name = "penjaga-contract" },
     { name = "penjaga-detect" },
     { name = "penjaga-sim" },
     { name = "pyarrow" },
     { name = "scikit-learn" },
+    { name = "uvicorn", extra = ["standard"] },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "fastapi", specifier = ">=0.143.1,<0.144" },
     { name = "numpy", specifier = ">=2.5.4,<3" },
     { name = "penjaga-contract", editable = "packages/contract" },
     { name = "penjaga-detect", editable = "services/detect" },
     { name = "penjaga-sim", editable = "services/sim" },
     { name = "pyarrow", specifier = ">=26.0.0,<27" },
     { name = "scikit-learn", specifier = ">=1.9.1,<1.10" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.54.0,<0.55" },
 ]
 
 [[package]]
