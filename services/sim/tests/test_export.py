@@ -106,10 +106,18 @@ def test_midnight_sample_belongs_to_the_day_it_ends(baseline: World) -> None:
     assert len(flow[1]["values"]) == 180
 
 
-def test_messages_are_in_time_order(outage_world: World) -> None:
+def test_events_come_first_then_batches_in_time_order(outage_world: World) -> None:
+    """Ingest protocol rule: a step's events precede its batches, so any sample at t proves
+    that every event up to t has arrived (the detection service relies on it)."""
     messages = ingest_messages(outage_world, us(0, 8.75), us(0, 9.75), SeqCounters())
-    starts = [m["data"]["t0"] if m["type"] == "batch" else m["data"]["ts"] for m in messages]
-    assert starts == sorted(starts)
+    kinds = [m["type"] for m in messages]
+    assert "event" in kinds
+    assert "batch" in kinds
+    assert kinds == sorted(kinds, key=lambda k: k != "event")
+    events = [m["data"]["ts"] for m in messages if m["type"] == "event"]
+    batches = [m["data"]["t0"] for m in messages if m["type"] == "batch"]
+    assert events == sorted(events)
+    assert batches == sorted(batches)
 
 
 def test_empty_window_gives_nothing(baseline: World) -> None:

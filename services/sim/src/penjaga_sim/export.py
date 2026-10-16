@@ -120,8 +120,9 @@ def ingest_messages(
 ) -> list[dict[str, Any]]:
     """IngestMessages for samples and events with t0 < ts <= t1.
 
-    One batch per stream per day touched; within a stream, batches and events are in time
-    order, and so are the messages overall (ordered by first timestamp).
+    One batch per stream per day touched, each stream's batches in time order. All events come
+    first, in time order: the ingest protocol rule that lets a consumer treat any sample at time
+    t as proof that every event up to t has arrived (docs/design/interfaces.md, M4).
     """
     if t1_us <= t0_us:
         return []
@@ -150,11 +151,11 @@ def ingest_messages(
                 "quality": quality,
                 "seq": counters.next_batch(sid),
             }
-            messages.append((int(ts[sel[0]]), 0, {"type": "batch", "data": doc}))
+            messages.append((1, int(ts[sel[0]]), {"type": "batch", "data": doc}))
         for ev in out.events:
             if t0_us < ev.ts_us <= t1_us:
                 doc = event_document(world, ev, counters)
-                messages.append((ev.ts_us, 1, {"type": "event", "data": doc}))
+                messages.append((0, ev.ts_us, {"type": "event", "data": doc}))
     messages.sort(key=lambda m: (m[0], m[1]))
     return [m for _, _, m in messages]
 
