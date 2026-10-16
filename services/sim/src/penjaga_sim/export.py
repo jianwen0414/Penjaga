@@ -295,7 +295,7 @@ def run_episode(
         for d in days:
             fh.write(json.dumps(d) + "\n")
     (partial / "manifest.json").write_text(
-        json.dumps(manifest_document(manifest), indent=2) + "\n", encoding="utf-8"
+        json.dumps(manifest_document(manifest), indent=2) + "\n", encoding="utf-8", newline="\n"
     )
     meta = {
         "house_id": manifest.house_id,
@@ -305,7 +305,7 @@ def run_episode(
         "generator": GENERATOR_VERSION,
     }
     (partial / "observed" / "meta.json").write_text(
-        json.dumps(meta, indent=2) + "\n", encoding="utf-8"
+        json.dumps(meta, indent=2) + "\n", encoding="utf-8", newline="\n"
     )
     _publish(partial, out_dir)
     return {

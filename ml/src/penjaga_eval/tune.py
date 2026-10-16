@@ -84,6 +84,6 @@ def tune(
     }
     params_dir.mkdir(parents=True, exist_ok=True)
     (params_dir / f"{detector}.json").write_text(
-        json.dumps(record, indent=2) + "\n", encoding="utf-8"
+        json.dumps(record, indent=2) + "\n", encoding="utf-8", newline="\n"
     )
     return record

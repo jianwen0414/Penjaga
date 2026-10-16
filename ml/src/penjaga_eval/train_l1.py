@@ -129,5 +129,5 @@ def train(
         "created": datetime.now(UTC).isoformat(timespec="seconds"),
     }
     card_data.parent.mkdir(parents=True, exist_ok=True)
-    card_data.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    card_data.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8", newline="\n")
     return record

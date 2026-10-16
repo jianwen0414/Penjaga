@@ -47,7 +47,11 @@ def generate_dev_tokens(path: Path) -> dict[Role, str]:
     """Random tokens for local development, written to ``path`` for the other dev processes."""
     tokens = {role: secrets.token_urlsafe(24) for role in Role}
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({r.value: t for r, t in tokens.items()}, indent=2), encoding="utf-8")
+    path.write_text(
+        json.dumps({r.value: t for r, t in tokens.items()}, indent=2),
+        encoding="utf-8",
+        newline="\n",
+    )
     return tokens
 
 

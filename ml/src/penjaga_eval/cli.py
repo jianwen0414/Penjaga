@@ -90,6 +90,7 @@ def main(argv: list[str] | None = None) -> int:
         params_path.write_text(
             json.dumps({"detector": "l1_leak_model", "params": tuned}, indent=2) + "\n",
             encoding="utf-8",
+            newline="\n",
         )
         print(json.dumps(record["trained_on"], indent=2))
     elif args.command == "tune":
@@ -125,7 +126,7 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         path = write(report)
         if args.markdown is not None:
-            args.markdown.write_text(render(report) + "\n", encoding="utf-8")
+            args.markdown.write_text(render(report) + "\n", encoding="utf-8", newline="\n")
         summary = {n: headline(d["metrics"]) for n, d in report["detectors"].items()}
         print(json.dumps({"report": str(path), "summary": summary}, indent=2))
     return 0

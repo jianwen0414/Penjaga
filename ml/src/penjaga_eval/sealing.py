@@ -48,7 +48,7 @@ def seal(suite: Suite, directory: Path = SEALED_DIR, *, reseal: bool = False) ->
             )
     record["sealed_at"] = datetime.now(UTC).isoformat(timespec="seconds")
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8", newline="\n")
     return record
 
 

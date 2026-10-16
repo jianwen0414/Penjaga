@@ -97,5 +97,5 @@ def write(report: Mapping[str, Any], runs_dir: Path = DEFAULT_RUNS) -> Path:
     stamp = report["created"].replace(":", "").replace("-", "")
     path = runs_dir / f"{report['suite']}-{report['split']}-{stamp}" / "report.json"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8", newline="\n")
     return path
