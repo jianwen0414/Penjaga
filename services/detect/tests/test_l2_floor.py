@@ -187,3 +187,10 @@ def test_repeated_trips_in_a_simulated_house() -> None:
     assert ("protective_device_trip", "act_soon") in kinds
     assert ("repeated_trips", "urgent") in kinds
     assert all(f.object_ids == ["rcd_main"] for f in findings)
+
+
+def test_overload_in_a_simulated_house() -> None:
+    findings = simulate([fault("E1", "circ_sockets_living", 25.0, at(START, 0.5))])
+    overloads = [f for f in findings if f.type.value == "circuit_overload"]
+    assert overloads
+    assert overloads[0].object_ids == ["circ_sockets_living", "mcb_sockets_living"]

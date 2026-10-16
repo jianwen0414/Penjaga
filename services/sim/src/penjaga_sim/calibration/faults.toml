@@ -16,7 +16,7 @@ growth_per_day = { dist = "uniform", low = 0.01, high = 0.15, unit = "1/day", ba
 [W5]
 flow_lpm = { dist = "uniform", low = 8.0, high = 30.0, unit = "L/min", basis = "assumption", note = "Burst pipe: large continuous flow limited by supply pressure and pipe size." }
 [E1]
-extra_a = { dist = "uniform", low = 3.0, high = 15.0, unit = "A", basis = "assumption", note = "Additional load (e.g. portable heater, multi-plug of high-load appliances) on a socket circuit, pushing it near or above its rating." }
+extra_a = { dist = "uniform", low = 20.0, high = 30.0, unit = "A", basis = "assumption", note = "Additional load on a 20 A socket circuit that takes it beyond its rating (e.g. two portable heaters at 8-10 A each on a multi-plug plus a kettle); smaller additions are not an overload, so they are not this fault." }
 hours_per_day = { dist = "uniform", low = 1.0, high = 6.0, unit = "h", basis = "assumption", note = "Daily duration of the extra load." }
 window_open_h = { dist = "fixed", value = 17.0, unit = "h", basis = "assumption", note = "The extra load runs in the evening: its daily start is drawn uniformly between this hour and the latest start that still fits in the day." }
 [E2]

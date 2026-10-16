@@ -219,11 +219,12 @@ def test_cistern_fault_reports_its_pattern(location: Callable[[str], str]) -> No
 
 def test_overload_raises_circuit_current(baseline: World, location: Callable[[str], str]) -> None:
     circuit = location("E1")
-    out = faulted("E1", circuit, 10.0)
+    out = faulted("E1", circuit, 22.0)
     stream = f"elec.circuit.{circuit}.current_a"
-    assert stream_mean(out, stream) > stream_mean(baseline.output(START), stream) + 0.2
+    assert stream_mean(out, stream) > stream_mean(baseline.output(START), stream) + 0.5
     evening = window(out, stream, 17, 24)
-    assert np.nanmax(evening) > 9.0
+    rating = baseline.model.index.rated_current_a(circuit)
+    assert np.nanmax(evening) > rating  # an E1 is a real overload, beyond the MCB rating
 
 
 def test_earth_leakage_raises_rccb_residual(
