@@ -23,6 +23,10 @@ ALL = sorted(L2LeakageBaseline(HOUSE).devices)
 Profile = Callable[[np.ndarray], np.ndarray]  # seconds since T0 -> residual mA
 
 
+def _quiet(s: np.ndarray) -> np.ndarray:
+    return np.full(s.size, 0.1)
+
+
 def run(
     profiles: dict[str, Profile],
     hours: int,
@@ -40,7 +44,7 @@ def run(
         secs = np.arange(t + 1, t1 + 1)
         series = {}
         for device in ALL:
-            base = profiles.get(device, lambda s: np.full(s.size, 0.1))(secs)
+            base = profiles.get(device, _quiet)(secs)
             values = np.round(base + rng.normal(0, 0.02, secs.size), 1)
             series[f"elec.rcd.{device}.residual_ma"] = Series(
                 T0 + secs * US, values, np.zeros(secs.size, dtype=np.uint8)
