@@ -1,0 +1,8 @@
+{
+  "suite": "l1_v0",
+  "split": "test",
+  "episodes": 60,
+  "generator": "penjaga-sim/2",
+  "digest": "481844ff591e833872e0249486036fc4c5d143b4f98db60e24a68321fbcd4b35",
+  "sealed_at": "2026-10-16T04:29:27+00:00"
+}
