@@ -26,6 +26,9 @@ def cal() -> Calibration:
     return load_calibration()
 
 
+@pytest.mark.skipif(
+    not (ROOT / "docs" / "DATA_SOURCES.md").exists(), reason="docs/ is local-only (not in git)"
+)
 def test_every_cited_source_is_documented(cal: Calibration) -> None:
     documented = set(
         re.findall(

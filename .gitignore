@@ -38,3 +38,6 @@ ml/artifacts/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Project documents (PRD, decisions, designs, reports) are kept local, never committed.
+docs/

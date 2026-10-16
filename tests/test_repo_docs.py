@@ -6,11 +6,15 @@ import re
 import tomllib
 from pathlib import Path
 
+import pytest
 from packaging.requirements import Requirement
 from packaging.utils import NormalizedName, canonicalize_name
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
+
+# docs/ is kept local and never committed: in a clone without it these checks cannot run.
+pytestmark = pytest.mark.skipif(not DOCS.is_dir(), reason="docs/ is local-only (not in git)")
 
 
 def _workspace_pyprojects() -> list[Path]:
