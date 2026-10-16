@@ -277,7 +277,7 @@ def summarise_layer(score: LayerScore, index: HouseIndex, episodes: list[str]) -
 
         magnitudes = sorted(m.fault.magnitude for m in ms)
         bins = []
-        if len(ms) >= 6:
+        if len(ms) >= 6 and magnitudes[0] < magnitudes[-1]:  # terciles need a spread
             edges = np.quantile(magnitudes, [0, 1 / 3, 2 / 3, 1])
             for k, (lo, hi) in enumerate(itertools.pairwise(edges)):
                 # (lo, hi], and the first bin also takes the smallest magnitude
