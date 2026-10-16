@@ -132,7 +132,8 @@ def test_recall_by_magnitude_terciles() -> None:
 
 
 def test_magnitude_bins_count_each_fault_once() -> None:
-    results = [result(f"e{i}", [fault(f"e{i}", magnitude=0.1)], []) for i in range(6)]
+    magnitudes = [0.1, 0.1, 0.2, 0.2, 0.3, 0.3]  # values on the tercile edges
+    results = [result(f"e{i}", [fault(f"e{i}", magnitude=x)], []) for i, x in enumerate(magnitudes)]
     bins = l1(results)["by_fault_type"]["W2"]["recall_by_magnitude"]
     assert sum(b["n"] for b in bins) == 6
 
@@ -149,3 +150,11 @@ def test_extra_findings_during_a_fault_are_duplicates_not_false_alarms() -> None
 def test_no_magnitude_bins_without_a_spread() -> None:
     results = [result(f"e{i}", [fault(f"e{i}", magnitude=1.0)], []) for i in range(6)]
     assert l1(results)["by_fault_type"]["W2"]["recall_by_magnitude"] == []
+
+
+def test_located_recall_needs_the_right_object() -> None:
+    right = finding("f1", 30, ranked=("fix_bath2_wc_cistern",))
+    wrong = finding("f2", 30, ranked=("fix_bath3_wc_cistern",))
+    m = l1([result("e1", [fault("e1")], [right]), result("e2", [fault("e2")], [wrong])])
+    assert m["recall"] == 1.0
+    assert m["recall_located"] == 0.5

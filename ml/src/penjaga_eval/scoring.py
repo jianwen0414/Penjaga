@@ -11,6 +11,8 @@ Matching rules, per layer:
   legitimate anomaly whose window (plus grace) contains them, to explain where they come from.
 - precision is the share of findings raised while a real fault was present.
 
+Located recall counts only faults that a matching finding names (the faulty object among its top
+three locations): a finding about the wrong appliance is not a detection of this fault there.
 Time to detect is first_seen minus fault start. Localisation compares the truth's object ids
 (and their rooms) with the finding's ranked locations: certain ``object_ids`` first, then
 ``candidates`` by probability. Intervals are 95% bootstrap intervals over episodes.
@@ -156,6 +158,7 @@ class Match:
     episode_id: str
     fault: TruthFault
     finding: FindingSummary | None
+    located: bool = False  # some matching finding names the faulty object in its top 3
 
 
 @dataclass
@@ -184,7 +187,8 @@ def match_episode(result: EpisodeResult, layer: str, score: LayerScore) -> None:
         best = min(hits, key=lambda f: f.first_seen_us) if hits else None
         if best is not None:
             used.add(best.id)
-        score.matches.append(Match(result.episode_id, fault, best))
+        located = any(set(f.ranked[:3]) & set(fault.object_ids) for f in hits)
+        score.matches.append(Match(result.episode_id, fault, best, located))
     for f in findings:
         if f.id in used:
             continue
@@ -297,6 +301,7 @@ def summarise_layer(score: LayerScore, index: HouseIndex, episodes: list[str]) -
             "n": len(ms),
             "detected": len(detected),
             "recall": recall_of(ms),
+            "recall_located": share([m.located for m in ms]),
             "recall_ci95": _bootstrap(ep_ids, stat),
             "ttd_hours_median": None if not hours else round(float(np.median(hours)), 2),
             "ttd_hours_p90": None if not hours else round(float(np.percentile(hours, 90)), 2),
@@ -326,6 +331,7 @@ def summarise_layer(score: LayerScore, index: HouseIndex, episodes: list[str]) -
         "faults": len(score.matches),
         "detected": tp,
         "recall": None if not score.matches else tp / len(score.matches),
+        "recall_located": share([m.located for m in score.matches]),
         "findings": score.findings,
         "false_alarms": fp,
         "duplicate_findings": dup,

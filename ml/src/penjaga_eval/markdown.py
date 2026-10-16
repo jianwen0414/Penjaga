@@ -32,20 +32,22 @@ def render(report: Mapping[str, Any]) -> str:
         lines += [f"### `{name}` ({d['kind']}, v{d['version']})", "", f"Parameters: {params}.", ""]
         for layer, m in d["metrics"].items():
             lines += [
-                f"**{layer}:** recall {_pct(m['recall'])} ({m['detected']}/{m['faults']} faults), "
+                f"**{layer}:** recall {_pct(m['recall'])} ({m['detected']}/{m['faults']} faults; "
+                f"located {_pct(m['recall_located'])}), "
                 f"precision {_pct(m['precision'])}{_ci(m['precision_ci95'])}, "
                 f"{_num(m['false_alarms_per_house_month'], '.2f')} false alarms per house-month "
                 f"over {m['house_months']} house-months; {m['duplicate_findings']} extra findings "
                 f"during real faults ({_num(m['findings_per_detected_fault'], '.2f')} findings "
                 "per detected fault).",
                 "",
-                "| Fault | n | Recall (95% CI) | TTD median / p90 (h) | Specific type "
+                "| Fault | n | Recall (95% CI) | Located | TTD median / p90 (h) | Specific type "
                 "| Top-1 / top-3 | Room |",
-                "|---|---|---|---|---|---|---|",
+                "|---|---|---|---|---|---|---|---|",
             ]
             for fault_type, t in m["by_fault_type"].items():
                 lines.append(
                     f"| {fault_type} | {t['n']} | {_pct(t['recall'])}{_ci(t['recall_ci95'])} "
+                    f"| {_pct(t['recall_located'])} "
                     f"| {_num(t['ttd_hours_median'])} / {_num(t['ttd_hours_p90'])} "
                     f"| {_pct(t['specific_type_rate'])} "
                     f"| {_pct(t['localisation_top1'])} / {_pct(t['localisation_top3'])} "
