@@ -132,6 +132,7 @@ class FakeStream:
 
     def __init__(self, start: datetime, *, episode: int = 1, speed: float = 60.0) -> None:
         self.now = start
+        self.start = start
         self.episode = episode
         self.speed = speed
         self.sent: list[dict[str, Any]] = []
@@ -149,12 +150,13 @@ class FakeStream:
             effective_speed=self.speed,
             paused=False,
             episode=self.episode,
+            episode_start=self.start,
         )
 
     async def reset(self, command: ResetCommand) -> ClockState:
         self.resets.append(command)
         self.episode += 1
-        self.now = command.start
+        self.now = self.start = command.start
         self.speed = command.speed
         return await self.clock()
 

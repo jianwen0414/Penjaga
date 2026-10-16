@@ -86,6 +86,14 @@ class SpecBasis(StrEnum):
     datasheet = "datasheet"
 
 
+type StreamId = Annotated[
+    str, Field(max_length=128, pattern="^[a-z]+(\\.[a-z0-9_]+)+$", title="StreamId")
+]
+"""
+Concrete stream ID from the stream catalogue (streams.json), dot-separated, e.g. elec.circuit.circ_ac_master.current_a.
+"""
+
+
 class TimeWindow(ContractModel):
     """
     Half-open house-time interval [from, to).

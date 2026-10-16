@@ -9,6 +9,10 @@ export type ClockMode = "real" | "accelerated";
  * Instant in house time (see M4): an RFC 3339 date-time, which always carries an explicit UTC offset (validators must assert the format). Services emit +08:00 (Asia/Kuala_Lumpur).
  */
 export type HouseTime = string;
+/**
+ * Instant in house time (see M4): an RFC 3339 date-time, which always carries an explicit UTC offset (validators must assert the format). Services emit +08:00 (Asia/Kuala_Lumpur).
+ */
+export type HouseTime1 = string;
 
 /**
  * House-time clock messages (M4). The backend owns one house-time clock; every service reads it. Real mode runs at wall time; accelerated mode is controlled by the operator (Lab).
@@ -36,6 +40,7 @@ export interface ClockState {
    * Increments on every world reset. Readings from different episodes never mix.
    */
   episode: number;
+  episode_start: HouseTime1;
 }
 /**
  * Operator change to an accelerated clock. jump_to must not be earlier than the current house time (house time is monotonic; use a reset to start over).

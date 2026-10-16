@@ -34,6 +34,10 @@ export type ProtectionState = "tripped" | "reset";
 export type MainsState = "lost" | "restored";
 export type ClockMode = "real" | "accelerated";
 /**
+ * Instant in house time (see M4): an RFC 3339 date-time, which always carries an explicit UTC offset (validators must assert the format). Services emit +08:00 (Asia/Kuala_Lumpur).
+ */
+export type HouseTime1 = string;
+/**
  * What a producer (simulator or device gateway) sends to /stream/v1/ingest.
  *
  * This interface was referenced by `StreamApi`'s JSON-Schema
@@ -278,6 +282,7 @@ export interface ClockState {
    * Increments on every world reset. Readings from different episodes never mix.
    */
   episode: number;
+  episode_start: HouseTime1;
 }
 /**
  * This interface was referenced by `StreamApi`'s JSON-Schema

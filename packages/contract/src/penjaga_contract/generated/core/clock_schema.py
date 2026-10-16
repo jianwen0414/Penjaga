@@ -58,6 +58,10 @@ class ClockState(ContractModel):
     """
     Increments on every world reset. Readings from different episodes never mix.
     """
+    episode_start: Annotated[AwareDatetime, Field(title="HouseTime")]
+    """
+    House time at which the current episode began (its reset start). A consumer that joins mid-episode backfills from here.
+    """
 
 
 class ResetCommand(ContractModel):

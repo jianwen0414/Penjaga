@@ -57,6 +57,7 @@ class HouseClock:
         self._paused = False
         self._anchor_us = start_us
         self._anchor_mono = self._mono()
+        self._episode_start_us = start_us
 
     # ------------------------------------------------------------------ reading
 
@@ -99,6 +100,7 @@ class HouseClock:
             effective_speed=self.effective_speed(),
             paused=self._paused,
             episode=self._episode,
+            episode_start=from_us(self._episode_start_us, self._zone),
         )
 
     def wall_seconds_until(self, house_us: int) -> float | None:

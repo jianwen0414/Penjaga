@@ -2,6 +2,7 @@
 // packages/contract/tools/generate.py. Do not edit by hand.
 export type * as core_clock from "./core/clock";
 export type * as core_common from "./core/common";
+export type * as core_detect_api from "./core/detect_api";
 export type * as core_event from "./core/event";
 export type * as core_finding from "./core/finding";
 export type * as core_house from "./core/house";

@@ -1,0 +1,410 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://penjaga.invalid/contract/core/detect_api.schema.json",
+  "title": "DetectApi",
+  "description": "Payloads of the M5 detection service /detect/v1 (docs/design/interfaces.md): detectors, layer consent, on-demand runs, guided checks and health. Findings themselves are Finding documents (finding.schema.json).",
+  "$defs": {
+    "DetectorStatus": {
+      "title": "DetectorStatus",
+      "description": "A deployed detector and whether its layer is enabled.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "layer",
+        "kind",
+        "version",
+        "enabled"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "layer": {
+          "$ref": "common.schema.json#/$defs/Layer"
+        },
+        "kind": {
+          "$ref": "finding.schema.json#/$defs/Source/properties/kind"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(\\+[0-9a-z.]+)?$"
+        },
+        "model": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "model_card": {
+          "type": "string",
+          "pattern": "^docs/models/[a-z0-9_-]+\\.md$"
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "False while the household has switched the detector's layer off."
+        }
+      }
+    },
+    "LayerState": {
+      "title": "LayerState",
+      "description": "Layer consent (PRD §7.3). A disabled layer is not processed at all; re-enabling it starts its detectors afresh from that house time (baselines are re-commissioned).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "enabled"
+      ],
+      "properties": {
+        "layer": {
+          "$ref": "common.schema.json#/$defs/Layer"
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "LayerUpdate": {
+      "title": "LayerUpdate",
+      "description": "PUT /detect/v1/layers/{layer}.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "RunRequest": {
+      "title": "RunRequest",
+      "description": "POST /detect/v1/run: run one detector afresh over stored readings (the agent's run_detector). Nothing is stored or published. Detectors that need a commissioning period find nothing in a shorter window.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "detector",
+        "from",
+        "to"
+      ],
+      "properties": {
+        "detector": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "from": {
+          "$ref": "common.schema.json#/$defs/HouseTime"
+        },
+        "to": {
+          "$ref": "common.schema.json#/$defs/HouseTime"
+        }
+      }
+    },
+    "RunResponse": {
+      "title": "RunResponse",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "detector",
+        "from",
+        "to",
+        "findings"
+      ],
+      "properties": {
+        "detector": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "from": {
+          "$ref": "common.schema.json#/$defs/HouseTime"
+        },
+        "to": {
+          "$ref": "common.schema.json#/$defs/HouseTime"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "finding.schema.json"
+          },
+          "description": "The latest revision of each finding the run produced."
+        }
+      }
+    },
+    "FlowStopCheck": {
+      "title": "FlowStopCheck",
+      "description": "Did the metered flow fall after the household's action at `since`? Compares the window before `since` with the window starting `settle_s` after it.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "since",
+        "settle_s",
+        "window_s",
+        "expect_below_lpm"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "flow_stop"
+        },
+        "since": {
+          "$ref": "common.schema.json#/$defs/HouseTime"
+        },
+        "settle_s": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 3600
+        },
+        "window_s": {
+          "type": "number",
+          "minimum": 60,
+          "maximum": 7200
+        },
+        "expect_below_lpm": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "TankLevelTrendCheck": {
+      "title": "TankLevelTrendCheck",
+      "description": "Is the roof tank level still falling over the window starting at `since`?",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "since",
+        "window_s"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "tank_level_trend"
+        },
+        "since": {
+          "$ref": "common.schema.json#/$defs/HouseTime"
+        },
+        "window_s": {
+          "type": "number",
+          "minimum": 300,
+          "maximum": 86400
+        }
+      }
+    },
+    "CircuitLoadCheck": {
+      "title": "CircuitLoadCheck",
+      "description": "What does the circuit draw after the household's action at `since` (e.g. unplugging an appliance), compared with before?",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "circuit_id",
+        "since",
+        "settle_s",
+        "window_s"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "circuit_load"
+        },
+        "circuit_id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "since": {
+          "$ref": "common.schema.json#/$defs/HouseTime"
+        },
+        "settle_s": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 3600
+        },
+        "window_s": {
+          "type": "number",
+          "minimum": 60,
+          "maximum": 7200
+        }
+      }
+    },
+    "CheckRequest": {
+      "title": "CheckRequest",
+      "description": "POST /detect/v1/checks.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/FlowStopCheck"
+        },
+        {
+          "$ref": "#/$defs/TankLevelTrendCheck"
+        },
+        {
+          "$ref": "#/$defs/CircuitLoadCheck"
+        }
+      ]
+    },
+    "CheckStatus": {
+      "title": "CheckStatus",
+      "description": "pending: house time has not yet reached the end of the measurement window. complete: measured. unavailable: the readings needed are missing (sensor absent or too little data).",
+      "type": "string",
+      "enum": [
+        "pending",
+        "complete",
+        "unavailable"
+      ]
+    },
+    "CheckVerdict": {
+      "title": "CheckVerdict",
+      "description": "flow_stop: stopped (below expect_below_lpm), reduced (significantly lower, not below), unchanged. tank_level_trend: falling, steady, rising. circuit_load: dropped, unchanged, rose. Significance: the difference exceeds twice its standard error and the stream's resolution.",
+      "type": "string",
+      "enum": [
+        "stopped",
+        "reduced",
+        "unchanged",
+        "falling",
+        "steady",
+        "rising",
+        "dropped",
+        "rose"
+      ]
+    },
+    "Check": {
+      "title": "Check",
+      "description": "GET /detect/v1/checks/{id}.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "check_id",
+        "request",
+        "status",
+        "ready_at",
+        "measurements",
+        "verdict"
+      ],
+      "properties": {
+        "check_id": {
+          "type": "string",
+          "pattern": "^chk_[0-9a-z]{6,32}$"
+        },
+        "request": {
+          "$ref": "#/$defs/CheckRequest"
+        },
+        "status": {
+          "$ref": "#/$defs/CheckStatus"
+        },
+        "ready_at": {
+          "$ref": "common.schema.json#/$defs/HouseTime",
+          "description": "House time at which the measurement window ends."
+        },
+        "measurements": {
+          "type": "array",
+          "items": {
+            "$ref": "finding.schema.json#/$defs/EvidenceItem"
+          }
+        },
+        "verdict": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/CheckVerdict"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Null until complete."
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Why a check is unavailable."
+        }
+      }
+    },
+    "DetectHealth": {
+      "title": "DetectHealth",
+      "description": "GET /detect/v1/health (unauthenticated).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "connected",
+        "episode",
+        "processed_until",
+        "lag_s",
+        "late_samples",
+        "stalled_streams",
+        "detectors"
+      ],
+      "properties": {
+        "status": {
+          "title": "HealthStatus",
+          "type": "string",
+          "enum": [
+            "ok",
+            "degraded"
+          ],
+          "description": "degraded: not connected to M4, or some streams stalled."
+        },
+        "connected": {
+          "type": "boolean",
+          "description": "Subscribed to M4's lossless stream."
+        },
+        "episode": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "processed_until": {
+          "$ref": "common.schema.json#/$defs/NullableHouseTime",
+          "description": "Every detector has seen all readings up to here."
+        },
+        "lag_s": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "House seconds between M4's clock and processed_until."
+        },
+        "late_samples": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Samples that arrived for house time already processed (ignored)."
+        },
+        "stalled_streams": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/$defs/StreamId"
+          },
+          "description": "Streams the detectors read that stopped arriving; processing continues without them."
+        },
+        "detectors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "version"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]*$"
+              },
+              "version": {
+                "type": "string",
+                "minLength": 1
+              },
+              "model": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]*$"
+              }
+            },
+            "title": "DetectorVersion"
+          }
+        }
+      }
+    }
+  }
+}

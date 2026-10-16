@@ -138,3 +138,16 @@ def test_governor_reacts_to_producer_lag_and_has_a_floor():
     assert gov.step(requested=600, current_limit=1.5, queue_fill=0, data_lag_wall_s=5) == 1.0
     assert gov.step(requested=0.5, current_limit=None, queue_fill=1, data_lag_wall_s=0) == 0.5
     assert gov.step(requested=600, current_limit=None, queue_fill=0.0, data_lag_wall_s=0) is None
+
+
+def test_episode_start_is_fixed_until_a_reset():
+    mono = FakeMonotonic()
+    clock = accelerated(mono)
+    start = clock.state().episode_start
+    mono.advance(5.0)
+    clock.set_speed(60.0)
+    clock.jump_to(clock.now_us() + 3600 * US_PER_S)
+    assert clock.state().episode_start == start
+    assert int(start.timestamp()) * US_PER_S == T0
+    clock.reset(start_us=T0 + 10**9, mode=ClockMode.accelerated, speed=60.0)
+    assert int(clock.state().episode_start.timestamp()) * US_PER_S == T0 + 10**9

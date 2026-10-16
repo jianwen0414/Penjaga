@@ -22,7 +22,8 @@
         "speed",
         "effective_speed",
         "paused",
-        "episode"
+        "episode",
+        "episode_start"
       ],
       "properties": {
         "house_time": {
@@ -50,6 +51,10 @@
           "type": "integer",
           "minimum": 0,
           "description": "Increments on every world reset. Readings from different episodes never mix."
+        },
+        "episode_start": {
+          "$ref": "common.schema.json#/$defs/HouseTime",
+          "description": "House time at which the current episode began (its reset start). A consumer that joins mid-episode backfills from here."
         }
       }
     },

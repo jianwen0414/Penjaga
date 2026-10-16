@@ -25,6 +25,10 @@ export type HouseTime = string;
 export type ClockMode = "real" | "accelerated";
 export type ClockMode1 = "real" | "accelerated";
 /**
+ * Instant in house time (see M4): an RFC 3339 date-time, which always carries an explicit UTC offset (validators must assert the format). Services emit +08:00 (Asia/Kuala_Lumpur).
+ */
+export type HouseTime1 = string;
+/**
  * W1 dripping tap, W2 running/leaking WC cistern, W3 roof-tank float-valve fault (overflow), W4 concealed pipe leak, W5 burst pipe, E1 sustained circuit overload, E2 rising earth leakage, E3 repeated protective-device trips, A1 aircon filter clogging, A2 aircon low refrigerant, A3 fridge door-seal failure, A4 fridge compressor wear (rising running power, short-cycling), U1 scheduled water disruption, U2 unannounced supply drop, U3 planned power outage.
  *
  * This interface was referenced by `FaultSpec`'s JSON-Schema
@@ -171,6 +175,7 @@ export interface ClockState {
    * Increments on every world reset. Readings from different episodes never mix.
    */
   episode: number;
+  episode_start: HouseTime1;
 }
 /**
  * POST /sim/v1/faults/random: a plausible fault of this type at a random valid location and magnitude.
