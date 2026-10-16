@@ -6,8 +6,8 @@ probability of a leak (1 - P(none)) reaches ``threshold`` it reports (or updates
 finding for the meter, typed by the most likely leak class, with candidates from the house
 contract. ``clear_nights`` quiet nights clear it.
 
-Burst rule (W5, deterministic, works at any hour): a 30-minute mean flow above ``burst_lpm``
-with no sample below half of it, i.e. high flow that never stops. Urgent, with safety guidance.
+Burst rule (W5, deterministic, any hour): ``l1_burst.BurstWatch``, also run on its own as
+``l1_burst_rule``.
 
 The model is a trained artifact (``penjaga-eval train-l1``); without one the detector only
 collects feature rows (training mode).
@@ -15,7 +15,6 @@ collects feature rows (training mode).
 
 from __future__ import annotations
 
-import functools
 import pickle
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
@@ -34,8 +33,9 @@ from penjaga_contract.core import (
 from penjaga_detect.chunk import Chunk, Series
 from penjaga_detect.detector import DetectorInfo, HouseContext
 from penjaga_detect.findings import FindingTracker, Observation
+from penjaga_detect.l1_burst import BurstParams, BurstWatch
 from penjaga_detect.l1_features import NightWindow, add_history, as_vector, night_row
-from penjaga_detect.signals import Carry, TierState, rolling_mean, track_tiers
+from penjaga_detect.signals import Carry
 
 US = 1_000_000
 FLOW = "water.main.flow_lpm"
@@ -61,7 +61,7 @@ class L1Params:
     type_confidence: float = 0.6  # share of P(leak) the top kind needs to be named; validation
     clear_nights: int = 2
     burst_lpm: float = 6.0
-    burst_window_s: float = 1800.0
+    burst_window_s: float = 3600.0
     max_candidates: int = 5
 
 
@@ -102,9 +102,10 @@ class L1LeakModel:
         self.state = _State()
         self.rows: list[tuple[int, dict[str, float]]] = []  # (night end, features): training mode
         self.next_night: date | None = None
-        self.burst = TierState()
+        self.burst = BurstWatch(
+            house, self.tracker, BurstParams(self.p.burst_lpm, self.p.burst_window_s)
+        )
         self.leak_key = f"L1:water_leak:{self.meter}"
-        self.burst_key = f"L1:burst_pipe:{self.meter}"
         self.out: list[Finding] = []
 
     # ------------------------------------------------------------------ chunks
@@ -115,7 +116,7 @@ class L1LeakModel:
         f_ts, f_v, f_new = self.flow.extend_untrimmed(flow)
         t_ts, t_v, _ = self.tank.extend_untrimmed(tank)
         p_ts, p_v, _ = self.pressure.extend_untrimmed(pressure)
-        self._burst(chunk, f_ts, f_v, f_new)
+        self.out += self.burst.update(chunk, f_ts, f_v, f_new)
         all_flow = Series(f_ts, f_v, np.zeros(f_ts.size, np.uint8))
         all_tank = Series(t_ts, t_v, np.zeros(t_ts.size, np.uint8))
         all_pressure = Series(p_ts, p_v, np.zeros(p_ts.size, np.uint8))
@@ -234,57 +235,6 @@ class L1LeakModel:
     def _emit(self, finding: Finding | None) -> None:
         if finding is not None:
             self.out.append(finding)
-
-    # ------------------------------------------------------------------ burst rule
-
-    def _burst(self, chunk: Chunk, ts: Any, values: Any, first_new: int) -> None:
-        p = self.p
-        clear = functools.partial(self._clear_burst)
-        if ts.size == first_new:
-            empty = np.empty(0, np.int64)
-            track_tiers(self.burst, empty, empty, chunk_end_us=chunk.t1_us,
-                        clear_after_us=3600 * US, on_raise=_never, on_clear=clear)  # fmt: skip
-            return
-        window_us = round(p.burst_window_s * US)
-        expected = p.burst_window_s / self.window.flow_period_s
-        mean = rolling_mean(ts, values, window_us, expected, 0.8)[first_new:]
-        low = np.where(np.isnan(values), np.nan, (values < 0.5 * p.burst_lpm).astype(np.float64))
-        low_share = rolling_mean(ts, low, window_us, expected, 0.8)[first_new:]
-        tiers = (
-            (np.nan_to_num(mean) > p.burst_lpm) & (np.nan_to_num(low_share, nan=1.0) == 0.0)
-        ).astype(np.int64)
-        raise_ = functools.partial(self._raise_burst, mean)
-        track_tiers(self.burst, ts[first_new:], tiers, chunk_end_us=chunk.t1_us,
-                    clear_after_us=3600 * US, on_raise=raise_, on_clear=clear)  # fmt: skip
-
-    def _raise_burst(self, mean: Any, j: int, at_us: int, tier: int) -> None:
-        self._emit(
-            self.tracker.observe(
-                Observation(
-                    key=self.burst_key,
-                    type="burst_pipe_suspected",
-                    severity="urgent",
-                    confidence=1.0,
-                    at_us=at_us,
-                    object_ids=[self.meter],
-                    evidence=[
-                        {
-                            "name": "mean_flow_30min",
-                            "value": round(float(mean[j]), 2),
-                            "unit": "L/min",
-                        },
-                        {"name": "rule", "value": "continuous_high_flow"},
-                    ],
-                    quantities={
-                        "water_l_per_day": {"value": round(float(mean[j]) * 1440), "unit": "L/day"}
-                    },
-                    safety_guidance_key="sg_burst_pipe",
-                )
-            )
-        )
-
-    def _clear_burst(self, at_us: int) -> None:
-        self._emit(self.tracker.clear(self.burst_key, at_us))
 
 
 def _never(index: int, at_us: int, tier: int) -> None:

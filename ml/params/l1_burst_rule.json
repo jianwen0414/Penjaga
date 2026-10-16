@@ -1,0 +1,16 @@
+{
+  "detector": "l1_burst_rule",
+  "params": {
+    "burst_lpm": 6,
+    "burst_window_s": 3600
+  },
+  "tuned_on": {
+    "suite": "l1_v0",
+    "split": "validation",
+    "generator": "penjaga-sim/2",
+    "budget_false_alarms_per_house_month": 0.5,
+    "objective": "highest recall within the false-alarm budget",
+    "date": "2026-10-16",
+    "note": "same rule and validation data as the burst parameters in l1_leak_model.json, where every candidate is listed"
+  }
+}

@@ -147,7 +147,12 @@ def test_burst_rule_needs_continuous_high_flow() -> None:
     assert bursts[0].severity.value == "urgent"
     assert bursts[0].safety_guidance_key == "sg_burst_pipe"
     hours = (bursts[0].first_seen.timestamp() - T0 / US) / 3600
-    assert 14.4 <= hours <= 14.6  # once a 30-minute window is all high flow
+    assert 14.9 <= hours <= 15.1  # once the 60-minute window is all high flow
+    standalone = feed_rule(flow)
+    assert [(f.type, f.status, f.first_seen) for f in standalone] == [
+        (f.type, f.status, f.first_seen) for f in bursts
+    ]
+    assert standalone[0].source.detector == "l1_burst_rule"
 
 
 class _UnsureModel(_FixedModel):
@@ -170,3 +175,16 @@ def test_unsure_kind_is_reported_as_unexplained_night_flow(tmp_path: Path) -> No
     findings = feed(L1LeakModel(HouseContext.canonical(), L1Params(artifact=str(path))), flow, 6)
     assert findings
     assert {f.type.value for f in findings} == {"night_flow_unexplained"}
+
+
+def feed_rule(flow: Series) -> list[Finding]:
+    from penjaga_detect.l1_burst import L1BurstRule
+
+    rule = L1BurstRule(HouseContext.canonical())
+    out: list[Finding] = []
+    t, end = T0, int(flow.ts_us[-1])
+    while t < end:
+        t1 = min(end, t + 2 * 3600 * US)
+        out += rule.update(Chunk("elmina_g6_demo", t, t1, {FLOW: flow.between(t, t1)}))
+        t = t1
+    return out
