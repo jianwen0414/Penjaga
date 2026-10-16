@@ -23,7 +23,8 @@
         "effective_speed",
         "paused",
         "episode",
-        "episode_start"
+        "episode_start",
+        "episode_id"
       ],
       "properties": {
         "house_time": {
@@ -55,6 +56,11 @@
         "episode_start": {
           "$ref": "common.schema.json#/$defs/HouseTime",
           "description": "House time at which the current episode began (its reset start). A consumer that joins mid-episode backfills from here."
+        },
+        "episode_id": {
+          "type": "string",
+          "pattern": "^epi_[0-9a-f]{16}$",
+          "description": "Unique ID of the episode, new at every reset and every M4 start. Episode numbers restart from 0 when M4 restarts; this does not, so consumers key their state on it."
         }
       }
     },

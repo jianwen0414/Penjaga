@@ -166,7 +166,11 @@ class StreamService:
         self.registry.reset()
         self.store = ReadingStore(self._store_path(self.clock.episode))
         await anyio.to_thread.run_sync(old.close)
-        notice = ResetNotice(episode=self.clock.episode, start=from_us(start_us, self.zone))
+        notice = ResetNotice(
+            episode=self.clock.episode,
+            episode_id=self.clock.episode_id,
+            start=from_us(start_us, self.zone),
+        )
         await self.hub.publish_control(ResetMessage(type="reset", data=notice).model_dump_json())
         await self.hub.publish_control(self.clock_message())
         return self.clock.state()

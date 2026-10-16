@@ -41,6 +41,10 @@ export interface ClockState {
    */
   episode: number;
   episode_start: HouseTime1;
+  /**
+   * Unique ID of the episode, new at every reset and every M4 start. Episode numbers restart from 0 when M4 restarts; this does not, so consumers key their state on it.
+   */
+  episode_id: string;
 }
 /**
  * Operator change to an accelerated clock. jump_to must not be earlier than the current house time (house time is monotonic; use a reset to start over).

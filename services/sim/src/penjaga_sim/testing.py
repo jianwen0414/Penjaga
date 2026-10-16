@@ -151,6 +151,7 @@ class FakeStream:
             paused=False,
             episode=self.episode,
             episode_start=self.start,
+            episode_id=f"epi_{self.episode:016x}",
         )
 
     async def reset(self, command: ResetCommand) -> ClockState:

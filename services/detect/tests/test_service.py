@@ -301,3 +301,20 @@ def test_day_two_continues_the_same_run(h: Harness) -> None:
     assert timedelta(hours=29.75) <= timedelta(
         microseconds=h.service.engine.processed_until_us - us(0)
     )
+
+
+def test_a_restarted_m4_starts_a_new_run_even_with_the_same_episode_number(
+    new_fake: Callable[[], Any], tmp_path: Path
+) -> None:
+    with Harness(new_fake(), tmp_path) as first:
+        first.publish(12)
+        first.wait_processed(us(11.75))
+        assert first.get("/findings").json()
+    restarted = new_fake()
+    restarted.episode_id_override = "epi_00000000000000ff"  # same episode number and start
+    with Harness(restarted, tmp_path) as second:
+        second.publish(1)
+        second.wait_processed(us(0.75))
+        assert second.service.run is not None
+        assert second.service.run.key == "epi_00000000000000ff"
+        assert second.get("/findings").json() == []  # nothing from the previous M4 run

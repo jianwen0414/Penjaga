@@ -14,6 +14,7 @@ data is delayed rather than dropped (PRD §14 never-drop rule), then recovers.
 
 from __future__ import annotations
 
+import secrets
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -58,6 +59,7 @@ class HouseClock:
         self._anchor_us = start_us
         self._anchor_mono = self._mono()
         self._episode_start_us = start_us
+        self._episode_id = f"epi_{secrets.token_hex(8)}"
 
     # ------------------------------------------------------------------ reading
 
@@ -68,6 +70,10 @@ class HouseClock:
     @property
     def episode(self) -> int:
         return self._episode
+
+    @property
+    def episode_id(self) -> str:
+        return self._episode_id
 
     @property
     def speed(self) -> float:
@@ -101,6 +107,7 @@ class HouseClock:
             paused=self._paused,
             episode=self._episode,
             episode_start=from_us(self._episode_start_us, self._zone),
+            episode_id=self._episode_id,
         )
 
     def wall_seconds_until(self, house_us: int) -> float | None:

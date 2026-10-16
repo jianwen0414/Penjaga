@@ -187,6 +187,10 @@ export interface Rejection {
 export interface ResetNotice {
   episode: number;
   start: HouseTime;
+  /**
+   * Unique ID of the episode, new at every reset and every M4 start. Episode numbers restart from 0 when M4 restarts; this does not, so consumers key their state on it.
+   */
+  episode_id: string;
 }
 /**
  * This interface was referenced by `StreamApi`'s JSON-Schema
@@ -283,6 +287,10 @@ export interface ClockState {
    */
   episode: number;
   episode_start: HouseTime1;
+  /**
+   * Unique ID of the episode, new at every reset and every M4 start. Episode numbers restart from 0 when M4 restarts; this does not, so consumers key their state on it.
+   */
+  episode_id: string;
 }
 /**
  * This interface was referenced by `StreamApi`'s JSON-Schema

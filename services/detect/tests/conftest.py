@@ -33,6 +33,7 @@ class FakeM4:
         self.stored: list[dict[str, Any]] = []
         self._subscribers: list[asyncio.Queue[Any]] = []
         self.down = False
+        self.episode_id_override: str | None = None
         self.raw_calls = 0
 
     def house_time(self) -> datetime:
@@ -47,6 +48,7 @@ class FakeM4:
             paused=True,
             episode=self.episode,
             episode_start=self.start,
+            episode_id=self.episode_id_override or f"epi_{self.episode:016x}",
         )
 
     async def publish(self, hours: float, step_h: float = 0.25) -> None:

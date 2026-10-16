@@ -172,6 +172,10 @@ class ResetNotice(ContractModel):
     """
     Instant in house time (see M4): an RFC 3339 date-time, which always carries an explicit UTC offset (validators must assert the format). Services emit +08:00 (Asia/Kuala_Lumpur).
     """
+    episode_id: Annotated[str, Field(pattern="^epi_[0-9a-f]{16}$")]
+    """
+    Unique ID of the episode, new at every reset and every M4 start. Episode numbers restart from 0 when M4 restarts; this does not, so consumers key their state on it.
+    """
 
 
 type StreamApi = Annotated[Any, Field(title="StreamApi")]

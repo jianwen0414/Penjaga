@@ -1,7 +1,7 @@
 """Durable finding revisions (SQLite, WAL), keyed by the M4 run they belong to.
 
-A run is one M4 episode: ``"<episode>@<episode_start_us>"``. The start keeps the key unique
-when M4 restarts and numbers episodes from 0 again.
+A run is one M4 episode, keyed by its ``episode_id``. That ID is unique even when M4 restarts
+and numbers episodes from 0 again.
 
 **Idempotent writes.** Detectors are deterministic and finding IDs derive from their content, so
 a restarted service that replays an episode produces the same revisions.

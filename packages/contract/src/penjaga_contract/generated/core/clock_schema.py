@@ -62,6 +62,10 @@ class ClockState(ContractModel):
     """
     House time at which the current episode began (its reset start). A consumer that joins mid-episode backfills from here.
     """
+    episode_id: Annotated[str, Field(pattern="^epi_[0-9a-f]{16}$")]
+    """
+    Unique ID of the episode, new at every reset and every M4 start. Episode numbers restart from 0 when M4 restarts; this does not, so consumers key their state on it.
+    """
 
 
 class ResetCommand(ContractModel):

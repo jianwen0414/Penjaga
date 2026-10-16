@@ -151,3 +151,14 @@ def test_episode_start_is_fixed_until_a_reset():
     assert int(start.timestamp()) * US_PER_S == T0
     clock.reset(start_us=T0 + 10**9, mode=ClockMode.accelerated, speed=60.0)
     assert int(clock.state().episode_start.timestamp()) * US_PER_S == T0 + 10**9
+
+
+def test_episode_id_is_unique_per_episode_and_per_start():
+    mono = FakeMonotonic()
+    clock = accelerated(mono)
+    first = clock.state().episode_id
+    clock.set_speed(60.0)
+    assert clock.state().episode_id == first
+    clock.reset(start_us=T0, mode=ClockMode.accelerated, speed=60.0)
+    assert clock.state().episode_id != first
+    assert accelerated(FakeMonotonic()).state().episode_id != first  # a restarted M4

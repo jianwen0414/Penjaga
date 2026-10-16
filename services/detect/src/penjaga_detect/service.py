@@ -93,12 +93,13 @@ class DetectConfig:
 
 @dataclass(frozen=True)
 class Run:
+    episode_id: str  # unique per M4 episode, across M4 restarts too
     episode: int
     start_us: int
 
     @property
     def key(self) -> str:
-        return f"{self.episode}@{self.start_us}"
+        return self.episode_id
 
 
 @dataclass
@@ -258,14 +259,14 @@ class DetectService:
         if kind == "clock":
             clock = ClockState.model_validate(message["data"])
             self._clock = _Clock(clock, time.monotonic())
-            run = Run(clock.episode, to_us(clock.episode_start))
+            run = Run(clock.episode_id, clock.episode, to_us(clock.episode_start))
             if run != self.run:
                 await self._start(run, backfill=True)
             elif first_of_session:
                 await self._backfill()  # the gap while disconnected
         elif kind == "reset":
             notice = ResetNotice.model_validate(message["data"])
-            run = Run(notice.episode, to_us(notice.start))
+            run = Run(notice.episode_id, notice.episode, to_us(notice.start))
             if run != self.run:
                 await self._start(run, backfill=False)  # a new episode has no data yet
         elif kind in ("batch", "event"):
