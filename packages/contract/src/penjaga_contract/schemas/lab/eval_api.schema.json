@@ -1,0 +1,345 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://penjaga.invalid/contract/lab/eval_api.schema.json",
+  "title": "EvalApi",
+  "description": "LAB NAMESPACE: the M11 evaluation service /eval/v1 (operator role only), used by the Lab's evaluation view. A run replays a suite's episodes through detectors and scores them against ground truth; test-split runs use the sealed manifests and are logged with the git commit.",
+  "$defs": {
+    "EvalSplit": {
+      "title": "EvalSplit",
+      "description": "Runs from the Lab use validation or the sealed test split (tuning uses train and validation from the CLI).",
+      "type": "string",
+      "enum": [
+        "validation",
+        "test"
+      ]
+    },
+    "EvalSuite": {
+      "title": "EvalSuite",
+      "description": "GET /eval/v1/suites.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "layers",
+        "days",
+        "episodes",
+        "sealed",
+        "generator",
+        "detectors"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "layers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "../core/common.schema.json#/$defs/Layer"
+          }
+        },
+        "days": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "episodes": {
+          "title": "SplitCounts",
+          "type": "object",
+          "description": "Episodes per split.",
+          "additionalProperties": false,
+          "properties": {
+            "train": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "validation": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "test": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "sealed": {
+          "type": "boolean",
+          "description": "The test split's manifests are sealed for the current generator."
+        },
+        "generator": {
+          "type": "string",
+          "minLength": 1
+        },
+        "detectors": {
+          "type": "array",
+          "items": {
+            "title": "DetectorName",
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "description": "Detectors that can be evaluated on this suite (its layers). The deployed ones are the default."
+        }
+      }
+    },
+    "EvalRunRequest": {
+      "title": "EvalRunRequest",
+      "description": "POST /eval/v1/runs.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "suite",
+        "split"
+      ],
+      "properties": {
+        "suite": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "split": {
+          "$ref": "#/$defs/EvalSplit"
+        },
+        "detectors": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "title": "DetectorName",
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "description": "Null: the deployed detectors for the suite's layers."
+        },
+        "limit": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "description": "Only the first N episodes (validation only; a test run always uses the whole sealed split)."
+        }
+      }
+    },
+    "EvalRunStatus": {
+      "title": "EvalRunStatus",
+      "type": "string",
+      "enum": [
+        "queued",
+        "running",
+        "complete",
+        "failed"
+      ]
+    },
+    "LayerHeadline": {
+      "title": "LayerHeadline",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recall",
+        "recall_located",
+        "precision",
+        "false_alarms_per_house_month",
+        "faults",
+        "detected"
+      ],
+      "properties": {
+        "recall": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "recall_located": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "precision": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "false_alarms_per_house_month": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "faults": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "detected": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "by_fault_type": {
+          "type": "object",
+          "additionalProperties": {
+            "title": "FaultTypeHeadline",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "n",
+              "recall"
+            ],
+            "properties": {
+              "n": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "recall": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 1
+              },
+              "ttd_hours_median": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "DetectorResult": {
+      "title": "DetectorResult",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "layers"
+      ],
+      "properties": {
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "layers": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/LayerHeadline"
+          }
+        }
+      }
+    },
+    "EvalRun": {
+      "title": "EvalRun",
+      "description": "GET /eval/v1/runs/{run_id}. The full report is at /eval/v1/runs/{run_id}/report (JSON) and /report.md (Markdown) once complete.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "suite",
+        "split",
+        "detectors",
+        "status",
+        "created_at"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "pattern": "^evr_[0-9a-z]{6,32}$"
+        },
+        "suite": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "split": {
+          "$ref": "#/$defs/EvalSplit"
+        },
+        "detectors": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "title": "DetectorName",
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          }
+        },
+        "limit": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "status": {
+          "$ref": "#/$defs/EvalRunStatus"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Wall-clock time (UTC), not house time."
+        },
+        "started_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "finished_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 2000
+        },
+        "generator": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "episodes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "git_commit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "results": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": {
+            "$ref": "#/$defs/DetectorResult"
+          },
+          "description": "Headline metrics per detector and layer, once complete."
+        }
+      }
+    }
+  }
+}

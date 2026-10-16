@@ -302,6 +302,194 @@
           "minLength": 1
         }
       }
+    },
+    "ScenarioPreset": {
+      "title": "ScenarioPreset",
+      "description": "GET /sim/v1/scenarios: a household, a weather period and faults drawn at random from the calibrated catalogue (never scripted outcomes).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "description",
+        "archetype",
+        "period",
+        "faults",
+        "anomalies"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "archetype": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "period": {
+          "title": "ScenarioPeriod",
+          "type": "string",
+          "enum": [
+            "any",
+            "hottest_week",
+            "wettest_week"
+          ],
+          "description": "any: starts on the requested date (default: today in house time). hottest_week / wettest_week: the week with the highest 7-day mean temperature / precipitation in the latest year of the cached weather record."
+        },
+        "faults": {
+          "type": "array",
+          "items": {
+            "title": "FaultDraw",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "types",
+              "start_day"
+            ],
+            "description": "One fault of a type drawn uniformly from types, starting a uniform number of days after the start within start_day.",
+            "properties": {
+              "types": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "$ref": "fault_spec.schema.json#/$defs/FaultType"
+                }
+              },
+              "start_day": {
+                "type": "array",
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "minItems": 2,
+                "maxItems": 2,
+                "items": false
+              }
+            }
+          }
+        },
+        "anomalies": {
+          "type": "array",
+          "items": {
+            "title": "AnomalyDays",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "anomaly_type",
+              "start_day",
+              "days"
+            ],
+            "properties": {
+              "anomaly_type": {
+                "$ref": "truth_record.schema.json#/$defs/AnomalyType"
+              },
+              "start_day": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "days": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "ScenarioRequest": {
+      "title": "ScenarioRequest",
+      "description": "POST /sim/v1/scenarios/{name}/apply: resets the world (and M4) to the preset.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "seed": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "Null draws a fresh seed (returned, so the scenario can be replayed)."
+        },
+        "start": {
+          "$ref": "../core/common.schema.json#/$defs/NullableHouseTime",
+          "description": "Only for presets with period 'any'; null means midnight today in house time."
+        },
+        "mode": {
+          "oneOf": [
+            {
+              "$ref": "../core/clock.schema.json#/$defs/ClockMode"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Null means accelerated."
+        },
+        "speed": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0,
+          "maximum": 86400,
+          "description": "Null means 60."
+        }
+      }
+    },
+    "ScenarioApplied": {
+      "title": "ScenarioApplied",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "preset",
+        "seed",
+        "clock",
+        "status",
+        "faults",
+        "anomalies"
+      ],
+      "properties": {
+        "preset": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "clock": {
+          "$ref": "../core/clock.schema.json#/$defs/ClockState"
+        },
+        "status": {
+          "$ref": "#/$defs/SimStatus"
+        },
+        "faults": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FaultView"
+          },
+          "description": "The drawn faults (visible to the operator only)."
+        },
+        "anomalies": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Truth record IDs of the imposed anomalies."
+        }
+      }
     }
   }
 }

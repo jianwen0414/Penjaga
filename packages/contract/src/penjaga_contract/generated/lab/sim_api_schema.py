@@ -10,7 +10,9 @@ from penjaga_contract.base import ContractModel
 from pydantic import AwareDatetime, ConfigDict, Field
 
 from ..core import clock_schema, common_schema
-from . import fault_spec_schema
+from . import fault_spec_schema, truth_record_schema
+
+type Anomaly = Annotated[str, Field(min_length=1)]
 
 
 class AnomalyCreated(ContractModel):
@@ -22,6 +24,15 @@ class AnomalyCreated(ContractModel):
         extra="forbid",
     )
     record_id: Annotated[str, Field(min_length=1)]
+
+
+class AnomalyDays(ContractModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    anomaly_type: truth_record_schema.AnomalyType
+    start_day: Annotated[int, Field(ge=1)]
+    days: Annotated[int, Field(ge=1)]
 
 
 class CatalogueEntry(ContractModel):
@@ -44,6 +55,18 @@ class CatalogueEntry(ContractModel):
     Valid location_id values; empty for supply-level faults.
     """
     requires_duration: bool
+
+
+class FaultDraw(ContractModel):
+    """
+    One fault of a type drawn uniformly from types, starting a uniform number of days after the start within start_day.
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    types: Annotated[list[fault_spec_schema.FaultType], Field(min_length=1)]
+    start_day: tuple[float, float]
 
 
 class FaultState(StrEnum):
@@ -134,6 +157,79 @@ class ResetResponse(ContractModel):
     )
     clock: clock_schema.ClockState
     status: SimStatus
+
+
+class ScenarioApplied(ContractModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    preset: Annotated[str, Field(pattern="^[a-z][a-z0-9_]*$")]
+    seed: Annotated[int, Field(ge=0, le=9007199254740991)]
+    clock: clock_schema.ClockState
+    status: SimStatus
+    faults: list[FaultView]
+    """
+    The drawn faults (visible to the operator only).
+    """
+    anomalies: list[Anomaly]
+    """
+    Truth record IDs of the imposed anomalies.
+    """
+
+
+class ScenarioPeriod(StrEnum):
+    """
+    any: starts on the requested date (default: today in house time). hottest_week / wettest_week: the week with the highest 7-day mean temperature / precipitation in the latest year of the cached weather record.
+    """
+
+    any = "any"
+    hottest_week = "hottest_week"
+    wettest_week = "wettest_week"
+
+
+class ScenarioPreset(ContractModel):
+    """
+    GET /sim/v1/scenarios: a household, a weather period and faults drawn at random from the calibrated catalogue (never scripted outcomes).
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    name: Annotated[str, Field(pattern="^[a-z][a-z0-9_]*$")]
+    description: Annotated[str, Field(max_length=300, min_length=1)]
+    archetype: Annotated[str, Field(pattern="^[a-z][a-z0-9_]*$")]
+    period: Annotated[ScenarioPeriod, Field(title="ScenarioPeriod")]
+    """
+    any: starts on the requested date (default: today in house time). hottest_week / wettest_week: the week with the highest 7-day mean temperature / precipitation in the latest year of the cached weather record.
+    """
+    faults: list[FaultDraw]
+    anomalies: list[AnomalyDays]
+
+
+class ScenarioRequest(ContractModel):
+    """
+    POST /sim/v1/scenarios/{name}/apply: resets the world (and M4) to the preset.
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    seed: Annotated[int | None, Field(ge=0, le=9007199254740991)] = None
+    """
+    Null draws a fresh seed (returned, so the scenario can be replayed).
+    """
+    start: Annotated[AwareDatetime | None, Field(title="NullableHouseTime")] = None
+    """
+    Only for presets with period 'any'; null means midnight today in house time.
+    """
+    mode: clock_schema.ClockMode | None = None
+    """
+    Null means accelerated.
+    """
+    speed: Annotated[float | None, Field(gt=0.0, le=86400.0)] = None
+    """
+    Null means 60.
+    """
 
 
 type SimApi = Annotated[Any, Field(title="SimApi")]

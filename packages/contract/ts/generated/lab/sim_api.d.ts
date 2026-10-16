@@ -83,6 +83,28 @@ export type NullableHouseTime3 = string | null;
  * Preventive layer: L1 leaks, L2 electrical safety, L3 appliance health, L4 maintenance, L5 management integration.
  */
 export type Layer = "L1" | "L2" | "L3" | "L4" | "L5";
+/**
+ * any: starts on the requested date (default: today in house time). hottest_week / wettest_week: the week with the highest 7-day mean temperature / precipitation in the latest year of the cached weather record.
+ */
+export type ScenarioPeriod = "any" | "hottest_week" | "wettest_week";
+/**
+ * Legitimate behaviour that must not raise false alarms (PRD §12.3, extended in PRD v1.1).
+ */
+export type AnomalyType =
+  | "night_bucket_fill"
+  | "early_morning_routine"
+  | "washer_delay_timer"
+  | "guests"
+  | "heatwave"
+  | "holiday_absence"
+  | "festive_cooking"
+  | "aircon_setpoint_change"
+  | "occupancy_change"
+  | "post_outage_tank_refill";
+/**
+ * Only for presets with period 'any'; null means midnight today in house time.
+ */
+export type NullableHouseTime4 = string | null;
 
 /**
  * LAB NAMESPACE: request and response bodies of the M2 simulator control plane /sim/v1 (operator role only). Fault and anomaly requests use FaultSpec and AnomalySpec; ground truth is returned as TruthRecord. Never visible to detection.
@@ -253,4 +275,76 @@ export interface CatalogueEntry {
  */
 export interface AnomalyCreated {
   record_id: string;
+}
+/**
+ * GET /sim/v1/scenarios: a household, a weather period and faults drawn at random from the calibrated catalogue (never scripted outcomes).
+ *
+ * This interface was referenced by `SimApi`'s JSON-Schema
+ * via the `definition` "ScenarioPreset".
+ */
+export interface ScenarioPreset {
+  name: string;
+  description: string;
+  archetype: string;
+  period: ScenarioPeriod;
+  faults: FaultDraw[];
+  anomalies: AnomalyDays[];
+}
+/**
+ * One fault of a type drawn uniformly from types, starting a uniform number of days after the start within start_day.
+ */
+export interface FaultDraw {
+  /**
+   * @minItems 1
+   */
+  types: [FaultType, ...FaultType[]];
+  /**
+   * @minItems 2
+   * @maxItems 2
+   */
+  start_day: never[];
+}
+export interface AnomalyDays {
+  anomaly_type: AnomalyType;
+  start_day: number;
+  days: number;
+}
+/**
+ * POST /sim/v1/scenarios/{name}/apply: resets the world (and M4) to the preset.
+ *
+ * This interface was referenced by `SimApi`'s JSON-Schema
+ * via the `definition` "ScenarioRequest".
+ */
+export interface ScenarioRequest {
+  /**
+   * Null draws a fresh seed (returned, so the scenario can be replayed).
+   */
+  seed?: number | null;
+  start?: NullableHouseTime4;
+  /**
+   * Null means accelerated.
+   */
+  mode?: ClockMode1 | null;
+  /**
+   * Null means 60.
+   */
+  speed?: number | null;
+}
+/**
+ * This interface was referenced by `SimApi`'s JSON-Schema
+ * via the `definition` "ScenarioApplied".
+ */
+export interface ScenarioApplied {
+  preset: string;
+  seed: number;
+  clock: ClockState;
+  status: SimStatus;
+  /**
+   * The drawn faults (visible to the operator only).
+   */
+  faults: FaultView[];
+  /**
+   * Truth record IDs of the imposed anomalies.
+   */
+  anomalies: string[];
 }
