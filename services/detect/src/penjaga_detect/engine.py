@@ -13,8 +13,10 @@ Pure and synchronous, so it is tested without sockets; ``service.py`` drives it.
   whose readings are still in flight.
 
 **Stalls, duplicates and late data.**
-- A stream not yet seen counts as complete only up to the time the engine started waiting
-  for it. Absent sensors therefore hold processing back until they stall.
+- A stream not yet seen counts as complete up to one period after the engine started waiting
+  for it. A sampled stream sends a sample every period (a missing one is flagged, not
+  skipped), so nothing of it can be due earlier. Absent sensors therefore hold processing back
+  until they stall.
 - A stream more than ``stall_s`` (or two of its periods) behind the furthest stream is
   "stalled" and no longer holds processing back. Its later samples for time already processed
   are counted as late and dropped.
@@ -67,9 +69,8 @@ class _Buffer:
 
     @property
     def covered_until(self) -> int:
-        if self.last_ts is None:
-            return self.waiting_since_us
-        return self.last_ts + self.period_us - 1
+        last = self.waiting_since_us if self.last_ts is None else self.last_ts
+        return last + self.period_us - 1
 
     def take(self, t0: int, t1: int) -> Series:
         """Samples in (t0, t1]; everything at or before t1 leaves the buffer."""

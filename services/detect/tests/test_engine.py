@@ -255,7 +255,7 @@ def test_processing_waits_for_every_stream_and_never_passes_the_samples() -> Non
     engine.ingest(event(5, 1))  # events first (protocol rule)
     engine.ingest(batch(A, 10, [1, 2, 3], 10))  # A covers up to 39.999999 s
     assert engine.advance() == []
-    assert engine.processed_until_us == T0  # B not seen yet: nothing runs
+    assert engine.processed_until_us == T0 + 10 * US - 1  # B not seen: at most one period
     engine.ingest(batch(B, 10, [1], 10))  # B covers up to 19.999999 s
     engine.advance()
     assert engine.processed_until_us == T0 + 20 * US - 1
@@ -294,7 +294,7 @@ def test_an_absent_stream_holds_processing_only_until_it_stalls() -> None:
     engine, _ = probe_engine(stall_s=60)
     engine.ingest(batch(A, 10, [1.0] * 5, 10))  # B (an absent sensor) never arrives
     engine.advance()
-    assert engine.processed_until_us == T0
+    assert engine.processed_until_us == T0 + 10 * US - 1
     engine.ingest(batch(A, 60, [1.0] * 10, 10))  # A is now more than 60 s ahead
     assert engine.stalled() == [B]
     engine.advance()
