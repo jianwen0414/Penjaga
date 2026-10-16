@@ -99,8 +99,9 @@ def test_wrong_type_does_not_count() -> None:
             )
         ]
     )
-    assert m["detected"] == 0
-    assert m["false_alarms"] == 1
+    assert m["detected"] == 0  # the wrong type does not detect the fault...
+    assert m["false_alarms"] == 0  # ...but an alert during a real leak is not a false alarm
+    assert m["duplicate_findings"] == 1
 
 
 def test_one_finding_detects_one_fault() -> None:
@@ -134,3 +135,12 @@ def test_magnitude_bins_count_each_fault_once() -> None:
     results = [result(f"e{i}", [fault(f"e{i}", magnitude=0.1)], []) for i in range(6)]
     bins = l1(results)["by_fault_type"]["W2"]["recall_by_magnitude"]
     assert sum(b["n"] for b in bins) == 6
+
+
+def test_extra_findings_during_a_fault_are_duplicates_not_false_alarms() -> None:
+    m = l1([result("e1", [fault("e1")], [finding("a", 30), finding("b", 60), finding("c", 400)])])
+    assert m["detected"] == 1
+    assert m["duplicate_findings"] == 1  # b, during the fault
+    assert m["false_alarms"] == 1  # c, after the fault ended plus grace
+    assert m["findings_per_detected_fault"] == 2.0
+    assert m["precision"] == pytest.approx(2 / 3)

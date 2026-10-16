@@ -5,8 +5,11 @@ Matching rules, per layer:
 - a finding detects a fault when its first revision's ``first_seen`` lies in
   [fault start, fault end + GRACE[layer]]; each finding detects at most one fault, and each
   fault is credited to its earliest matching finding (greedy, by fault start);
+- a further finding raised while a fault of the layer is present (start to end plus grace) is a
+  duplicate: an extra alert about a real problem, reported but not a false alarm;
 - every other finding of the layer is a false alarm. False alarms are attributed to any
   legitimate anomaly whose window (plus grace) contains them, to explain where they come from.
+- precision is the share of findings raised while a real fault was present.
 
 Time to detect is first_seen minus fault start. Localisation compares the truth's object ids
 (and their rooms) with the finding's ranked locations: certain ``object_ids`` first, then
@@ -159,6 +162,7 @@ class Match:
 class LayerScore:
     matches: list[Match] = field(default_factory=list)
     false_alarms: list[tuple[str, FindingSummary, str | None]] = field(default_factory=list)
+    duplicates: list[tuple[str, FindingSummary]] = field(default_factory=list)
     days: float = 0.0
     findings: int = 0
 
@@ -183,6 +187,13 @@ def match_episode(result: EpisodeResult, layer: str, score: LayerScore) -> None:
         score.matches.append(Match(result.episode_id, fault, best))
     for f in findings:
         if f.id in used:
+            continue
+        if any(
+            fault.start_us <= f.first_seen_us <= fault.end_us + GRACE_US[layer] for fault in faults
+        ):
+            # raised while a real fault of this layer was present: an extra alert about a real
+            # problem (a second finding, another type), not a false alarm
+            score.duplicates.append((result.episode_id, f))
             continue
         cause = next(
             (
@@ -299,6 +310,7 @@ def summarise_layer(score: LayerScore, index: HouseIndex, episodes: list[str]) -
         }  # fmt: skip
     tp = sum(m.finding is not None for m in score.matches)
     fp = len(score.false_alarms)
+    dup = len(score.duplicates)
     months = score.days / HOUSE_MONTH_DAYS
     causes: dict[str, int] = {}
     for _, _, cause in score.false_alarms:
@@ -306,6 +318,7 @@ def summarise_layer(score: LayerScore, index: HouseIndex, episodes: list[str]) -
 
     def precision_stat(sample: list[str]) -> float | None:
         t = sum(1 for e in sample for m in score.matches if m.episode_id == e and m.finding)
+        t += sum(1 for e in sample for x in score.duplicates if x[0] == e)
         f = sum(1 for e in sample for x in score.false_alarms if x[0] == e)
         return None if t + f == 0 else t / (t + f)
 
@@ -315,7 +328,9 @@ def summarise_layer(score: LayerScore, index: HouseIndex, episodes: list[str]) -
         "recall": None if not score.matches else tp / len(score.matches),
         "findings": score.findings,
         "false_alarms": fp,
-        "precision": None if tp + fp == 0 else tp / (tp + fp),
+        "duplicate_findings": dup,
+        "findings_per_detected_fault": None if tp == 0 else round((tp + dup) / tp, 3),
+        "precision": None if tp + dup + fp == 0 else (tp + dup) / (tp + dup + fp),
         "precision_ci95": _bootstrap(episodes, precision_stat),
         "house_months": round(months, 3),
         "false_alarms_per_house_month": None if months == 0 else round(fp / months, 4),

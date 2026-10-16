@@ -35,7 +35,9 @@ def render(report: Mapping[str, Any]) -> str:
                 f"**{layer}:** recall {_pct(m['recall'])} ({m['detected']}/{m['faults']} faults), "
                 f"precision {_pct(m['precision'])}{_ci(m['precision_ci95'])}, "
                 f"{_num(m['false_alarms_per_house_month'], '.2f')} false alarms per house-month "
-                f"over {m['house_months']} house-months.",
+                f"over {m['house_months']} house-months; {m['duplicate_findings']} extra findings "
+                f"during real faults ({_num(m['findings_per_detected_fault'], '.2f')} findings "
+                "per detected fault).",
                 "",
                 "| Fault | n | Recall (95% CI) | TTD median / p90 (h) | Specific type "
                 "| Top-1 / top-3 | Room |",
