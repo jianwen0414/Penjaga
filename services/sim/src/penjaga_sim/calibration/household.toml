@@ -103,6 +103,9 @@ note = "Clock times (minutes after midnight) of the routine basin sessions: abou
 times = [345, 795, 1000, 1160, 1235]
 
 # ------------------------------------------------------------------ kitchen, laundry, outdoor (household)
+[drink]
+glasses_per_day = { dist = "fixed", value = 8, unit = "1/day", basis = "source", source = "DS-032", note = "Mean glasses of plain water a day among Malaysian adults (MANS 2014). Drawn from the purifier only while awake at home, in proportion to the waking time spent there." }
+
 [kitchen]
 breakfast_sink_minutes = { dist = "uniform", low = 1, high = 4, unit = "min", basis = "assumption", note = "Breakfast rinse at the dry-kitchen sink." }
 lunch_sink_minutes = { dist = "uniform", low = 2, high = 6, unit = "min", basis = "assumption", note = "Lunch prep when someone is home." }

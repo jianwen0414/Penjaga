@@ -250,8 +250,8 @@ def test_post_outage_refill_is_recorded() -> None:
 # Day-1 totals of the reference world. If a change to the simulator moves these, the generator's
 # output has changed: bump penjaga_sim.GENERATOR_VERSION and update the numbers here.
 FINGERPRINT = {
-    "water_true_l": 791.71,
-    "water_registered_l": 784.789,
+    "water_true_l": 808.307,
+    "water_registered_l": 801.387,
     "energy_kwh": 11.229,
     "kwh.app_fridge_kitchen": 1.182,
 }

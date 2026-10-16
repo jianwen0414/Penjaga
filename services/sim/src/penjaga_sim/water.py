@@ -6,6 +6,9 @@
 * Roof tank: the float valve admits q = k * sqrt(p - static_head) when fully open; it opens
   proportionally as the level falls within the float band below full, closes at full. A stuck
   float valve (W3) keeps admitting water; the excess leaves by the overflow pipe.
+* RO purifier (DS-029, DS-030): drinking water comes from its storage; while that is below
+  full and the main is on at working pressure, RO production refills it at the rated rate and
+  the unit draws permeate x (1 + reject ratio) from the main.
 * Meter (OIML R49 class 2, DS-007): registered volume = true volume x (1 + error(flow)),
   nothing below the cutoff, larger under-registration between the cutoff and Q1.
 """
@@ -32,6 +35,7 @@ class WaterState:
     recovery_from_s: float | None = (
         None  # seconds before day start that pressure began recovering (<= 0)
     )
+    purifier_deficit_l: float = 0.0  # purifier storage still to refill
 
 
 @dataclass(frozen=True)
@@ -40,6 +44,7 @@ class WaterInputs:
     main_demand_lps: Arr  # requested draw from main-fed fixtures and leaks on the main side
     supply_on: npt.NDArray[np.bool_]
     stuck_float_lps: Arr  # W3: minimum inflow forced by a float valve that does not shut
+    purifier_draw_l: Arr  # litres taken from the purifier's storage in each second
 
 
 @dataclass(frozen=True)
@@ -52,6 +57,7 @@ class WaterDay:
     overflow_lps: Arr
     tank_served_lps: Arr
     main_served_lps: Arr
+    purifier_feed_lps: Arr  # drawn from the main by RO production (permeate + reject)
 
 
 def _peak_shape(model: HouseModel) -> Arr:
@@ -119,7 +125,7 @@ def supply_pressure(
         if s + recovery_s > N:
             next_recovery = s - N
     p = np.where(out, residual, residual + (p - residual) * ramp)
-    return np.maximum(p, 0.0), WaterState(state.tank_l, ar, next_recovery)
+    return np.maximum(p, 0.0), WaterState(state.tank_l, ar, next_recovery, state.purifier_deficit_l)
 
 
 def simulate_water(
@@ -146,6 +152,10 @@ def simulate_water(
     tank_served = np.empty(N)
     main_served = np.where(supply, main_dem, 0.0)
     pressure = np.empty(N)
+    purifier = model.purifier
+    draw = inputs.purifier_draw_l
+    feed = np.zeros(N)
+    deficit = state.purifier_deficit_l
     v = state.tank_l
     q_prev = 0.0
     for i in range(N):
@@ -166,8 +176,14 @@ def simulate_water(
         level[i] = v
         inflow[i] = q_in
         tank_served[i] = out
-        q_prev = q_in + main_served[i]
-    meter_true = inflow + main_served
+        if purifier is not None:
+            deficit = min(purifier.storage_l, deficit + draw[i])
+            if deficit > 0.0 and supply[i] and p >= purifier.min_pressure_bar:
+                made = min(purifier.permeate_lps, deficit)
+                deficit -= made
+                feed[i] = made * purifier.feed_per_permeate
+        q_prev = q_in + main_served[i] + feed[i]
+    meter_true = inflow + main_served + feed
     day = WaterDay(
         meter_true_lps=meter_true,
         meter_registered_lps=meter_registration(model, meter_true),
@@ -177,8 +193,9 @@ def simulate_water(
         overflow_lps=overflow,
         tank_served_lps=tank_served,
         main_served_lps=main_served,
+        purifier_feed_lps=feed,
     )
-    return day, WaterState(v, next_state.pressure_ar, next_state.recovery_from_s)
+    return day, WaterState(v, next_state.pressure_ar, next_state.recovery_from_s, deficit)
 
 
 def demand_from_uses(model: HouseModel, uses: list[tuple[str, int, int, float]]) -> tuple[Arr, Arr]:

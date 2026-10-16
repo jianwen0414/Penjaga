@@ -39,5 +39,12 @@ recovery_minutes = { dist = "uniform", low = 5, high = 25, unit = "min", basis =
 [meter]
 upper_zone_bias_pct = { dist = "normal", mean = 0.0, sd = 0.7, low = -2.0, high = 2.0, unit = "%", basis = "source", source = "DS-007", note = "Per-meter error in Q2..Q4 stays within the class-2 MPE of +-2%." }
 lower_zone_bias_pct = { dist = "normal", mean = -1.0, sd = 1.5, low = -5.0, high = 5.0, unit = "%", basis = "source", source = "DS-007", note = "Per-meter error in Q1..Q2 stays within +-5%; meters tend to under-register at low flow." }
-cutoff_lph = { dist = "uniform", low = 1.0, high = 3.0, unit = "L/h", basis = "assumption", note = "Flow below which the meter registers nothing. Ultrasonic meters typically start registering at a few L/h; to be confirmed by spike S3." }
+cutoff_lph = { dist = "uniform", low = 1.4, high = 3.0, unit = "L/h", basis = "derived", source = "DS-028", note = "Flow below which the meter registers nothing. A current MID-approved DN15 ultrasonic meter starts at 1.4 L/h (DS-028, spike S3); the spread up to 3 L/h covers other models and ageing (assumption)." }
 below_q1_bias_pct = { dist = "uniform", low = -30, high = -10, unit = "%", basis = "assumption", note = "Between the cutoff and Q1 (6.25 L/h) no accuracy is guaranteed; modelled as stronger under-registration." }
+
+[purifier]
+production_lpd = { dist = "fixed", value = 76, unit = "L/day", basis = "source", source = "DS-029", note = "Rated RO production of the reference countertop unit (25 C, 0.14 MPa). Warmer Malaysian water would raise it slightly; not modelled." }
+storage_l = { dist = "fixed", value = 5.8, unit = "L", basis = "source", source = "DS-029", note = "Room, cold and hot tanks together (2.5 + 2.3 + 1.0 L); the refill deficit never exceeds it." }
+min_pressure_kpa = { dist = "fixed", value = 137, unit = "kPa", basis = "source", source = "DS-029", note = "Lowest rated working pressure; below it the unit is modelled as not producing." }
+reject_ratio = { dist = "uniform", low = 2.3, high = 5.0, unit = "L/L", basis = "derived", source = "DS-030", note = "Reject water per litre produced, per house: between the WaterSense ceiling (2.3) and the typical unit (5 or more). The reference unit publishes no ratio." }
+glass_l = { dist = "fixed", value = 0.25, unit = "L", basis = "source", source = "DS-031", note = "One glass of plain water in the Malaysian Food Pyramid 2020." }

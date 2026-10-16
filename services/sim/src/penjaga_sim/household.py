@@ -36,6 +36,14 @@ class WaterUse:
 
 
 @dataclass(frozen=True)
+class Drink:
+    """Drinking water taken from the purifier's storage (not metered: only its refill is)."""
+
+    start: int
+    litres: float
+
+
+@dataclass(frozen=True)
 class Use:
     """An appliance or circuit load event."""
 
@@ -100,6 +108,7 @@ class DayPlan:
     uses: list[Use]
     ac: list[AcSession]
     natural: list[NaturalAnomaly]
+    drinks: list[Drink]
 
     def count(self, attr: str) -> npt.NDArray[np.int16]:
         total = np.zeros(N, np.int16)
@@ -131,6 +140,7 @@ class _Planner:
         self.uses: list[Use] = []
         self.ac: list[AcSession] = []
         self.natural: list[NaturalAnomaly] = []
+        self.drinks: list[Drink] = []
 
     def p(self, path: str) -> float:
         return sample(self.cal, f"household.{path}", self.r)
@@ -359,6 +369,21 @@ class _Planner:
                 self._add_water(
                     fx.basin, int(t) + 60, sample(self.cal, "household.bath.basin_seconds", g), lpm
                 )
+
+    def drinking(self, index: int, o: Occupant) -> None:
+        """Glasses of drinking water from the purifier while awake at home: a Poisson count
+        with the national mean scaled by the share of waking time spent at home (DS-031,
+        DS-032). Own random stream, like night_voids."""
+        purifier = self.model.purifier
+        home = o.awake_home
+        if purifier is None or not home.any():
+            return
+        g = rng(self.model.seed, "day", self.day.toordinal(), "drinking", index)
+        share = int(home.sum()) / max(1, int((~o.asleep).sum()))
+        mean = self.cal.value("household.drink.glasses_per_day") * share
+        glass = self.cal.value("water.purifier.glass_l")
+        for t in np.sort(g.choice(np.flatnonzero(home), size=int(g.poisson(mean)))):
+            self.drinks.append(Drink(int(t), glass))
 
     def kitchen(self, occ: list[Occupant]) -> None:
         awake_home = np.zeros(N, np.bool_)
@@ -636,14 +661,23 @@ def plan_day(
     for i, o in enumerate(occupants):
         planner.bathroom(o)
         planner.night_voids(i, o)
+        planner.drinking(i, o)
     planner.kitchen(occupants)
     planner.laundry(occupants)
     planner.outdoor(occupants)
     planner.comfort(occupants)
     planner.water.sort(key=lambda w: (w.start, w.fixture))
     planner.uses.sort(key=lambda u: (u.start, u.kind))
+    planner.drinks.sort(key=lambda d: d.start)
     return DayPlan(
-        day, planner.weekend, occupants, planner.water, planner.uses, planner.ac, planner.natural
+        day,
+        planner.weekend,
+        occupants,
+        planner.water,
+        planner.uses,
+        planner.ac,
+        planner.natural,
+        planner.drinks,
     )
 
 

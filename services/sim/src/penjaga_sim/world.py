@@ -307,11 +307,15 @@ class World:
         tank_dem, main_dem = demand_from_uses(
             model, [(u.fixture, u.start, u.dur, u.lpm) for u in plan.water]
         )
+        drawn = np.zeros(N)
+        for d in plan.drinks:
+            drawn[d.start] += d.litres
         water_in = WaterInputs(
             tank_dem + effects.tank_leak_lps,
             main_dem + effects.main_leak_lps,
             effects.water_supply_on,
             effects.stuck_float_lps,
+            drawn,
         )
         water, water_end = simulate_water(model, day.toordinal(), water_in, state.water)
         elec, elec_end = simulate_electrical(

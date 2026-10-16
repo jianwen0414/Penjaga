@@ -6,4 +6,5 @@
 # regenerating a manifest made by another generator version is refused.
 #
 # penjaga-sim/2: night-time toilet visits (DS-026, DS-027).
-GENERATOR_VERSION = "penjaga-sim/2"
+# penjaga-sim/3: RO purifier refills (DS-029 to DS-032); meter cutoff from 1.4 L/h (DS-028).
+GENERATOR_VERSION = "penjaga-sim/3"

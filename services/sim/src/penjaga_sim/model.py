@@ -46,6 +46,22 @@ class Draws:
 
 
 @dataclass(frozen=True)
+class Purifier:
+    """A point-of-use RO purifier: drinking water comes from its storage tanks, and RO
+    production refills them from the main, sending reject water to the drain (DS-029, DS-030)."""
+
+    fixture: str
+    permeate_lps: float  # RO production while refilling
+    reject_ratio: float  # litres of reject water per litre produced
+    storage_l: float
+    min_pressure_bar: float  # below the working pressure the unit does not produce
+
+    @property
+    def feed_per_permeate(self) -> float:
+        return 1.0 + self.reject_ratio
+
+
+@dataclass(frozen=True)
 class BathroomFixtures:
     room_id: str
     wc: str
@@ -121,6 +137,25 @@ class HouseModel:
     @cached_property
     def garden_tap(self) -> str:
         return self._one_fixture(FixtureKind.garden_tap)
+
+    @cached_property
+    def purifier(self) -> Purifier | None:
+        found = [f.id for f in self.fixtures.values() if f.kind is FixtureKind.water_purifier]
+        if not found:
+            return None
+        if len(found) > 1:
+            raise ValueError(f"one water purifier supported, house has {found}")
+        if self.is_tank_fed(found[0]):
+            # the modelled unit needs mains pressure (DS-029); a tank-fed one would need a pump
+            raise ValueError(f"water purifier {found[0]!r} must be fed from the main")
+        cal = self.cal
+        return Purifier(
+            fixture=found[0],
+            permeate_lps=cal.value("water.purifier.production_lpd") / 86_400.0,
+            reject_ratio=self.draws.house("water.purifier.reject_ratio"),
+            storage_l=cal.value("water.purifier.storage_l"),
+            min_pressure_bar=cal.value("water.purifier.min_pressure_kpa") / 100.0,
+        )
 
     def is_tank_fed(self, fixture_id: str) -> bool:
         return self.index.supply_source(fixture_id) == "tank"
