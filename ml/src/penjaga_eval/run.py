@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import os
 from collections.abc import Mapping, Sequence
+from concurrent.futures import ProcessPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -42,11 +44,16 @@ def evaluate(
     house = HouseContext.canonical()
     params = {name: registry.parameters(name, (overrides or {}).get(name)) for name in detectors}
     per_detector: dict[str, list[EpisodeResult]] = {name: [] for name in detectors}
-    for path in paths:
-        built = [registry.build(name, house, params[name]) for name in detectors]
-        findings = replay(path, built)
+    jobs = [(path, tuple(detectors), params) for path in paths]
+    n = workers if workers is not None else max(1, (os.cpu_count() or 2) - 1)
+    if n == 1 or len(jobs) <= 1:
+        results = [_episode(job) for job in jobs]
+    else:  # episodes are independent: replay them in parallel, results in episode order
+        with ProcessPoolExecutor(max_workers=min(n, len(jobs))) as pool:
+            results = list(pool.map(_episode, jobs))
+    for result in results:
         for name in detectors:
-            per_detector[name].append(result_for(path, findings[name]))
+            per_detector[name].append(result[name])
     report: dict[str, Any] = {
         "suite": suite.name,
         "split": split,
@@ -84,6 +91,15 @@ def evaluate(
             test_log,
         )
     return report
+
+
+def _episode(job: tuple[Path, tuple[str, ...], Mapping[str, Any]]) -> dict[str, EpisodeResult]:
+    """Replay one episode through fresh detectors and score each detector's findings."""
+    path, detectors, params = job
+    house = HouseContext.canonical()
+    built = [registry.build(name, house, params[name]) for name in detectors]
+    findings = replay(path, built)
+    return {name: result_for(path, findings[name]) for name in detectors}
 
 
 def headline(metrics: Mapping[str, Any]) -> dict[str, Any]:

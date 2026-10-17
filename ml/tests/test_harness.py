@@ -63,6 +63,16 @@ def test_validation_run(tiny: Suite, episodes_root: Path) -> None:
     assert json.loads(json.dumps(report)) == report
 
 
+def test_parallel_replay_gives_the_same_report(tiny: Suite, episodes_root: Path) -> None:
+    serial = evaluate(
+        tiny, "validation", ["l1_mnf_baseline"], episodes_root=episodes_root, workers=1
+    )
+    parallel = evaluate(
+        tiny, "validation", ["l1_mnf_baseline"], episodes_root=episodes_root, workers=2
+    )
+    assert parallel["detectors"] == serial["detectors"]
+
+
 def test_test_runs_need_a_seal_and_are_logged(
     tiny: Suite, episodes_root: Path, tmp_path: Path
 ) -> None:
