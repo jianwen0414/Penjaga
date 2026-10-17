@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import csv
 import json
-import math
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -165,9 +164,9 @@ def recall_by_fault(
     for yi, r in zip(y, rows, strict=True):
         ax.barh(yi, 100 * r["recall"], height=0.6, color=LAYER_COLOUR[r["layer"]])
         ax.plot([100 * r["ci_low"], 100 * r["ci_high"]], [yi, yi], color=INK_2, linewidth=1)
-        ax.text(101, yi, f"{100 * r['recall']:.0f}%", va="center", fontsize=9, color=INK)
+        ax.text(103, yi, f"{100 * r['recall']:.0f}%", va="center", fontsize=9, color=INK)
     ax.set_yticks(y, [f"{r['name']} ({r['fault']})" for r in rows], color=INK, fontsize=9)
-    ax.set_xlim(0, 112)
+    ax.set_xlim(0, 115)
     ax.set_xlabel("Faults found on the sealed test split (%)", color=INK_2, fontsize=9)
     handles = [Rectangle((0, 0), 1, 1, color=c) for c in LAYER_COLOUR.values()]
     ax.legend(
@@ -254,8 +253,8 @@ def l1_detectors(reports: Mapping[tuple[str, str, str], dict[str, Any]], out: Pa
     _title(
         fig,
         "L1 leaks: the night-flow baseline against the leak model",
-        "Sealed test splits; low-pressure houses refill their roof tank at night "
-        "(DS-033 to DS-035)",
+        "Deployed settings on the sealed test splits; low-pressure houses refill their roof "
+        "tank at night (DS-033 to DS-035)",
     )
     fig.tight_layout(rect=(0, 0, 1, 0.84))
     return _save(fig, out, "l1_baseline_vs_model", rows)
@@ -287,48 +286,39 @@ def drip_recall(reports: Mapping[tuple[str, str, str], dict[str, Any]], out: Pat
             )
     if not rows:
         return []
-    fig, ax = _figure(7.5, 3.6)
-    for k, name in enumerate(dict.fromkeys(r["detector"] for r in rows)):
-        pts = [r for r in rows if r["detector"] == name]
-        xs = [math.sqrt(r["flow_lph_low"] * r["flow_lph_high"]) for r in pts]
-        ys = [100 * (r["recall"] or 0) for r in pts]
-        ax.plot(
-            xs,
-            ys,
-            color=SERIES[k],
-            linewidth=2,
-            marker="o",
-            markersize=7,
-            label=name,
-            markeredgecolor=SURFACE,
-            markeredgewidth=2,
-        )
-        ax.annotate(
-            f"{ys[0]:.0f}%",
-            (xs[0], ys[0]),
-            textcoords="offset points",
-            xytext=(8, -12 + 14 * k),
-            fontsize=9,
-            color=INK,
-        )
-    ax.axvline(METER_START_LPH, color=INK_2, linewidth=1, linestyle="--")
-    ax.text(
-        METER_START_LPH * 1.04, 8, "meter starts\nregistering\n(1.4 L/h)", fontsize=8, color=INK_2
-    )
-    ax.set_xscale("log")
-    ax.set_ylim(0, 110)
-    ax.set_xlabel(
-        "Drip size (L/h, geometric middle of each third of the test drips)", color=INK_2, fontsize=9
-    )
+    fig, ax = _figure(7.5, 3.8)
+    names = list(dict.fromkeys(r["detector"] for r in rows))
+    bins = list(dict.fromkeys((r["flow_lph_low"], r["flow_lph_high"]) for r in rows))
+    width = 0.36
+    for k, name in enumerate(names):
+        for g, (lo, _hi) in enumerate(bins):
+            r = next(x for x in rows if x["detector"] == name and x["flow_lph_low"] == lo)
+            v = 100 * (r["recall"] or 0)
+            x = g + (k - (len(names) - 1) / 2) * (width + 0.04)
+            ax.bar(x, v, width, color=SERIES[k], label=name if g == 0 else None)
+            ax.text(x, v + 2, f"{v:.0f}%", ha="center", fontsize=9, color=INK)
+    labels = [f"{lo:.1f}-{hi:.1f} L/h" for lo, hi in bins]
+    ax.set_xticks(range(len(bins)), labels, color=INK, fontsize=9)
+    ax.set_ylim(0, 112)
+    ax.set_xlabel("Drip size, by third of the test drips", color=INK_2, fontsize=9)
     ax.set_ylabel("Drips found (%)", color=INK_2, fontsize=9)
     ax.grid(axis="y", color=GRID, linewidth=0.8)
-    ax.legend(frameon=False, fontsize=8, loc="lower right", labelcolor=INK_2)
+    ax.grid(axis="x", visible=False)
+    ax.legend(
+        frameon=False,
+        fontsize=8,
+        loc="lower left",
+        bbox_to_anchor=(0, 1.0),
+        ncol=2,
+        labelcolor=INK_2,
+    )
     _title(
         fig,
         "Where L1 fails: the smallest drips",
-        "Dripping-tap recall by drip size on the sealed l1_v0 test split",
+        f"Dripping-tap recall on the sealed l1_v0 test split; the meter starts registering at "
+        f"{METER_START_LPH} L/h (DS-028)",
     )
-    fig.tight_layout(rect=(0, 0, 1, 0.86))
+    fig.tight_layout(rect=(0, 0, 1, 0.84))
     return _save(fig, out, "l1_drip_recall", rows)
 
 
@@ -345,7 +335,6 @@ def reliability(reports: Mapping[tuple[str, str, str], dict[str, Any]], out: Pat
         return []
     fig, ax = _figure(5.6, 5.0)
     ax.plot([0, 1], [0, 1], color=INK_2, linewidth=1, linestyle="--")
-    ax.text(0.62, 0.55, "perfectly calibrated", rotation=45, fontsize=8, color=INK_2)
     for suite in dict.fromkeys(r["suite"] for r in rows):
         pts = [r for r in rows if r["suite"] == suite]
         k = pts[0]["series"]
@@ -366,7 +355,11 @@ def reliability(reports: Mapping[tuple[str, str, str], dict[str, Any]], out: Pat
     ax.set_ylabel("Share of nights with a leak", color=INK_2, fontsize=9)
     ax.grid(axis="y", color=GRID, linewidth=0.8)
     ax.legend(frameon=False, fontsize=8, loc="upper left", labelcolor=INK_2)
-    _title(fig, "Is the leak model's probability honest?", "Reliability on the sealed test splits")
+    _title(
+        fig,
+        "Is the leak model's probability honest?",
+        "Reliability on the sealed test splits; dashed: perfectly calibrated",
+    )
     fig.tight_layout(rect=(0, 0, 1, 0.88))
     return _save(fig, out, "l1_reliability", rows)
 
@@ -427,7 +420,7 @@ def localisation(reports: Mapping[tuple[str, str, str], dict[str, Any]], out: Pa
     )
     _title(
         fig,
-        "Guided checks find the leak",
+        "What guided checks add to locating a leak",
         "Detected water faults on the sealed l1_v0 test split; checks simulated in each house",
     )
     fig.tight_layout(rect=(0, 0, 1, 0.84))
