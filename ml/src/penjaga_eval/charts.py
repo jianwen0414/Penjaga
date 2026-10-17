@@ -23,6 +23,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
+from penjaga_eval import registry
+
 # reference palette, light mode (validated: adjacent CVD dE >= 9.1, normal-vision >= 22.9)
 SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100"]
 SURFACE = "#fcfcfb"
@@ -75,14 +77,19 @@ METER_START_LPH = 1.4  # DS-028
 
 
 def latest_reports(directory: Path) -> dict[tuple[str, str, str], dict[str, Any]]:
-    """The newest report per (suite, kind, split); detection reports have kind "detection"."""
+    """The newest report per (suite, kind, split); detection reports have kind "detection".
+    Outlook reports are kept per method too (kind ``tank_outlook:<method>``), as the deployed
+    method and its baseline are scored on the same sealed cuts."""
     out: dict[tuple[str, str, str], dict[str, Any]] = {}
     for path in sorted(directory.glob("*/report.json")):
         try:
             report = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             continue
-        key = (report.get("suite", ""), report.get("kind", "detection"), report.get("split", ""))
+        kind = report.get("kind", "detection")
+        if kind == "tank_outlook":
+            kind = f"tank_outlook:{report.get('params', {}).get('outlook_method', '')}"
+        key = (report.get("suite", ""), kind, report.get("split", ""))
         if key not in out or report.get("created", "") > out[key].get("created", ""):
             out[key] = report
     return out
@@ -365,30 +372,36 @@ def reliability(reports: Mapping[tuple[str, str, str], dict[str, Any]], out: Pat
 
 
 def localisation(reports: Mapping[tuple[str, str, str], dict[str, Any]], out: Path) -> list[Path]:
-    """Top-1 and top-3 location accuracy before and after guided checks."""
-    report = reports.get(("l1_v0", "localisation", "test"))
-    if report is None:
-        return []
+    """Top-1 and top-3 location accuracy before and after guided checks: water leaks (valves
+    closed, l1_v0) and rising earth leakage (circuits switched off, l2_leak_v0)."""
     names = {
         "l1_mnf_baseline": "Night-flow baseline",
         "l1_leak_model": "Leak model",
         "l1_burst_rule": "Burst rule",
+        "l2_leakage_baseline": "Earth leakage",
     }
     rows = []
-    for detector, d in report["detectors"].items():
-        g = d["all"]
-        rows.append(
-            {
-                "detector": names.get(detector, detector),
-                "n": g["n"],
-                "top1_before": g["top1_before"],
-                "top1_after": g["top1_after"],
-                "top3_before": g["top3_before"],
-                "top3_after": g["top3_after"],
-                "checks_mean": g["checks_mean"],
-            }
-        )
-    fig, axes = _figure(9, 3.6, ncols=2)
+    for suite in ("l1_v0", "l2_leak_v0"):
+        report = reports.get((suite, "localisation", "test"))
+        if report is None:
+            continue
+        for detector, d in report["detectors"].items():
+            g = d["all"]
+            rows.append(
+                {
+                    "suite": suite,
+                    "detector": names.get(detector, detector),
+                    "n": g["n"],
+                    "top1_before": g["top1_before"],
+                    "top1_after": g["top1_after"],
+                    "top3_before": g["top3_before"],
+                    "top3_after": g["top3_after"],
+                    "checks_mean": g["checks_mean"],
+                }
+            )
+    if not rows:
+        return []
+    fig, axes = _figure(2.4 * len(rows) + 1.5, 3.6, ncols=2)
     width = 0.36
     for ax, key, label in (
         (axes[0], "top1", "Faulty element ranked first (%)"),
@@ -420,8 +433,9 @@ def localisation(reports: Mapping[tuple[str, str, str], dict[str, Any]], out: Pa
     )
     _title(
         fig,
-        "What guided checks add to locating a leak",
-        "Detected water faults on the sealed l1_v0 test split; checks simulated in each house",
+        "What guided checks add to locating a fault",
+        "Detected faults on sealed test splits (water: l1_v0, closing valves; earth leakage: "
+        "l2_leak_v0, switching circuits off); checks simulated in each house",
     )
     fig.tight_layout(rect=(0, 0, 1, 0.84))
     return _save(fig, out, "l1_localisation_checks", rows)
@@ -429,7 +443,7 @@ def localisation(reports: Mapping[tuple[str, str, str], dict[str, Any]], out: Pa
 
 def tank_outlook(reports: Mapping[tuple[str, str, str], dict[str, Any]], out: Path) -> list[Path]:
     """The roof-tank outlook's implied draw rate against the true one, per water cut."""
-    report = reports.get(("l5_tank_v0", "tank_outlook", "test"))
+    report = reports.get(("l5_tank_v0", f"tank_outlook:{_deployed_outlook()}", "test"))
     if report is None:
         return []
     cases = [c for c in report["cases"] if c["rate"] is not None and c["true_rate"] is not None]
@@ -477,6 +491,59 @@ def tank_outlook(reports: Mapping[tuple[str, str, str], dict[str, Any]], out: Pa
     return _save(fig, out, "l5_tank_outlook", rows)
 
 
+def _deployed_outlook() -> str:
+    return str(registry.parameters("l5_supply").outlook_method)
+
+
+def hours_to_empty(reports: Mapping[tuple[str, str, str], dict[str, Any]], out: Path) -> list[Path]:
+    """Hours of water the outlook gave at the cut against how long the tank really lasted, for
+    the water cuts that emptied it (l5_drain_v0)."""
+    report = reports.get(("l5_drain_v0", f"tank_outlook:{_deployed_outlook()}", "test"))
+    if report is None:
+        return []
+    rows = [
+        {
+            "episode": c["episode"],
+            "fault_type": c["fault_type"],
+            "outlook_hours": c["hours"],
+            "true_hours": c["true_hours"],
+        }
+        for c in report["cases"]
+        if c["ran_dry"] and c["hours"] is not None and c["true_hours"] is not None
+    ]
+    if not rows:
+        return []
+    fig, ax = _figure(5.6, 5.0)
+    top = 1.1 * max(max(r["outlook_hours"], r["true_hours"]) for r in rows)
+    ax.plot([0, top], [0, top], color=INK_2, linewidth=1, linestyle="--")
+    for k, ft in enumerate(("U1", "U2")):
+        pts = [r for r in rows if r["fault_type"] == ft]
+        ax.scatter(
+            [r["true_hours"] for r in pts],
+            [r["outlook_hours"] for r in pts],
+            s=40,
+            color=SERIES[k],
+            edgecolors=SURFACE,
+            linewidths=1.5,
+            label=FAULT_NAME[ft],
+        )
+    m = report["metrics"]
+    ax.set_xlim(0, top)
+    ax.set_ylim(0, top)
+    ax.set_xlabel("How long the tank really lasted (h)", color=INK_2, fontsize=9)
+    ax.set_ylabel("Hours the outlook gave at the cut (h)", color=INK_2, fontsize=9)
+    ax.grid(axis="y", color=GRID, linewidth=0.8)
+    ax.legend(frameon=False, fontsize=8, loc="upper left", labelcolor=INK_2)
+    _title(
+        fig,
+        "When will the roof tank run dry?",
+        f"{len(rows)} water cuts that emptied the tank: off by {m['hours_mae_dry']:.1f} h on "
+        f"average (median {m['hours_rel_error_dry']:.0%})",
+    )
+    fig.tight_layout(rect=(0, 0, 1, 0.88))
+    return _save(fig, out, "l5_hours_to_empty", rows)
+
+
 def make_charts(reports_dir: Path, out: Path) -> list[Path]:
     reports = latest_reports(reports_dir)
     paths: list[Path] = []
@@ -487,6 +554,7 @@ def make_charts(reports_dir: Path, out: Path) -> list[Path]:
         reliability,
         localisation,
         tank_outlook,
+        hours_to_empty,
     ):
         paths += chart(reports, out)
     return paths
