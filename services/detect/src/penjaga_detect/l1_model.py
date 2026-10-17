@@ -116,7 +116,8 @@ class L1LeakModel:
         f_ts, f_v, f_new = self.flow.extend_untrimmed(flow)
         t_ts, t_v, _ = self.tank.extend_untrimmed(tank)
         p_ts, p_v, _ = self.pressure.extend_untrimmed(pressure)
-        self.out += self.burst.update(chunk, f_ts, f_v, f_new)
+        has_tank = bool(self.house.index.house.water.tanks) and t_ts.size > 0
+        self.out += self.burst.update(chunk, f_ts, f_v, f_new, (t_ts, t_v) if has_tank else None)
         all_flow = Series(f_ts, f_v, np.zeros(f_ts.size, np.uint8))
         all_tank = Series(t_ts, t_v, np.zeros(t_ts.size, np.uint8))
         all_pressure = Series(p_ts, p_v, np.zeros(p_ts.size, np.uint8))
