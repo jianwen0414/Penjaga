@@ -1,4 +1,4 @@
-"""Guided-check localisation (D-027): hypotheses, check options, Bayesian update, next check."""
+"""Guided-check localisation (D-029): hypotheses, check options, Bayesian update, next check."""
 
 from __future__ import annotations
 

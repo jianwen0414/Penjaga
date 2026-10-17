@@ -1,4 +1,4 @@
-"""Where is the leak? Narrowing L1 locations with guided checks (PRD §18.2, D-027).
+"""Where is the leak? Narrowing L1 locations with guided checks (PRD §18.2, D-029).
 
 A meter at the boundary cannot say where water is lost. The household can: closing a valve and
 watching the meter tells whether the leak is behind that valve. This module keeps a
