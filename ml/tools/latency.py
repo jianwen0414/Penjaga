@@ -19,7 +19,6 @@ conservative. PRD §14 asks for the part after a reading is processed.
 from __future__ import annotations
 
 import argparse
-import contextlib
 import itertools
 import json
 import os
@@ -87,6 +86,57 @@ def _process(args: list[str], health: str, log: Path) -> Iterator[None]:
             proc.wait(timeout=15)
 
 
+class _Watchers:
+    """House clock and SSE readers that survive transient errors (recorded in ``problems``)."""
+
+    def __init__(self, stream: str, detect: str) -> None:
+        self.stream, self.detect = stream, detect
+        self.clock_samples: list[tuple[float, datetime]] = []
+        self.arrivals: list[tuple[float, dict[str, Any]]] = []
+        self.problems: list[str] = []
+        self.stop = threading.Event()
+
+    def watch_clock(self) -> None:
+        while not self.stop.is_set():
+            t = time.monotonic()
+            try:
+                doc = _call("GET", f"{self.stream}/stream/v1/clock")
+            except OSError as exc:  # a slow or restarting service: retry, never die
+                self.problems.append(f"clock: {exc!r}")
+                time.sleep(0.2)
+                continue
+            house = datetime.fromisoformat(doc["house_time"])
+            self.clock_samples.append(((t + time.monotonic()) / 2, house))
+            time.sleep(0.05)
+
+    def watch_sse(self) -> None:
+        """Read the SSE stream; after a dropped connection, resume after the last event id."""
+        last_id: str | None = None
+        while not self.stop.is_set():
+            try:
+                last_id = self._read_sse(last_id)
+            except (httpx2.HTTPError, OSError) as exc:
+                if not self.stop.is_set():
+                    self.problems.append(f"sse: {exc!r}")
+                    time.sleep(0.2)
+
+    def _read_sse(self, after: str | None) -> str | None:
+        headers = {"Authorization": f"Bearer {TOKENS['PENJAGA_TOKEN_APP']}"}
+        if after is not None:
+            headers["Last-Event-ID"] = after
+        last = after
+        url = f"{self.detect}/detect/v1/findings/stream"
+        with httpx2.stream("GET", url, headers=headers, timeout=None) as r:
+            for line in r.iter_lines():
+                if self.stop.is_set():
+                    return last
+                if line.startswith("id: "):
+                    last = line[4:].strip()
+                elif line.startswith("data: "):
+                    self.arrivals.append((time.monotonic(), json.loads(line[6:])))
+        return last
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--speed", type=float, default=60.0)
@@ -100,30 +150,9 @@ def main(argv: list[str] | None = None) -> int:
     ports = [_port() for _ in range(3)]
     stream, sim, detect = (f"http://127.0.0.1:{p}" for p in ports)
     start = "2026-10-01T06:00:00+08:00"
-    clock_samples: list[tuple[float, datetime]] = []
-    arrivals: list[tuple[float, dict[str, Any]]] = []
-    stop = threading.Event()
-
-    def watch_clock() -> None:
-        while not stop.is_set():
-            t = time.monotonic()
-            house = datetime.fromisoformat(_call("GET", f"{stream}/stream/v1/clock")["house_time"])
-            clock_samples.append(((t + time.monotonic()) / 2, house))
-            time.sleep(0.05)
-
-    def watch_sse() -> None:
-        with contextlib.suppress(httpx2.HTTPError):  # the services stop under it at the end
-            read_sse()
-
-    def read_sse() -> None:
-        headers = {"Authorization": f"Bearer {TOKENS['PENJAGA_TOKEN_APP']}"}
-        with httpx2.stream("GET", f"{detect}/detect/v1/findings/stream", headers=headers,
-                           timeout=None) as r:  # fmt: skip
-            for line in r.iter_lines():
-                if stop.is_set():
-                    return
-                if line.startswith("data: "):
-                    arrivals.append((time.monotonic(), json.loads(line[6:])))
+    w = _Watchers(stream, detect)
+    clock_samples, arrivals, problems, stop = w.clock_samples, w.arrivals, w.problems, w.stop
+    watch_clock, watch_sse = w.watch_clock, w.watch_sse
 
     with ExitStack() as stack:
         stack.enter_context(_process(
@@ -154,12 +183,57 @@ def main(argv: list[str] | None = None) -> int:
         last = first + timedelta(minutes=args.gap_min * (args.events - 1) + 30)
         while not clock_samples or clock_samples[-1][1] < last:
             time.sleep(0.5)
-        time.sleep(3)
+        caught_up = _wait_for_detection(detect, last)
         state = {
             "health": _call("GET", f"{detect}/detect/v1/health", role="APP"),
             "diagnostics": _call("GET", f"{detect}/detect/v1/diagnostics", role="APP"),
         }
+        state["caught_up"] = caught_up
+        stored = _call("GET", f"{detect}/detect/v1/findings?layer=L5", role="APP")
         stop.set()
+
+    result = _result(
+        args.speed,
+        args.events,
+        arrivals=arrivals,
+        clock_samples=clock_samples,
+        stored=stored,
+        problems=problems,
+        state=state,
+    )
+    print(json.dumps(result, indent=1))
+    (args.out / f"latency_{args.speed:g}x.json").write_text(json.dumps(result, indent=1))
+    return 0
+
+
+def _wait_for_detection(detect: str, last: datetime, stall_s: float = 120.0) -> bool:
+    """Wait until detection has processed house time ``last``; False if it stops progressing
+    for ``stall_s`` wall seconds first (a stall, not just a slow pipeline)."""
+    seen, since = None, time.monotonic()
+    while True:
+        health = _call("GET", f"{detect}/detect/v1/health", role="APP")
+        done = health.get("processed_until")
+        if done is not None and datetime.fromisoformat(done) >= last:
+            time.sleep(2)  # let the last revisions reach the SSE client
+            return True
+        if done != seen:
+            seen, since = done, time.monotonic()
+        elif time.monotonic() - since > stall_s:
+            return False
+        time.sleep(1)
+
+
+def _result(
+    speed: float,
+    events: int,
+    *,
+    arrivals: list[tuple[float, dict[str, Any]]],
+    clock_samples: list[tuple[float, datetime]],
+    stored: Any,
+    problems: list[str],
+    state: dict[str, Any],
+) -> dict[str, Any]:
+    """Latencies of the power-cut findings that arrived over SSE, against what was stored."""
 
     def wall_at(house: datetime) -> float:
         for (w0, h0), (w1, h1) in itertools.pairwise(clock_samples):
@@ -167,25 +241,29 @@ def main(argv: list[str] | None = None) -> int:
                 return w0 + (w1 - w0) * (house - h0) / (h1 - h0)
         raise ValueError(f"{house} outside the clock record")
 
-    latencies = [
+    latencies = sorted(
         w - wall_at(datetime.fromisoformat(doc["first_seen"]))
         for w, doc in arrivals
         if doc["type"] == "power_supply_interruption" and doc["revision"] == 1
-    ]
-    latencies.sort()
+    )
     print("latencies (s):", [round(x, 3) for x in latencies])
-    result = {
-        "speed": args.speed,
-        "events": args.events,
+    items = stored if isinstance(stored, list) else stored.get("findings", [])
+    in_store = sum(1 for f in items if f.get("type") == "power_supply_interruption")
+    return {
+        "speed": speed,
+        "events": events,
         "findings": len(latencies),
-        "median_s": round(statistics.median(latencies), 3),
-        "p95_s": round(latencies[min(len(latencies) - 1, int(0.95 * len(latencies)))], 3),
-        "max_s": round(latencies[-1], 3),
+        "findings_in_store": in_store,  # what detection produced, whether or not SSE delivered it
+        "median_s": round(statistics.median(latencies), 3) if latencies else None,
+        "p95_s": (
+            round(latencies[min(len(latencies) - 1, int(0.95 * len(latencies)))], 3)
+            if latencies
+            else None
+        ),
+        "max_s": round(latencies[-1], 3) if latencies else None,
+        "client_problems": problems[:20],
         "detection": state,
     }
-    print(json.dumps(result, indent=1))
-    (args.out / f"latency_{args.speed:g}x.json").write_text(json.dumps(result, indent=1))
-    return 0
 
 
 if __name__ == "__main__":
