@@ -55,6 +55,7 @@ from penjaga_detect.localise import (
     Localiser,
     check_options,
     entropy_bits,
+    evidence_verdict,
 )
 from penjaga_eval import episodes, registry, sealing
 from penjaga_eval.replay import replay
@@ -113,8 +114,11 @@ def _series(world: World, stream: str, t0_us: int, t1_us: int) -> Series:
     ).between(t0_us, t1_us)
 
 
-def do_check(world: World, option: CheckOption, slot_us: int, plan: CheckPlan) -> str:
-    """Apply ``option`` in ``world`` at ``slot_us`` and return the measured verdict."""
+def do_check(
+    world: World, option: CheckOption, slot_us: int, plan: CheckPlan, idle_below_lpm: float
+) -> str:
+    """Apply ``option`` in ``world`` at ``slot_us`` and return the localiser's verdict for what
+    was measured (``evidence_verdict``)."""
     info = _stream_info()
     if option.kind == "tank_level_trend":
         since = slot_us
@@ -123,18 +127,21 @@ def do_check(world: World, option: CheckOption, slot_us: int, plan: CheckPlan) -
         period, resolution = info[checks.TANK_STREAM]
         data = _series(world, checks.TANK_STREAM, since, ready)
         outcome = checks.tank_level_trend(checks.Window.of(data, since, ready, period), resolution)
-    else:
-        window, settle = round(plan.flow_window_s * US), round(plan.flow_settle_s * US)
-        since = slot_us + window
-        ready = since + settle + window
-        world.act(CheckAction(slot_us, since, (), True))  # measure "before" with no use
-        world.act(CheckAction(since, ready, (option.valve_id,), True))
-        period, resolution = info[checks.FLOW_STREAM]
-        data = _series(world, checks.FLOW_STREAM, since - window, ready)
-        before = checks.Window.of(data, since - window, since, period)
-        after = checks.Window.of(data, since + settle, ready, period)
-        outcome = checks.flow_stop(before, after, plan.expect_below_lpm, resolution)
-    return outcome.verdict or "unavailable"
+        return evidence_verdict(option.kind, outcome.verdict, None, idle_below_lpm)
+    window, settle = round(plan.flow_window_s * US), round(plan.flow_settle_s * US)
+    since = slot_us + window
+    ready = since + settle + window
+    world.act(CheckAction(slot_us, since, (), True))  # measure "before" with no use
+    world.act(CheckAction(since, ready, (option.valve_id,), True))
+    period, resolution = info[checks.FLOW_STREAM]
+    data = _series(world, checks.FLOW_STREAM, since - window, ready)
+    before = checks.Window.of(data, since - window, since, period)
+    after = checks.Window.of(data, since + settle, ready, period)
+    outcome = checks.flow_stop(before, after, plan.expect_below_lpm, resolution)
+    flow_before = next(
+        (float(m["value"]) for m in outcome.measurements if m["name"] == "flow_before"), None
+    )
+    return evidence_verdict(option.kind, outcome.verdict, flow_before, idle_below_lpm)
 
 
 def first_slot(after_us: int, zone: ZoneInfo, plan: CheckPlan) -> int:
@@ -176,7 +183,7 @@ def _run(args: tuple[Task, dict[str, Any], dict[str, Any], dict[str, Any]]) -> d
         slot = first_slot(task.fault_start_us + 86_400 * US, house.zone, plan)
         done = []
         for each in check_options(house.index):
-            verdict = do_check(world, each, slot, plan)
+            verdict = do_check(world, each, slot, plan, loc.params.idle_below_lpm)
             done.append(_record(each, task.truth, verdict))
             slot += round(plan.slot_min * MINUTE_US)
         return {"task": asdict(task), "checks": done}
@@ -186,7 +193,7 @@ def _run(args: tuple[Task, dict[str, Any], dict[str, Any], dict[str, Any]]) -> d
     slot = first_slot(task.first_seen_us, house.zone, plan)
     done = []
     while (option := loc.next_check()) is not None:
-        verdict = do_check(world, option, slot, plan)
+        verdict = do_check(world, option, slot, plan, loc.params.idle_below_lpm)
         loc.observe(option, verdict)
         done.append(_record(option, task.truth, verdict))
         slot += round(plan.slot_min * MINUTE_US)

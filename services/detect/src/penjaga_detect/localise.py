@@ -29,6 +29,11 @@ continue, windows are short, small drips sit near the meter's starting flow. The
 therefore uses ``Likelihood``, P(verdict | the leak is or is not behind the valve), estimated
 from validation episodes by the evaluation harness (M11), never from test episodes.
 
+**No flow, no evidence.** ``checks.flow_stop`` says ``stopped`` whenever the meter is still
+after the valve closes, including when it was already still before: a drip below the meter's
+starting flow, or a cistern between phantom refills. That says nothing about the valve, so
+``evidence_verdict`` turns it into ``idle`` (flow before the closing below ``idle_below_lpm``).
+
 **Next check**: the one with the largest expected reduction in entropy (bits). Stop when the
 most likely location reaches ``confident_p``, no check is expected to gain ``min_gain_bits``,
 or after ``max_checks``.
@@ -52,7 +57,7 @@ from penjaga_contract.house import ElementKind, HouseIndex
 
 CheckKind = Literal["flow_stop", "tank_level_trend"]
 VERDICTS: dict[str, tuple[str, ...]] = {
-    "flow_stop": ("stopped", "reduced", "unchanged", "unavailable"),
+    "flow_stop": ("stopped", "reduced", "unchanged", "idle", "unavailable"),
     "tank_level_trend": ("falling", "steady", "rising", "unavailable"),
 }
 OPERABLE_KINDS = frozenset({ValveKind.stop, ValveKind.angle, ValveKind.gate})
@@ -85,10 +90,12 @@ class Likelihood:
             {
                 "flow_stop": {
                     "behind": {
-                        "stopped": 0.7, "reduced": 0.2, "unchanged": 0.08, "unavailable": 0.02,
+                        "stopped": 0.6, "reduced": 0.15, "unchanged": 0.05, "idle": 0.18,
+                        "unavailable": 0.02,
                     },
                     "other": {
-                        "stopped": 0.04, "reduced": 0.08, "unchanged": 0.86, "unavailable": 0.02,
+                        "stopped": 0.03, "reduced": 0.07, "unchanged": 0.7, "idle": 0.18,
+                        "unavailable": 0.02,
                     },
                 },
                 "tank_level_trend": {
@@ -127,6 +134,18 @@ class LocaliseParams:
     max_checks: int = 4
     confident_p: float = 0.8
     min_gain_bits: float = 0.05
+    idle_below_lpm: float = 0.02  # flow before closing a valve below this: no evidence
+
+
+def evidence_verdict(
+    kind: str, verdict: str | None, flow_before_lpm: float | None, idle_below_lpm: float
+) -> str:
+    """The localiser's verdict for a check's measured outcome (see "No flow, no evidence")."""
+    if verdict is None:
+        return "unavailable"
+    if kind == "flow_stop" and flow_before_lpm is not None and flow_before_lpm < idle_below_lpm:
+        return "idle"
+    return verdict
 
 
 @dataclass

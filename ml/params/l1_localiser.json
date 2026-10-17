@@ -1,0 +1,74 @@
+{
+  "likelihood": {
+    "flow_stop": {
+      "behind": {
+        "stopped": 0.5344827586206896,
+        "reduced": 0.3103448275862069,
+        "unchanged": 0.13793103448275862,
+        "unavailable": 0.017241379310344827
+      },
+      "other": {
+        "stopped": 0.26440677966101694,
+        "reduced": 0.16101694915254236,
+        "unchanged": 0.5728813559322034,
+        "unavailable": 0.001694915254237288
+      }
+    },
+    "tank_level_trend": {
+      "behind": {
+        "falling": 0.3508771929824561,
+        "steady": 0.6140350877192983,
+        "rising": 0.017543859649122806,
+        "unavailable": 0.017543859649122806
+      },
+      "other": {
+        "falling": 0.03225806451612903,
+        "steady": 0.9032258064516129,
+        "rising": 0.03225806451612903,
+        "unavailable": 0.03225806451612903
+      }
+    }
+  },
+  "counts": {
+    "tank_level_trend": {
+      "other": {
+        "steady": 27
+      },
+      "behind": {
+        "steady": 34,
+        "falling": 19
+      }
+    },
+    "flow_stop": {
+      "other": {
+        "stopped": 155,
+        "unchanged": 337,
+        "reduced": 94
+      },
+      "behind": {
+        "stopped": 30,
+        "reduced": 17,
+        "unchanged": 7
+      }
+    }
+  },
+  "check_plan": {
+    "start_hour": 19.0,
+    "after_finding_min": 30.0,
+    "slot_min": 35.0,
+    "flow_window_s": 600.0,
+    "flow_settle_s": 120.0,
+    "expect_below_lpm": 0.02,
+    "tank_window_s": 1800.0
+  },
+  "fitted_on": {
+    "suites": [
+      "l1_v0",
+      "l1_lowp_v0"
+    ],
+    "split": "validation",
+    "generator": "penjaga-sim/4",
+    "faults": 80,
+    "date": "2026-10-17"
+  }
+}

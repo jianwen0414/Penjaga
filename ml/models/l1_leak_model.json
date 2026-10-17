@@ -5,8 +5,11 @@
   "artifact_sha256": "0729d90f7dca60314f6e2647e2100643b47b069bca28d49aeacb622947c1cf31",
   "trained_on": {
     "suite": "l1_v0",
+    "suites": [
+      "l1_v0"
+    ],
     "split": "train",
-    "generator": "penjaga-sim/3",
+    "generator": "penjaga-sim/4",
     "episodes": 72,
     "nights": 1008,
     "labels": {
@@ -46,5 +49,5 @@
     "frac_flowing_delta",
     "mnf_trend"
   ],
-  "created": "2026-10-16T13:13:35+00:00"
+  "created": "2026-10-17T03:32:25+00:00"
 }

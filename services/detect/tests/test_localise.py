@@ -12,6 +12,7 @@ from penjaga_detect.localise import (
     Likelihood,
     Localiser,
     check_options,
+    evidence_verdict,
     expected_gain,
     hypotheses,
     prior,
@@ -24,8 +25,20 @@ INDEX = HOUSE.index
 PERFECT = Likelihood(
     {
         "flow_stop": {
-            "behind": {"stopped": 1.0, "reduced": 0.0, "unchanged": 0.0, "unavailable": 0.0},
-            "other": {"stopped": 0.0, "reduced": 0.0, "unchanged": 1.0, "unavailable": 0.0},
+            "behind": {
+                "stopped": 1.0,
+                "reduced": 0.0,
+                "unchanged": 0.0,
+                "idle": 0.0,
+                "unavailable": 0.0,
+            },
+            "other": {
+                "stopped": 0.0,
+                "reduced": 0.0,
+                "unchanged": 1.0,
+                "idle": 0.0,
+                "unavailable": 0.0,
+            },
         },
         "tank_level_trend": {
             "behind": {"falling": 1.0, "steady": 0.0, "rising": 0.0, "unavailable": 0.0},
@@ -159,10 +172,24 @@ def test_perfect_checks_narrow_a_leak_to_what_the_valves_can_separate(truth: str
 
 def test_counts_estimate_the_likelihood_with_smoothing() -> None:
     lik = Likelihood.from_counts({"flow_stop": {"behind": {"stopped": 8}, "other": {}}})
-    assert lik.p("flow_stop", True, "stopped") == pytest.approx(9 / 12)
-    assert lik.p("flow_stop", True, "reduced") == pytest.approx(1 / 12)
+    assert lik.p("flow_stop", True, "stopped") == pytest.approx(9 / 13)  # 5 verdicts
+    assert lik.p("flow_stop", True, "reduced") == pytest.approx(1 / 13)
     default = Likelihood.default()
     assert lik.p("flow_stop", False, "unchanged") == default.p("flow_stop", False, "unchanged")
     for kind, verdicts in VERDICTS.items():
         for side in (True, False):
             assert sum(default.p(kind, side, v) for v in verdicts) == pytest.approx(1.0)
+
+
+def test_a_still_meter_before_the_check_is_no_evidence() -> None:
+    assert evidence_verdict("flow_stop", "stopped", 0.0, 0.02) == "idle"
+    assert evidence_verdict("flow_stop", "stopped", 0.3, 0.02) == "stopped"
+    assert evidence_verdict("flow_stop", "unchanged", None, 0.02) == "unchanged"
+    assert evidence_verdict("tank_level_trend", "steady", 0.0, 0.02) == "steady"
+    assert evidence_verdict("flow_stop", None, 0.3, 0.02) == "unavailable"
+    hyps = hypotheses(INDEX)
+    option = next(o for o in check_options(INDEX) if o.valve_id == "valve_bath2_branch")
+    lik = Likelihood.default()
+    before = prior(None, hyps)
+    after = update(before, option, "idle", lik)
+    assert after == pytest.approx(before)  # idle is equally likely either way

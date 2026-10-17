@@ -9,11 +9,14 @@
   },
   "tuned_on": {
     "suite": "l1_v0",
+    "suites": [
+      "l1_v0"
+    ],
     "split": "validation",
-    "generator": "penjaga-sim/3",
+    "generator": "penjaga-sim/4",
     "budget_false_alarms_per_house_month": 0.5,
     "objective": "highest recall within the false-alarm budget",
-    "date": "2026-10-16"
+    "date": "2026-10-17"
   },
   "candidates": [
     {

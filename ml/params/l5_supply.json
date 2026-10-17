@@ -1,0 +1,256 @@
+{
+  "detector": "l5_supply",
+  "params": {
+    "outlook_method": "hour_profile",
+    "tank_share": 0.9
+  },
+  "tuned_on": {
+    "suite": "l5_tank_v0",
+    "split": "validation",
+    "generator": "penjaga-sim/4",
+    "objective": "smallest typical draw-rate factor with coverage >= 90%",
+    "date": "2026-10-17"
+  },
+  "candidates": [
+    {
+      "params": {
+        "outlook_method": "slope_30min",
+        "tank_share": 0.6
+      },
+      "cuts": 40,
+      "coverage": 0.15,
+      "litres_mae": 2.045252162632812,
+      "litres_max_error": 15.955469193810359,
+      "rate_factor": 3.3601660191763627,
+      "rate_factor_p90": 26.687861738288273,
+      "rate_bias": 0.4526901411584659,
+      "ran_dry": 0,
+      "hours_mae_dry": null,
+      "censored_consistent": 1.0
+    },
+    {
+      "params": {
+        "outlook_method": "slope_30min",
+        "tank_share": 0.7
+      },
+      "cuts": 40,
+      "coverage": 0.15,
+      "litres_mae": 2.045252162632812,
+      "litres_max_error": 15.955469193810359,
+      "rate_factor": 3.3601660191763627,
+      "rate_factor_p90": 26.687861738288273,
+      "rate_bias": 0.4526901411584659,
+      "ran_dry": 0,
+      "hours_mae_dry": null,
+      "censored_consistent": 1.0
+    },
+    {
+      "params": {
+        "outlook_method": "slope_30min",
+        "tank_share": 0.8
+      },
+      "cuts": 40,
+      "coverage": 0.15,
+      "litres_mae": 2.045252162632812,
+      "litres_max_error": 15.955469193810359,
+      "rate_factor": 3.3601660191763627,
+      "rate_factor_p90": 26.687861738288273,
+      "rate_bias": 0.4526901411584659,
+      "ran_dry": 0,
+      "hours_mae_dry": null,
+      "censored_consistent": 1.0
+    },
+    {
+      "params": {
+        "outlook_method": "slope_30min",
+        "tank_share": 0.9
+      },
+      "cuts": 40,
+      "coverage": 0.15,
+      "litres_mae": 2.045252162632812,
+      "litres_max_error": 15.955469193810359,
+      "rate_factor": 3.3601660191763627,
+      "rate_factor_p90": 26.687861738288273,
+      "rate_bias": 0.4526901411584659,
+      "ran_dry": 0,
+      "hours_mae_dry": null,
+      "censored_consistent": 1.0
+    },
+    {
+      "params": {
+        "outlook_method": "slope_30min",
+        "tank_share": 1.0
+      },
+      "cuts": 40,
+      "coverage": 0.15,
+      "litres_mae": 2.045252162632812,
+      "litres_max_error": 15.955469193810359,
+      "rate_factor": 3.3601660191763627,
+      "rate_factor_p90": 26.687861738288273,
+      "rate_bias": 0.4526901411584659,
+      "ran_dry": 0,
+      "hours_mae_dry": null,
+      "censored_consistent": 1.0
+    },
+    {
+      "params": {
+        "outlook_method": "daily_mean",
+        "tank_share": 0.6
+      },
+      "cuts": 40,
+      "coverage": 0.975,
+      "litres_mae": 2.045252162632812,
+      "litres_max_error": 15.955469193810359,
+      "rate_factor": 1.865526711632355,
+      "rate_factor_p90": 9.533696793404172,
+      "rate_bias": 0.8652554228316767,
+      "ran_dry": 0,
+      "hours_mae_dry": null,
+      "censored_consistent": 1.0
+    },
+    {
+      "params": {
+        "outlook_method": "daily_mean",
+        "tank_share": 0.7
+      },
+      "cuts": 40,
+      "coverage": 0.975,
+      "litres_mae": 2.045252162632812,
+      "litres_max_error": 15.955469193810359,
+      "rate_factor": 1.812722638912843,
+      "rate_factor_p90": 9.775285287364502,
+      "rate_bias": 0.9976125306946609,
+      "ran_dry": 0,
+      "hours_mae_dry": null,
+      "censored_consistent": 1.0
+    },
+    {
+      "params": {
+        "outlook_method": "daily_mean",
+        "tank_share": 0.8
+      },
+      "cuts": 40,
+      "coverage": 0.975,
+      "litres_mae": 2.045252162632812,
+      "litres_max_error": 15.955469193810359,
+      "rate_factor": 1.601973448785039,
+      "rate_factor_p90": 9.775285287364502,
+      "rate_bias": 1.1394748630411493,
+      "ran_dry": 0,
+      "hours_mae_dry": null,
+      "censored_consistent": 1.0
+    },
+    {
+      "params": {
+        "outlook_method": "daily_mean",
+        "tank_share": 0.9
+      },
+      "cuts": 40,
+      "coverage": 0.975,
+      "litres_mae": 2.045252162632812,
+      "litres_max_error": 15.955469193810359,
+      "rate_factor": 1.498365038040459,
+      "rate_factor_p90": 9.899220101668554,
+      "rate_bias": 1.2158738540237435,
+      "ran_dry": 0,
+      "hours_mae_dry": null,
+      "censored_consistent": 1.0
+    },
+    {
+      "params": {
+        "outlook_method": "daily_mean",
+        "tank_share": 1.0
+      },
+      "cuts": 40,
+      "coverage": 0.975,
+      "litres_mae": 2.045252162632812,
+      "litres_max_error": 15.955469193810359,
+      "rate_factor": 1.5104634868606166,
+      "rate_factor_p90": 10.774851336689935,
+      "rate_bias": 1.3495337457781265,
+      "ran_dry": 0,
+      "hours_mae_dry": null,
+      "censored_consistent": 1.0
+    },
+    {
+      "params": {
+        "outlook_method": "hour_profile",
+        "tank_share": 0.6
+      },
+      "cuts": 40,
+      "coverage": 1.0,
+      "litres_mae": 2.045252162632812,
+      "litres_max_error": 15.955469193810359,
+      "rate_factor": 1.8687524226019683,
+      "rate_factor_p90": 12.48476152408422,
+      "rate_bias": 0.8171664230240889,
+      "ran_dry": 0,
+      "hours_mae_dry": null,
+      "censored_consistent": 1.0
+    },
+    {
+      "params": {
+        "outlook_method": "hour_profile",
+        "tank_share": 0.7
+      },
+      "cuts": 40,
+      "coverage": 1.0,
+      "litres_mae": 2.045252162632812,
+      "litres_max_error": 15.955469193810359,
+      "rate_factor": 1.7136106051301212,
+      "rate_factor_p90": 14.142691462301377,
+      "rate_bias": 0.9301845311160791,
+      "ran_dry": 0,
+      "hours_mae_dry": null,
+      "censored_consistent": 1.0
+    },
+    {
+      "params": {
+        "outlook_method": "hour_profile",
+        "tank_share": 0.8
+      },
+      "cuts": 40,
+      "coverage": 1.0,
+      "litres_mae": 2.045252162632812,
+      "litres_max_error": 15.955469193810359,
+      "rate_factor": 1.5598707325093877,
+      "rate_factor_p90": 14.142691462301377,
+      "rate_bias": 1.1095817136992905,
+      "ran_dry": 0,
+      "hours_mae_dry": null,
+      "censored_consistent": 1.0
+    },
+    {
+      "params": {
+        "outlook_method": "hour_profile",
+        "tank_share": 0.9
+      },
+      "cuts": 40,
+      "coverage": 1.0,
+      "litres_mae": 2.045252162632812,
+      "litres_max_error": 15.955469193810359,
+      "rate_factor": 1.4973286267592734,
+      "rate_factor_p90": 14.273593590851451,
+      "rate_bias": 1.1606571238340249,
+      "ran_dry": 0,
+      "hours_mae_dry": null,
+      "censored_consistent": 1.0
+    },
+    {
+      "params": {
+        "outlook_method": "hour_profile",
+        "tank_share": 1.0
+      },
+      "cuts": 40,
+      "coverage": 1.0,
+      "litres_mae": 2.045252162632812,
+      "litres_max_error": 15.955469193810359,
+      "rate_factor": 1.5128881144489972,
+      "rate_factor_p90": 14.458950016553967,
+      "rate_bias": 1.309378790587591,
+      "ran_dry": 0,
+      "hours_mae_dry": null,
+      "censored_consistent": 1.0
+    }
+  ]
+}

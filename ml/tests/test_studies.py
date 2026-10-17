@@ -102,7 +102,8 @@ def test_every_check_on_a_running_cistern(cistern_episode: tuple[Path, TruthFaul
     valves = [c for c in record["checks"] if c["behind"] and c["kind"] == "flow_stop"]
     assert len(valves) == 2  # the cistern's angle valve and its bathroom's branch valve
     # a cistern leak stops, or at least falls, behind its closed valve
-    assert all(c["verdict"] in ("stopped", "reduced") for c in valves)
+    # (idle: the meter was still before closing, as between a cistern's phantom refills)
+    assert all(c["verdict"] in ("stopped", "reduced", "idle") for c in valves)
 
 
 def test_fitting_writes_a_likelihood_from_validation(
@@ -114,7 +115,7 @@ def test_fitting_writes_a_likelihood_from_validation(
     lik, plan, source = localisation.load_likelihood(out)
     assert plan == CheckPlan()
     assert source == out.as_posix()
-    verdicts = ("stopped", "reduced", "unchanged", "unavailable")
+    verdicts = ("stopped", "reduced", "unchanged", "idle", "unavailable")
     assert sum(lik.p("flow_stop", True, v) for v in verdicts) == pytest.approx(1.0)
 
 
