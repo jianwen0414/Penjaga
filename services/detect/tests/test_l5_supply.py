@@ -5,22 +5,29 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import timedelta
 
+import pytest
+
 from penjaga_contract.core import Finding
 from penjaga_contract.lab import FaultSpec
 from penjaga_detect.chunk import chunk_from_messages
 from penjaga_detect.detector import HouseContext
-from penjaga_detect.l5_supply import L5SupplyDetector
+from penjaga_detect.l5_supply import L5SupplyDetector, SupplyParams
 from penjaga_sim.export import SeqCounters, ingest_messages
 from penjaga_sim.testing import START, at, fault, new_world
 
 US = 1_000_000
 
 
-def run(faults: Sequence[FaultSpec], step_h: float = 6.0, days: int = 1) -> list[Finding]:
+def run(
+    faults: Sequence[FaultSpec],
+    step_h: float = 6.0,
+    days: int = 1,
+    params: SupplyParams | None = None,
+) -> list[Finding]:
     world = new_world()
     for f in faults:
         world.inject(f)
-    detector = L5SupplyDetector(HouseContext.canonical())
+    detector = L5SupplyDetector(HouseContext.canonical(), params)
     counters = SeqCounters()
     t = world.day_start_us(START)
     end = world.day_start_us(START + timedelta(days=days))
@@ -66,3 +73,30 @@ def test_chunking_does_not_change_findings() -> None:
     ]
     reference = run(faults, step_h=24)
     assert run(faults, step_h=1.5) == reference
+
+
+HISTORY = [SupplyParams(outlook_method=m) for m in ("daily_mean", "hour_profile")]
+
+
+@pytest.mark.parametrize("params", HISTORY, ids=lambda p: p.outlook_method)
+def test_history_outlooks_need_history_and_ignore_chunking(params: SupplyParams) -> None:
+    cut = [fault("U1", None, 1, at(START + timedelta(days=3), 18.0), duration_s=3 * 3600)]
+    reference = run(cut, step_h=24, days=4, params=params)
+    opened = reference[0]
+    hours = opened.quantities["tank_hours_left"].value
+    litres = opened.quantities["tank_water_l"].value
+    assert 3 < hours < 96  # a family drains a mostly full 1,364 L tank in hours to days
+    assert litres > 500
+    assert run(cut, step_h=1.5, days=4, params=params) == reference
+
+
+def test_history_outlook_says_nothing_without_a_day_of_history() -> None:
+    cut = [fault("U1", None, 1, at(START, 8.0), duration_s=3 * 3600)]  # 8 hours of history
+    opened = run(cut, params=SupplyParams(outlook_method="daily_mean"))[0]
+    assert "tank_water_l" in opened.quantities
+    assert "tank_hours_left" not in opened.quantities  # under 12 of the last 24 hours known
+
+
+def test_unknown_outlook_method_is_refused() -> None:
+    with pytest.raises(ValueError, match="outlook_method"):
+        L5SupplyDetector(HouseContext.canonical(), SupplyParams(outlook_method="guess"))
