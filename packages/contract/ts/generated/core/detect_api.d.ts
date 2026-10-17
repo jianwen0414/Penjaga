@@ -151,12 +151,20 @@ export type Source = {
  */
 export type SafetyGuidanceKey1 = "sg_circuit_overload" | "sg_repeated_trips" | "sg_burst_pipe";
 /**
+ * Stable, unique, human-readable ID of a physical element: <kind-prefix>_<descriptor>, lowercase snake_case. The prefix must match the element kind (enforced by the semantic validator).
+ */
+export type ObjectId1 = string;
+/**
+ * Stable, unique, human-readable ID of a physical element: <kind-prefix>_<descriptor>, lowercase snake_case. The prefix must match the element kind (enforced by the semantic validator).
+ */
+export type ObjectId2 = string;
+/**
  * POST /detect/v1/checks.
  *
  * This interface was referenced by `DetectApi`'s JSON-Schema
  * via the `definition` "CheckRequest".
  */
-export type CheckRequest = FlowStopCheck | TankLevelTrendCheck | CircuitLoadCheck;
+export type CheckRequest = FlowStopCheck | TankLevelTrendCheck | CircuitLoadCheck | ResidualDropCheck;
 /**
  * pending: house time has not yet reached the end of the measurement window. complete: measured. unavailable: the readings needed are missing (sensor absent or too little data).
  *
@@ -185,7 +193,7 @@ export type HealthStatus = "ok" | "degraded";
 export type NullableHouseTime = string | null;
 
 /**
- * Payloads of the M5 detection service /detect/v1 (docs/design/interfaces.md): detectors, layer consent, on-demand runs, guided checks and health. Findings themselves are Finding documents (finding.schema.json).
+ * Payloads of the M5 detection service /detect/v1 (docs/design/interfaces.md): detectors, layer consent, on-demand runs, guided checks, localisation and health. Findings themselves are Finding documents (finding.schema.json).
  */
 export interface DetectApi {
   [k: string]: unknown;
@@ -318,6 +326,7 @@ export interface FlowStopCheck {
   settle_s: number;
   window_s: number;
   expect_below_lpm: number;
+  valve_id?: ObjectId1;
 }
 /**
  * Is the roof tank level still falling over the window starting at `since`?
@@ -329,6 +338,7 @@ export interface TankLevelTrendCheck {
   kind: "tank_level_trend";
   since: HouseTime;
   window_s: number;
+  valve_id?: ObjectId2;
 }
 /**
  * What does the circuit draw after the household's action at `since` (e.g. unplugging an appliance), compared with before?
@@ -338,6 +348,20 @@ export interface TankLevelTrendCheck {
  */
 export interface CircuitLoadCheck {
   kind: "circuit_load";
+  circuit_id: ObjectId;
+  since: HouseTime;
+  settle_s: number;
+  window_s: number;
+}
+/**
+ * (contract 1.5.0) Did the residual (earth leakage) current through an RCCB fall when the household switched off one circuit's MCB at `since`? Compares the window before `since` with the window starting `settle_s` after it, and confirms from the circuit's current that it was off. Verdict: dropped, unchanged or rose.
+ *
+ * This interface was referenced by `DetectApi`'s JSON-Schema
+ * via the `definition` "ResidualDropCheck".
+ */
+export interface ResidualDropCheck {
+  kind: "residual_drop";
+  rccb_id: ObjectId;
   circuit_id: ObjectId;
   since: HouseTime;
   settle_s: number;
@@ -396,4 +420,82 @@ export interface DetectorVersion {
   name: string;
   version: string;
   model?: string;
+}
+/**
+ * (contract 1.5.0) POST /detect/v1/localise: where is the problem a finding describes, given the guided checks done for it so far, and which check should come next? Supported for L1 water leaks (valve checks) and L2 earth leakage (residual_drop checks).
+ *
+ * This interface was referenced by `DetectApi`'s JSON-Schema
+ * via the `definition` "LocaliseRequest".
+ */
+export interface LocaliseRequest {
+  finding_id: string;
+  /**
+   * Completed checks for this finding, in the order they were done.
+   *
+   * @maxItems 20
+   */
+  check_ids: string[];
+}
+/**
+ * This interface was referenced by `DetectApi`'s JSON-Schema
+ * via the `definition` "LocalisedCandidate".
+ */
+export interface LocalisedCandidate {
+  object_id: ObjectId;
+  p: number;
+}
+/**
+ * The most informative next check. The agent turns it into a request (adding `since`) once the household has done the action.
+ *
+ * This interface was referenced by `DetectApi`'s JSON-Schema
+ * via the `definition` "CheckSuggestion".
+ */
+export interface CheckSuggestion {
+  kind: "flow_stop" | "tank_level_trend" | "residual_drop";
+  /**
+   * What the household is asked to do (and to undo after the window).
+   */
+  action: "close_valve" | "switch_off_circuit";
+  valve_id?: ObjectId;
+  circuit_id?: ObjectId;
+  rccb_id?: ObjectId;
+  expect_below_lpm?: number;
+  settle_s: number;
+  window_s: number;
+  expected_gain_bits: number;
+  /**
+   * Ask the household not to use water from the window before the action until the window ends.
+   */
+  hold_water_use?: boolean;
+  /**
+   * Flow checks read a roof-tank refill as flow; do them once the tank level is back at full.
+   */
+  wait_for_full_tank?: boolean;
+}
+/**
+ * (contract 1.5.0) Location probabilities after the checks, most likely first, and the next check (null when the localiser is confident enough, out of useful checks, or at its check limit). Show them as possibilities, not facts.
+ *
+ * This interface was referenced by `DetectApi`'s JSON-Schema
+ * via the `definition` "LocaliseResponse".
+ */
+export interface LocaliseResponse {
+  finding_id: string;
+  layer: "L1" | "L2";
+  /**
+   * @maxItems 10
+   */
+  candidates: LocalisedCandidate[];
+  /**
+   * Probability of every place not listed.
+   */
+  other_p: number;
+  entropy_bits: number;
+  checks_used: {
+    check_id: string;
+    /**
+     * The verdict as the localiser used it: a check's verdict, idle (no flow before the action: no evidence), unavailable, or ignored (the check does not name its valve or circuit, or is not complete).
+     */
+    evidence: string;
+  }[];
+  next_check: CheckSuggestion | null;
 }

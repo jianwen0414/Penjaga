@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://penjaga.invalid/contract/core/detect_api.schema.json",
   "title": "DetectApi",
-  "description": "Payloads of the M5 detection service /detect/v1 (docs/design/interfaces.md): detectors, layer consent, on-demand runs, guided checks and health. Findings themselves are Finding documents (finding.schema.json).",
+  "description": "Payloads of the M5 detection service /detect/v1 (docs/design/interfaces.md): detectors, layer consent, on-demand runs, guided checks, localisation and health. Findings themselves are Finding documents (finding.schema.json).",
   "$defs": {
     "DetectorStatus": {
       "title": "DetectorStatus",
@@ -163,6 +163,10 @@
         "expect_below_lpm": {
           "type": "number",
           "minimum": 0
+        },
+        "valve_id": {
+          "$ref": "common.schema.json#/$defs/ObjectId",
+          "description": "(contract 1.5.0) The valve the household was asked to close. Optional; it lets POST /detect/v1/localise interpret the check."
         }
       }
     },
@@ -188,6 +192,10 @@
           "type": "number",
           "minimum": 300,
           "maximum": 86400
+        },
+        "valve_id": {
+          "$ref": "common.schema.json#/$defs/ObjectId",
+          "description": "(contract 1.5.0) The valve the household was asked to close. Optional; it lets POST /detect/v1/localise interpret the check."
         }
       }
     },
@@ -226,6 +234,45 @@
         }
       }
     },
+    "ResidualDropCheck": {
+      "title": "ResidualDropCheck",
+      "description": "(contract 1.5.0) Did the residual (earth leakage) current through an RCCB fall when the household switched off one circuit's MCB at `since`? Compares the window before `since` with the window starting `settle_s` after it, and confirms from the circuit's current that it was off. Verdict: dropped, unchanged or rose.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "rccb_id",
+        "circuit_id",
+        "since",
+        "settle_s",
+        "window_s"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "residual_drop"
+        },
+        "rccb_id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "circuit_id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "since": {
+          "$ref": "common.schema.json#/$defs/HouseTime"
+        },
+        "settle_s": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 3600
+        },
+        "window_s": {
+          "type": "number",
+          "minimum": 60,
+          "maximum": 7200
+        }
+      }
+    },
     "CheckRequest": {
       "title": "CheckRequest",
       "description": "POST /detect/v1/checks.",
@@ -238,6 +285,9 @@
         },
         {
           "$ref": "#/$defs/CircuitLoadCheck"
+        },
+        {
+          "$ref": "#/$defs/ResidualDropCheck"
         }
       ]
     },
@@ -403,6 +453,193 @@
             },
             "title": "DetectorVersion"
           }
+        }
+      }
+    },
+    "LocaliseRequest": {
+      "title": "LocaliseRequest",
+      "description": "(contract 1.5.0) POST /detect/v1/localise: where is the problem a finding describes, given the guided checks done for it so far, and which check should come next? Supported for L1 water leaks (valve checks) and L2 earth leakage (residual_drop checks).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "finding_id",
+        "check_ids"
+      ],
+      "properties": {
+        "finding_id": {
+          "type": "string",
+          "pattern": "^fnd_[0-9a-f]{20}$"
+        },
+        "check_ids": {
+          "type": "array",
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^chk_[0-9a-z]{6,32}$"
+          },
+          "description": "Completed checks for this finding, in the order they were done."
+        }
+      }
+    },
+    "LocalisedCandidate": {
+      "title": "LocalisedCandidate",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "object_id",
+        "p"
+      ],
+      "properties": {
+        "object_id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "p": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "CheckSuggestion": {
+      "title": "CheckSuggestion",
+      "description": "The most informative next check. The agent turns it into a request (adding `since`) once the household has done the action.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "action",
+        "expected_gain_bits",
+        "settle_s",
+        "window_s"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "flow_stop",
+            "tank_level_trend",
+            "residual_drop"
+          ]
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "close_valve",
+            "switch_off_circuit"
+          ],
+          "description": "What the household is asked to do (and to undo after the window)."
+        },
+        "valve_id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "circuit_id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "rccb_id": {
+          "$ref": "common.schema.json#/$defs/ObjectId"
+        },
+        "expect_below_lpm": {
+          "type": "number",
+          "minimum": 0
+        },
+        "settle_s": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 3600
+        },
+        "window_s": {
+          "type": "number",
+          "minimum": 60,
+          "maximum": 86400
+        },
+        "expected_gain_bits": {
+          "type": "number",
+          "minimum": 0
+        },
+        "hold_water_use": {
+          "type": "boolean",
+          "description": "Ask the household not to use water from the window before the action until the window ends."
+        },
+        "wait_for_full_tank": {
+          "type": "boolean",
+          "description": "Flow checks read a roof-tank refill as flow; do them once the tank level is back at full."
+        }
+      }
+    },
+    "LocaliseResponse": {
+      "title": "LocaliseResponse",
+      "description": "(contract 1.5.0) Location probabilities after the checks, most likely first, and the next check (null when the localiser is confident enough, out of useful checks, or at its check limit). Show them as possibilities, not facts.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "finding_id",
+        "layer",
+        "candidates",
+        "other_p",
+        "entropy_bits",
+        "checks_used",
+        "next_check"
+      ],
+      "properties": {
+        "finding_id": {
+          "type": "string",
+          "pattern": "^fnd_[0-9a-f]{20}$"
+        },
+        "layer": {
+          "type": "string",
+          "enum": [
+            "L1",
+            "L2"
+          ]
+        },
+        "candidates": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "$ref": "#/$defs/LocalisedCandidate"
+          }
+        },
+        "other_p": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Probability of every place not listed."
+        },
+        "entropy_bits": {
+          "type": "number",
+          "minimum": 0
+        },
+        "checks_used": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "check_id",
+              "evidence"
+            ],
+            "properties": {
+              "check_id": {
+                "type": "string",
+                "pattern": "^chk_[0-9a-z]{6,32}$"
+              },
+              "evidence": {
+                "type": "string",
+                "description": "The verdict as the localiser used it: a check's verdict, idle (no flow before the action: no evidence), unavailable, or ignored (the check does not name its valve or circuit, or is not complete)."
+              }
+            }
+          }
+        },
+        "next_check": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/CheckSuggestion"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       }
     }
