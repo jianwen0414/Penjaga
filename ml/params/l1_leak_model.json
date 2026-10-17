@@ -1,16 +1,17 @@
 {
   "detector": "l1_leak_model",
   "params": {
-    "artifact": "ml/artifacts/l1_leak_model.pkl",
+    "artifact": "ml/artifacts/l1_leak_model_pooled.pkl",
     "threshold": 0.8,
     "type_confidence": 0.9,
     "burst_lpm": 6,
     "burst_window_s": 3600
   },
   "tuned_on": {
-    "suite": "l1_v0",
+    "suite": "l1_v0+l1_lowp_v0",
     "suites": [
-      "l1_v0"
+      "l1_v0",
+      "l1_lowp_v0"
     ],
     "split": "validation",
     "generator": "penjaga-sim/4",
@@ -21,75 +22,153 @@
   "candidates": [
     {
       "params": {
-        "burst_lpm": 6,
-        "burst_window_s": 1800
+        "artifact": "ml/artifacts/l1_leak_model_pooled.pkl",
+        "threshold": 0.5,
+        "type_confidence": 0.7
       },
-      "recall": 0.95,
-      "precision": 0.9066666666666666,
-      "false_alarms_per_house_month": 0.3171
+      "recall": 0.8625,
+      "precision": 0.9867256637168141,
+      "false_alarms_per_house_month": 0.0679
     },
     {
       "params": {
-        "burst_lpm": 6,
-        "burst_window_s": 3600
+        "artifact": "ml/artifacts/l1_leak_model_pooled.pkl",
+        "threshold": 0.5,
+        "type_confidence": 0.8
       },
-      "recall": 0.95,
-      "precision": 1.0,
-      "false_alarms_per_house_month": 0.0
+      "recall": 0.8625,
+      "precision": 0.9867256637168141,
+      "false_alarms_per_house_month": 0.0679
     },
     {
       "params": {
-        "burst_lpm": 6,
-        "burst_window_s": 5400
+        "artifact": "ml/artifacts/l1_leak_model_pooled.pkl",
+        "threshold": 0.5,
+        "type_confidence": 0.9
       },
-      "recall": 0.95,
-      "precision": 1.0,
-      "false_alarms_per_house_month": 0.0
+      "recall": 0.8875,
+      "precision": 0.9867256637168141,
+      "false_alarms_per_house_month": 0.0679
     },
     {
       "params": {
-        "burst_lpm": 6,
-        "burst_window_s": 7200
+        "artifact": "ml/artifacts/l1_leak_model_pooled.pkl",
+        "threshold": 0.6,
+        "type_confidence": 0.7
       },
-      "recall": 0.95,
-      "precision": 1.0,
-      "false_alarms_per_house_month": 0.0
+      "recall": 0.8625,
+      "precision": 0.986784140969163,
+      "false_alarms_per_house_month": 0.0679
     },
     {
       "params": {
-        "burst_lpm": 10,
-        "burst_window_s": 1800
+        "artifact": "ml/artifacts/l1_leak_model_pooled.pkl",
+        "threshold": 0.6,
+        "type_confidence": 0.8
       },
-      "recall": 0.95,
-      "precision": 0.9857142857142858,
+      "recall": 0.8625,
+      "precision": 0.986784140969163,
+      "false_alarms_per_house_month": 0.0679
+    },
+    {
+      "params": {
+        "artifact": "ml/artifacts/l1_leak_model_pooled.pkl",
+        "threshold": 0.6,
+        "type_confidence": 0.9
+      },
+      "recall": 0.9,
+      "precision": 0.986784140969163,
+      "false_alarms_per_house_month": 0.0679
+    },
+    {
+      "params": {
+        "artifact": "ml/artifacts/l1_leak_model_pooled.pkl",
+        "threshold": 0.7,
+        "type_confidence": 0.7
+      },
+      "recall": 0.875,
+      "precision": 0.9868421052631579,
+      "false_alarms_per_house_month": 0.0679
+    },
+    {
+      "params": {
+        "artifact": "ml/artifacts/l1_leak_model_pooled.pkl",
+        "threshold": 0.7,
+        "type_confidence": 0.8
+      },
+      "recall": 0.875,
+      "precision": 0.9868421052631579,
+      "false_alarms_per_house_month": 0.0679
+    },
+    {
+      "params": {
+        "artifact": "ml/artifacts/l1_leak_model_pooled.pkl",
+        "threshold": 0.7,
+        "type_confidence": 0.9
+      },
+      "recall": 0.9125,
+      "precision": 0.9868421052631579,
+      "false_alarms_per_house_month": 0.0679
+    },
+    {
+      "params": {
+        "artifact": "ml/artifacts/l1_leak_model_pooled.pkl",
+        "threshold": 0.8,
+        "type_confidence": 0.7
+      },
+      "recall": 0.8875,
+      "precision": 0.9911894273127754,
       "false_alarms_per_house_month": 0.0453
     },
     {
       "params": {
-        "burst_lpm": 10,
-        "burst_window_s": 3600
+        "artifact": "ml/artifacts/l1_leak_model_pooled.pkl",
+        "threshold": 0.8,
+        "type_confidence": 0.8
       },
-      "recall": 0.95,
-      "precision": 1.0,
-      "false_alarms_per_house_month": 0.0
+      "recall": 0.8875,
+      "precision": 0.9911894273127754,
+      "false_alarms_per_house_month": 0.0453
     },
     {
       "params": {
-        "burst_lpm": 10,
-        "burst_window_s": 5400
+        "artifact": "ml/artifacts/l1_leak_model_pooled.pkl",
+        "threshold": 0.8,
+        "type_confidence": 0.9
       },
-      "recall": 0.95,
-      "precision": 1.0,
-      "false_alarms_per_house_month": 0.0
+      "recall": 0.9125,
+      "precision": 0.9911894273127754,
+      "false_alarms_per_house_month": 0.0453
     },
     {
       "params": {
-        "burst_lpm": 10,
-        "burst_window_s": 7200
+        "artifact": "ml/artifacts/l1_leak_model_pooled.pkl",
+        "threshold": 0.9,
+        "type_confidence": 0.7
       },
-      "recall": 0.95,
-      "precision": 1.0,
-      "false_alarms_per_house_month": 0.0
+      "recall": 0.875,
+      "precision": 0.9955555555555555,
+      "false_alarms_per_house_month": 0.0226
+    },
+    {
+      "params": {
+        "artifact": "ml/artifacts/l1_leak_model_pooled.pkl",
+        "threshold": 0.9,
+        "type_confidence": 0.8
+      },
+      "recall": 0.875,
+      "precision": 0.9955555555555555,
+      "false_alarms_per_house_month": 0.0226
+    },
+    {
+      "params": {
+        "artifact": "ml/artifacts/l1_leak_model_pooled.pkl",
+        "threshold": 0.9,
+        "type_confidence": 0.9
+      },
+      "recall": 0.9,
+      "precision": 0.9955555555555555,
+      "false_alarms_per_house_month": 0.0226
     }
   ]
 }

@@ -5,9 +5,10 @@
     "burst_window_s": 3600
   },
   "tuned_on": {
-    "suite": "l1_v0",
+    "suite": "l1_v0+l1_lowp_v0",
     "suites": [
-      "l1_v0"
+      "l1_v0",
+      "l1_lowp_v0"
     ],
     "split": "validation",
     "generator": "penjaga-sim/4",
@@ -21,16 +22,16 @@
         "burst_lpm": 6,
         "burst_window_s": 1800
       },
-      "recall": 0.2,
-      "precision": 0.8108108108108109,
-      "false_alarms_per_house_month": 0.3171
+      "recall": 0.1875,
+      "precision": 0.9441624365482234,
+      "false_alarms_per_house_month": 0.2491
     },
     {
       "params": {
         "burst_lpm": 6,
         "burst_window_s": 3600
       },
-      "recall": 0.2,
+      "recall": 0.1875,
       "precision": 1.0,
       "false_alarms_per_house_month": 0.0
     },
@@ -39,7 +40,7 @@
         "burst_lpm": 6,
         "burst_window_s": 5400
       },
-      "recall": 0.2,
+      "recall": 0.1875,
       "precision": 1.0,
       "false_alarms_per_house_month": 0.0
     },
@@ -48,7 +49,7 @@
         "burst_lpm": 6,
         "burst_window_s": 7200
       },
-      "recall": 0.2,
+      "recall": 0.1875,
       "precision": 1.0,
       "false_alarms_per_house_month": 0.0
     },
@@ -57,16 +58,16 @@
         "burst_lpm": 10,
         "burst_window_s": 1800
       },
-      "recall": 0.2,
-      "precision": 0.96875,
-      "false_alarms_per_house_month": 0.0453
+      "recall": 0.175,
+      "precision": 0.9882352941176471,
+      "false_alarms_per_house_month": 0.0226
     },
     {
       "params": {
         "burst_lpm": 10,
         "burst_window_s": 3600
       },
-      "recall": 0.2,
+      "recall": 0.175,
       "precision": 1.0,
       "false_alarms_per_house_month": 0.0
     },
@@ -75,7 +76,7 @@
         "burst_lpm": 10,
         "burst_window_s": 5400
       },
-      "recall": 0.2,
+      "recall": 0.175,
       "precision": 1.0,
       "false_alarms_per_house_month": 0.0
     },
@@ -84,7 +85,7 @@
         "burst_lpm": 10,
         "burst_window_s": 7200
       },
-      "recall": 0.2,
+      "recall": 0.175,
       "precision": 1.0,
       "false_alarms_per_house_month": 0.0
     }

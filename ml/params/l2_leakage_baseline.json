@@ -7,11 +7,14 @@
   },
   "tuned_on": {
     "suite": "l2_v0",
+    "suites": [
+      "l2_v0"
+    ],
     "split": "validation",
-    "generator": "penjaga-sim/3",
+    "generator": "penjaga-sim/4",
     "budget_false_alarms_per_house_month": 0.5,
     "objective": "highest recall within the false-alarm budget",
-    "date": "2026-10-16"
+    "date": "2026-10-17"
   },
   "candidates": [
     {
@@ -21,8 +24,8 @@
         "window_hours": 12
       },
       "recall": 0.3333333333333333,
-      "precision": 0.575,
-      "false_alarms_per_house_month": 2.31
+      "precision": 0.5487804878048781,
+      "false_alarms_per_house_month": 2.5138
     },
     {
       "params": {
@@ -41,8 +44,8 @@
         "window_hours": 12
       },
       "recall": 0.3333333333333333,
-      "precision": 0.6029411764705882,
-      "false_alarms_per_house_month": 1.8344
+      "precision": 0.5735294117647058,
+      "false_alarms_per_house_month": 1.9702
     },
     {
       "params": {
@@ -61,8 +64,8 @@
         "window_hours": 12
       },
       "recall": 0.3333333333333333,
-      "precision": 0.6190476190476191,
-      "false_alarms_per_house_month": 1.0871
+      "precision": 0.6046511627906976,
+      "false_alarms_per_house_month": 1.155
     },
     {
       "params": {
@@ -81,7 +84,7 @@
         "window_hours": 12
       },
       "recall": 0.3333333333333333,
-      "precision": 0.5614035087719298,
+      "precision": 0.5967741935483871,
       "false_alarms_per_house_month": 1.6985
     },
     {
@@ -101,8 +104,8 @@
         "window_hours": 12
       },
       "recall": 0.3333333333333333,
-      "precision": 0.6,
-      "false_alarms_per_house_month": 1.3588
+      "precision": 0.6481481481481481,
+      "false_alarms_per_house_month": 1.2908
     },
     {
       "params": {
@@ -121,8 +124,8 @@
         "window_hours": 12
       },
       "recall": 0.3333333333333333,
-      "precision": 0.6190476190476191,
-      "false_alarms_per_house_month": 1.0871
+      "precision": 0.6046511627906976,
+      "false_alarms_per_house_month": 1.155
     },
     {
       "params": {
@@ -141,8 +144,8 @@
         "window_hours": 12
       },
       "recall": 0.3333333333333333,
-      "precision": 0.6388888888888888,
-      "false_alarms_per_house_month": 0.8832
+      "precision": 0.6470588235294118,
+      "false_alarms_per_house_month": 0.8153
     },
     {
       "params": {
@@ -161,7 +164,7 @@
         "window_hours": 12
       },
       "recall": 0.3333333333333333,
-      "precision": 0.6875,
+      "precision": 0.6774193548387096,
       "false_alarms_per_house_month": 0.6794
     },
     {
@@ -181,8 +184,8 @@
         "window_hours": 12
       },
       "recall": 0.3333333333333333,
-      "precision": 0.7586206896551724,
-      "false_alarms_per_house_month": 0.4756
+      "precision": 0.6896551724137931,
+      "false_alarms_per_house_month": 0.6115
     },
     {
       "params": {

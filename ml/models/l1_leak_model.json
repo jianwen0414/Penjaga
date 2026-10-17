@@ -1,24 +1,25 @@
 {
   "model": "l1_leak_model",
   "version": "1.0.0",
-  "artifact": "ml/artifacts/l1_leak_model.pkl",
-  "artifact_sha256": "0729d90f7dca60314f6e2647e2100643b47b069bca28d49aeacb622947c1cf31",
+  "artifact": "ml/artifacts/l1_leak_model_pooled.pkl",
+  "artifact_sha256": "b678d3e73c96ce76d444c8a0704d08277014f2e584321b88ac19ed1812edd7c9",
   "trained_on": {
-    "suite": "l1_v0",
+    "suite": "l1_v0+l1_lowp_v0",
     "suites": [
-      "l1_v0"
+      "l1_v0",
+      "l1_lowp_v0"
     ],
     "split": "train",
     "generator": "penjaga-sim/4",
-    "episodes": 72,
-    "nights": 1008,
+    "episodes": 144,
+    "nights": 2016,
     "labels": {
-      "W1": 103,
-      "W2": 100,
-      "W3": 102,
-      "W4": 91,
-      "W5": 100,
-      "none": 512
+      "W1": 208,
+      "W2": 201,
+      "W3": 200,
+      "W4": 179,
+      "W5": 203,
+      "none": 1025
     }
   },
   "estimator": {
@@ -49,5 +50,5 @@
     "frac_flowing_delta",
     "mnf_trend"
   ],
-  "created": "2026-10-17T03:32:25+00:00"
+  "created": "2026-10-17T04:45:37+00:00"
 }

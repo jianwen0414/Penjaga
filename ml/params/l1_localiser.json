@@ -2,16 +2,18 @@
   "likelihood": {
     "flow_stop": {
       "behind": {
-        "stopped": 0.5344827586206896,
-        "reduced": 0.3103448275862069,
-        "unchanged": 0.13793103448275862,
-        "unavailable": 0.017241379310344827
+        "stopped": 0.2542372881355932,
+        "reduced": 0.3050847457627119,
+        "unchanged": 0.06779661016949153,
+        "idle": 0.3559322033898305,
+        "unavailable": 0.01694915254237288
       },
       "other": {
-        "stopped": 0.26440677966101694,
-        "reduced": 0.16101694915254236,
-        "unchanged": 0.5728813559322034,
-        "unavailable": 0.001694915254237288
+        "stopped": 0.011844331641285956,
+        "reduced": 0.16074450084602368,
+        "unchanged": 0.55668358714044,
+        "idle": 0.26903553299492383,
+        "unavailable": 0.001692047377326565
       }
     },
     "tank_level_trend": {
@@ -41,14 +43,16 @@
     },
     "flow_stop": {
       "other": {
-        "stopped": 155,
-        "unchanged": 337,
-        "reduced": 94
+        "stopped": 6,
+        "idle": 158,
+        "reduced": 94,
+        "unchanged": 328
       },
       "behind": {
-        "stopped": 30,
+        "stopped": 14,
         "reduced": 17,
-        "unchanged": 7
+        "unchanged": 3,
+        "idle": 20
       }
     }
   },
