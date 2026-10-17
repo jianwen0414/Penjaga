@@ -68,12 +68,16 @@ class LocaliserSetup:
         default_factory=lambda: {"L1": Likelihood.default(), "L2": Likelihood.default()}
     )
     timing: Timing = field(default_factory=Timing)
-    params: LocaliseParams = field(default_factory=LocaliseParams)
+    params: dict[str, LocaliseParams] = field(
+        default_factory=lambda: {"L1": LocaliseParams(), "L2": LocaliseParams()}
+    )
 
     @staticmethod
     def load(params_dir: Path | None) -> LocaliserSetup:
-        """Fitted likelihoods and timings from the params directory, defaults otherwise."""
+        """Fitted likelihoods, timings and stopping rules from the params directory, defaults
+        otherwise."""
         likelihood = {"L1": Likelihood.default(), "L2": Likelihood.default()}
+        params = {"L1": LocaliseParams(), "L2": LocaliseParams()}
         timing: dict[str, Any] = {}
         if params_dir is not None:
             for layer, name in (("L1", "l1_localiser.json"), ("L2", "l2_localiser.json")):
@@ -81,9 +85,10 @@ class LocaliserSetup:
                 if path.exists():
                     doc = json.loads(path.read_text(encoding="utf-8"))
                     likelihood[layer] = Likelihood(doc["likelihood"])
+                    params[layer] = LocaliseParams(**doc.get("localise_params", {}))
                     plan = doc.get("check_plan", {})
                     timing.update({k: v for k, v in plan.items() if _timing_layer(k) == layer})
-        return LocaliserSetup(likelihood, Timing(**timing))
+        return LocaliserSetup(likelihood, Timing(**timing), params)
 
 
 def _timing_layer(key: str) -> str | None:
@@ -100,12 +105,14 @@ class LocaliseError(ValueError):
 def localiser_for(finding: Finding, house: HouseContext, setup: LocaliserSetup) -> Localiser:
     kind = finding.type.value
     if kind in L1_TYPES:
-        loc = Localiser(house.index, setup.likelihood["L1"], setup.params)
+        loc = Localiser(house.index, setup.likelihood["L1"], setup.params["L1"])
     elif kind in L2_TYPES:
         rccbs = [o for o in finding.object_ids if o.startswith("rcd_")]
         if not rccbs:
             raise LocaliseError("an earth-leakage finding needs its RCCB in object_ids")
-        loc = earth_leakage_localiser(house.index, rccbs[0], setup.likelihood["L2"], setup.params)
+        loc = earth_leakage_localiser(
+            house.index, rccbs[0], setup.likelihood["L2"], setup.params["L2"]
+        )
     else:
         raise LocaliseError(f"{kind} findings are not localised by guided checks")
     loc.start_from(finding)

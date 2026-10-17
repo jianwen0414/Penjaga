@@ -1,0 +1,138 @@
+{
+  "likelihood": {
+    "flow_stop": {
+      "behind": {
+        "stopped": 0.6,
+        "reduced": 0.15,
+        "unchanged": 0.05,
+        "idle": 0.18,
+        "unavailable": 0.02
+      },
+      "other": {
+        "stopped": 0.03,
+        "reduced": 0.07,
+        "unchanged": 0.7,
+        "idle": 0.18,
+        "unavailable": 0.02
+      }
+    },
+    "tank_level_trend": {
+      "behind": {
+        "falling": 0.7,
+        "steady": 0.25,
+        "rising": 0.03,
+        "unavailable": 0.02
+      },
+      "other": {
+        "falling": 0.05,
+        "steady": 0.85,
+        "rising": 0.08,
+        "unavailable": 0.02
+      }
+    },
+    "residual_drop": {
+      "behind": {
+        "dropped": 0.8620689655172413,
+        "reduced": 0.034482758620689655,
+        "unchanged": 0.034482758620689655,
+        "rose": 0.034482758620689655,
+        "unavailable": 0.034482758620689655
+      },
+      "other": {
+        "dropped": 0.144,
+        "reduced": 0.152,
+        "unchanged": 0.656,
+        "rose": 0.04,
+        "unavailable": 0.008
+      }
+    }
+  },
+  "counts": {
+    "residual_drop": {
+      "other": {
+        "unchanged": 81,
+        "dropped": 17,
+        "reduced": 18,
+        "rose": 4
+      },
+      "behind": {
+        "dropped": 24
+      }
+    },
+    "residual_drop@unloaded": {
+      "other": {
+        "unchanged": 60,
+        "reduced": 5,
+        "rose": 2,
+        "dropped": 3
+      },
+      "behind": {
+        "dropped": 14
+      }
+    },
+    "residual_drop@loaded": {
+      "other": {
+        "dropped": 14,
+        "unchanged": 21,
+        "reduced": 13,
+        "rose": 2
+      },
+      "behind": {
+        "dropped": 10
+      }
+    }
+  },
+  "check_plan": {
+    "start_hour": 19.0,
+    "after_finding_min": 30.0,
+    "slot_min": 35.0,
+    "flow_window_s": 600.0,
+    "flow_settle_s": 120.0,
+    "expect_below_lpm": 0.02,
+    "tank_window_s": 1800.0,
+    "wait_for_full_tank": true,
+    "max_wait_h": 4.0,
+    "residual_window_s": 120.0,
+    "residual_settle_s": 30.0
+  },
+  "fitted_on": {
+    "suites": [
+      "l2_leak_v0"
+    ],
+    "split": "validation",
+    "layer": "L2",
+    "generator": "penjaga-sim/4",
+    "faults": 24,
+    "flow_checks_with_full_tank": null,
+    "date": "2026-10-17"
+  },
+  "localise_params": {
+    "max_checks": 6
+  },
+  "localise_params_chosen_on": {
+    "suite": "l2_leak_v0",
+    "split": "validation",
+    "detectors": [
+      "l2_leakage_baseline"
+    ],
+    "objective": "most findings ranked first after the checks, then fewest checks",
+    "candidates": [
+      {
+        "max_checks": 4,
+        "top1_after": 14,
+        "findings": 24
+      },
+      {
+        "max_checks": 6,
+        "top1_after": 20,
+        "findings": 24
+      },
+      {
+        "max_checks": 8,
+        "top1_after": 19,
+        "findings": 24
+      }
+    ],
+    "date": "2026-10-17"
+  }
+}

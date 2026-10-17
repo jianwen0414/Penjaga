@@ -359,6 +359,11 @@ def test_each_layer_sets_its_own_check_timings(tmp_path: Path) -> None:
 
     write("l1_localiser.json", {"flow_window_s": 300.0, "residual_window_s": 900.0})
     write("l2_localiser.json", {"flow_window_s": 60.0, "residual_window_s": 180.0})
-    timing = LocaliserSetup.load(tmp_path).timing
-    assert timing.flow_window_s == 300.0
-    assert timing.residual_window_s == 180.0
+    l2 = json.loads((tmp_path / "l2_localiser.json").read_text(encoding="utf-8"))
+    l2["localise_params"] = {"max_checks": 6}
+    (tmp_path / "l2_localiser.json").write_text(json.dumps(l2), encoding="utf-8")
+    setup = LocaliserSetup.load(tmp_path)
+    assert setup.timing.flow_window_s == 300.0
+    assert setup.timing.residual_window_s == 180.0
+    assert setup.params["L1"].max_checks == 4  # the default
+    assert setup.params["L2"].max_checks == 6

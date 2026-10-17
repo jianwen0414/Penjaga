@@ -33,7 +33,7 @@ from penjaga_eval.api import create_app
 from penjaga_eval.markdown import render
 from penjaga_eval.run import DEFAULT_RUNS, evaluate, headline, write
 from penjaga_eval.service import EvalConfig, EvalService
-from penjaga_eval.suites import SPLITS, SUITES_DIR, load_suite, manifests
+from penjaga_eval.suites import SPLITS, SUITES_DIR, Suite, load_suite, manifests
 from penjaga_eval.tune import tune
 
 
@@ -98,6 +98,16 @@ def _parser() -> argparse.ArgumentParser:
     tn.add_argument("--grid", action="append", required=True, help="name=v1,v2,...")
     tn.add_argument("--budget", type=float, required=True, help="false alarms per house-month")
     tn.add_argument("--limit", type=int)
+    _study_parsers(sub)
+    sv = sub.add_parser("serve", help="run the /eval/v1 service for the Lab")
+    sv.add_argument("--host", default="127.0.0.1")
+    sv.add_argument("--port", type=int, default=8704)
+    sv.add_argument("--api-runs-dir", type=Path, default=Path("var/eval/api-runs"))
+    sv.add_argument("--dev-tokens", type=Path, help="tokens file from `penjaga-stream serve --dev`")
+    return parser
+
+
+def _study_parsers(sub: Any) -> None:
     cb = sub.add_parser("calibration", help="reliability and ECE of the L1 leak model")
     cb.add_argument("--suite", required=True)
     cb.add_argument("--split", choices=("validation", "test"), required=True)
@@ -110,6 +120,7 @@ def _parser() -> argparse.ArgumentParser:
     lc.add_argument("--split", choices=SPLITS, default="validation")
     lc.add_argument("--detector", action="append", default=[])
     lc.add_argument("--fit", action="store_true", help="estimate the check likelihood")
+    lc.add_argument("--choose-max-checks", help="candidates, e.g. 4,6,8 (validation; after --fit)")
     lc.add_argument("--limit", type=int, help="first N episodes (not for test)")
     lc.add_argument("--markdown", type=Path)
     ol = sub.add_parser("outlook", help="score (or choose) the L5 roof-tank outlook")
@@ -121,12 +132,6 @@ def _parser() -> argparse.ArgumentParser:
     ch = sub.add_parser("charts", help="charts for the pitch deck from saved reports")
     ch.add_argument("--out", type=Path, required=True)
     ch.add_argument("--reports", type=Path, default=DEFAULT_RUNS)
-    sv = sub.add_parser("serve", help="run the /eval/v1 service for the Lab")
-    sv.add_argument("--host", default="127.0.0.1")
-    sv.add_argument("--port", type=int, default=8704)
-    sv.add_argument("--api-runs-dir", type=Path, default=Path("var/eval/api-runs"))
-    sv.add_argument("--dev-tokens", type=Path, help="tokens file from `penjaga-stream serve --dev`")
-    return parser
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -201,12 +206,9 @@ def _study(args: argparse.Namespace) -> int:
             text = calibration.render(report)
         elif args.command == "localise":
             suites = [load_suite(name, args.suites_dir) for name in args.suite]
-            if args.fit:
-                record = localisation.fit(
-                    suites, episodes_root=args.episodes_root, workers=args.workers
-                )
-                print(json.dumps({"counts": record["counts"]}, indent=2))
-                return 0
+            done = _localise_setup(args, suites)
+            if done is not None:
+                return done
             if len(suites) != 1 or not args.detector:
                 print("error: evaluate one suite with at least one --detector", file=sys.stderr)
                 return 2
@@ -247,6 +249,27 @@ def _study(args: argparse.Namespace) -> int:
     print(text)
     print(f"\nreport: {path}")
     return 0
+
+
+def _localise_setup(args: argparse.Namespace, suites: list[Suite]) -> int | None:
+    """localise --fit and --choose-max-checks (validation only); None to evaluate instead."""
+    if args.fit:
+        record = localisation.fit(suites, episodes_root=args.episodes_root, workers=args.workers)
+        print(json.dumps({"counts": record["counts"]}, indent=2))
+        return 0
+    if args.choose_max_checks:
+        if len(suites) != 1 or not args.detector:
+            print("error: choose on one suite with at least one --detector", file=sys.stderr)
+            return 2
+        record = localisation.choose_max_checks(
+            suites[0], args.detector,
+            [int(v) for v in args.choose_max_checks.split(",")],
+            episodes_root=args.episodes_root, workers=args.workers,
+        )  # fmt: skip
+        print(json.dumps(record["localise_params_chosen_on"]["candidates"]))
+        print(json.dumps(record["localise_params"]))
+        return 0
+    return None
 
 
 def _pooled_command(args: argparse.Namespace) -> int:

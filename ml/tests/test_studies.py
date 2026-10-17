@@ -143,6 +143,24 @@ def test_localisation_report(tiny: Suite, episodes_root: Path, tmp_path: Path) -
     assert "| all |" in localisation.render(report)
 
 
+def test_choosing_how_many_checks_to_allow(
+    tiny: Suite, episodes_root: Path, tmp_path: Path
+) -> None:
+    path = tmp_path / "l1_localiser.json"
+    doc = {"likelihood": Likelihood.default().as_dict(), "check_plan": {}}
+    path.write_text(json.dumps(doc), encoding="utf-8")
+    record = localisation.choose_max_checks(
+        tiny, ["l1_mnf_baseline"], [2, 1], likelihood_path=path, episodes_root=episodes_root,
+        workers=1,
+    )  # fmt: skip
+    chosen = record["localise_params_chosen_on"]
+    assert chosen["split"] == "validation"
+    assert [c["max_checks"] for c in chosen["candidates"]] == [1, 2]
+    assert record["localise_params"]["max_checks"] in (1, 2)
+    assert localisation.load_params(path).max_checks == record["localise_params"]["max_checks"]
+    assert localisation.load_params(tmp_path / "absent.json") == LocaliseParams()
+
+
 # ---------------------------------------------------------------------------- tank outlook
 
 TANK = """

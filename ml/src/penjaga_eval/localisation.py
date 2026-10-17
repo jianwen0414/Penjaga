@@ -446,6 +446,54 @@ def load_likelihood(path: Path = LIKELIHOOD_PATH) -> tuple[Likelihood, CheckPlan
     return Likelihood(doc["likelihood"]), CheckPlan(**doc["check_plan"]), path.as_posix()
 
 
+def load_params(path: Path = LIKELIHOOD_PATH) -> LocaliseParams:
+    """The stopping rules chosen for the layer (``choose_max_checks``), defaults otherwise."""
+    if not path.exists():
+        return LocaliseParams()
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    return LocaliseParams(**doc.get("localise_params", {}))
+
+
+def choose_max_checks(
+    suite: Suite,
+    detectors: Sequence[str],
+    candidates: Sequence[int],
+    *,
+    likelihood_path: Path | None = None,
+    episodes_root: Path = episodes.DEFAULT_ROOT,
+    workers: int | None = None,
+) -> dict[str, Any]:
+    """Choose how many checks to allow on the validation split: the most findings with the
+    truth ranked first after the checks, then the fewest checks. Writes the choice, with every
+    candidate, into the layer's fitted likelihood file (``localise_params``)."""
+    layer = _layer([suite])
+    path = likelihood_path or LIKELIHOOD_PATHS[layer]
+    if not path.exists():
+        raise ValueError(f"fit the likelihood first ({path} is missing)")
+    rows = []
+    for n in sorted(set(candidates)):
+        report = evaluate(
+            suite, "validation", detectors, params=LocaliseParams(max_checks=n),
+            likelihood_path=path, episodes_root=episodes_root, workers=workers,
+        )  # fmt: skip
+        found = [d["all"] for d in report["detectors"].values()]
+        top1 = sum(round(a["top1_after"] * a["n"]) for a in found if a["n"])
+        rows.append({"max_checks": n, "top1_after": top1, "findings": sum(a["n"] for a in found)})
+    best = max(rows, key=lambda r: (r["top1_after"], -r["max_checks"]))
+    doc: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+    doc["localise_params"] = {"max_checks": best["max_checks"]}
+    doc["localise_params_chosen_on"] = {
+        "suite": suite.name,
+        "split": "validation",
+        "detectors": list(detectors),
+        "objective": "most findings ranked first after the checks, then fewest checks",
+        "candidates": rows,
+        "date": datetime.now(UTC).date().isoformat(),
+    }
+    path.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
+    return doc
+
+
 # ---------------------------------------------------------------------------- evaluation
 
 
@@ -500,9 +548,9 @@ def evaluate(
     test_log: Path = sealing.TEST_LOG,
     limit: int | None = None,
 ) -> dict[str, Any]:
-    params = params or LocaliseParams()
     layer = _layer([suite])
     lik, plan, lik_source = load_likelihood(likelihood_path or LIKELIHOOD_PATHS[layer])
+    params = params or load_params(likelihood_path or LIKELIHOOD_PATHS[layer])
     items = manifests(suite, split)
     if split == "test":
         sealing.check(suite, items, sealed_dir)
