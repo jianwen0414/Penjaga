@@ -76,10 +76,19 @@ class _State:
 
 
 def load_model(path: str) -> dict[str, Any]:
-    """The trained artifact (written by penjaga_eval.train_l1; only load your own files)."""
-    with Path(path).open("rb") as fh:
-        model: dict[str, Any] = pickle.load(fh)  # project artifact, never user input
-    return model
+    """The trained artifact (written by penjaga_eval.train_l1; only load your own files).
+
+    Loaded once per process and file version and shared (prediction never changes it), so
+    many detectors built from one artifact, as while tuning, hold one copy."""
+    stat = Path(path).stat()
+    key = (str(Path(path).resolve()), stat.st_size, stat.st_mtime_ns)
+    if key not in _MODELS:
+        with Path(path).open("rb") as fh:
+            _MODELS[key] = pickle.load(fh)  # project artifact, never user input
+    return _MODELS[key]
+
+
+_MODELS: dict[tuple[str, int, int], dict[str, Any]] = {}
 
 
 class L1LeakModel:
