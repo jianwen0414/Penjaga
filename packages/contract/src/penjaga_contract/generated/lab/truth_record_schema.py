@@ -15,7 +15,7 @@ from . import fault_spec_schema
 
 class AnomalyType(StrEnum):
     """
-    Legitimate behaviour that must not raise false alarms (PRD §12.3, extended in PRD v1.1).
+    Legitimate behaviour that must not raise false alarms (PRD §12.3, extended in PRD v1.1). low_supply_pressure (contract 1.4.0): the network pressure is low during the day and recovers at night, so the roof tank refills at night.
     """
 
     night_bucket_fill = "night_bucket_fill"
@@ -28,6 +28,7 @@ class AnomalyType(StrEnum):
     aircon_setpoint_change = "aircon_setpoint_change"
     occupancy_change = "occupancy_change"
     post_outage_tank_refill = "post_outage_tank_refill"
+    low_supply_pressure = "low_supply_pressure"
 
 
 class TruthKind(StrEnum):

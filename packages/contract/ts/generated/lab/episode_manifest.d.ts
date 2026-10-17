@@ -50,7 +50,7 @@ export type ProgressionKind = "constant" | "intermittent" | "worsening";
  */
 export type NullableHouseTime = string | null;
 /**
- * Legitimate behaviour that must not raise false alarms (PRD §12.3, extended in PRD v1.1).
+ * Legitimate behaviour that must not raise false alarms (PRD §12.3, extended in PRD v1.1). low_supply_pressure (contract 1.4.0): the network pressure is low during the day and recovers at night, so the roof tank refills at night.
  */
 export type AnomalyType =
   | "night_bucket_fill"
@@ -62,7 +62,8 @@ export type AnomalyType =
   | "festive_cooking"
   | "aircon_setpoint_change"
   | "occupancy_change"
-  | "post_outage_tank_refill";
+  | "post_outage_tank_refill"
+  | "low_supply_pressure";
 
 /**
  * LAB NAMESPACE: one evaluation/training episode for M11. Everything needed to regenerate the episode deterministically. Test-split manifests are sealed (hash recorded) and every test run is logged.

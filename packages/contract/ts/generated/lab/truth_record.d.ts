@@ -37,7 +37,7 @@ export type TruthKind = "fault" | "legit_anomaly";
 export type FaultType =
   "W1" | "W2" | "W3" | "W4" | "W5" | "E1" | "E2" | "E3" | "A1" | "A2" | "A3" | "A4" | "U1" | "U2" | "U3";
 /**
- * Legitimate behaviour that must not raise false alarms (PRD §12.3, extended in PRD v1.1).
+ * Legitimate behaviour that must not raise false alarms (PRD §12.3, extended in PRD v1.1). low_supply_pressure (contract 1.4.0): the network pressure is low during the day and recovers at night, so the roof tank refills at night.
  *
  * This interface was referenced by `undefined`'s JSON-Schema
  * via the `definition` "AnomalyType".
@@ -52,7 +52,8 @@ export type AnomalyType =
   | "festive_cooking"
   | "aircon_setpoint_change"
   | "occupancy_change"
-  | "post_outage_tank_refill";
+  | "post_outage_tank_refill"
+  | "low_supply_pressure";
 /**
  * Stable, unique, human-readable ID of a physical element: <kind-prefix>_<descriptor>, lowercase snake_case. The prefix must match the element kind (enforced by the semantic validator).
  */

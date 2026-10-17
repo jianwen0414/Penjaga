@@ -1,6 +1,6 @@
 {
   "name": "@penjaga/contract",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": true,
   "description": "TypeScript types generated from the Penjaga House Data Contract JSON Schemas. Regenerate with: uv run python packages/contract/tools/generate.py",
   "types": "generated/index.d.ts"
