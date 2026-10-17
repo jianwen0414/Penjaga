@@ -29,8 +29,10 @@ the remaining hypotheses. A finding that names no location gives a uniform prior
 **Measured verdicts are noisy**: other flows and loads continue, windows are short, small drips
 sit near the meter's starting flow. The update therefore uses ``Likelihood``, P(verdict | the
 problem is or is not behind the action), estimated from validation episodes by the evaluation
-harness (M11), never from test episodes. For flow checks it can depend on how much was flowing
-before the valve closed (``flow_band``): a burst's verdict is more reliable than a drip's.
+harness (M11), never from test episodes. It can depend on a band measured before the action:
+for flow checks how much was flowing before the valve closed (``flow_band``: a burst's verdict
+is more reliable than a drip's); for switch-off checks whether the circuit was carrying load
+(``load_band``: its running appliances' own leakage falls with it, so a drop says less).
 
 **No flow, no evidence.** ``checks.flow_stop`` says ``stopped`` whenever the meter is still
 after the valve closes, including when it was already still before: a drip below the meter's
@@ -63,10 +65,11 @@ CheckKind = Literal["flow_stop", "tank_level_trend", "residual_drop"]
 VERDICTS: dict[str, tuple[str, ...]] = {
     "flow_stop": ("stopped", "reduced", "unchanged", "idle", "unavailable"),
     "tank_level_trend": ("falling", "steady", "rising", "unavailable"),
-    "residual_drop": ("dropped", "unchanged", "rose", "unavailable"),
+    "residual_drop": ("dropped", "reduced", "unchanged", "rose", "unavailable"),
 }
 OPERABLE_KINDS = frozenset({ValveKind.stop, ValveKind.angle, ValveKind.gate})
 FLOW_BANDS: tuple[tuple[str, float], ...] = (("low", 0.2), ("mid", 2.0), ("high", math.inf))
+LOADED_FROM_A = 0.05  # about 12 W: an appliance on the circuit is energised (and leaks)
 
 
 @dataclass(frozen=True)
@@ -92,10 +95,17 @@ def flow_band(flow_before_lpm: float | None) -> str | None:
     return next(name for name, upper in FLOW_BANDS if flow_before_lpm < upper)
 
 
+def load_band(circuit_before_a: float | None) -> str | None:
+    """Whether a switched-off circuit was carrying load before (None when not measured)."""
+    if circuit_before_a is None:
+        return None
+    return "loaded" if circuit_before_a >= LOADED_FROM_A else "unloaded"
+
+
 @dataclass(frozen=True)
 class Likelihood:
     """P(verdict | behind) and P(verdict | not behind), per check kind; a kind may also have
-    tables per flow band, keyed ``"flow_stop@high"``, used when the check's band is known."""
+    tables per band, keyed ``"flow_stop@high"``, used when the check's band is known."""
 
     table: Mapping[str, Mapping[str, Mapping[str, float]]]  # key -> "behind"/"other" -> verdict
 
@@ -124,10 +134,12 @@ class Likelihood:
                 },
                 "residual_drop": {
                     "behind": {
-                        "dropped": 0.7, "unchanged": 0.25, "rose": 0.02, "unavailable": 0.03,
+                        "dropped": 0.7, "reduced": 0.1, "unchanged": 0.15, "rose": 0.02,
+                        "unavailable": 0.03,
                     },
                     "other": {
-                        "dropped": 0.05, "unchanged": 0.85, "rose": 0.07, "unavailable": 0.03,
+                        "dropped": 0.03, "reduced": 0.3, "unchanged": 0.55, "rose": 0.09,
+                        "unavailable": 0.03,
                     },
                 },
             }
@@ -140,7 +152,7 @@ class Likelihood:
         min_n: int = 20,
     ) -> Likelihood:
         """Estimate from verdict counts with add-``alpha`` smoothing. Kinds without counts keep
-        the default table; a flow band gets its own table only when both of its sides have at
+        the default table; a band gets its own table only when both of its sides have at
         least ``min_n`` checks (otherwise the kind's pooled table answers for it)."""
         default = Likelihood.default().table
         table: dict[str, dict[str, dict[str, float]]] = {}

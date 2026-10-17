@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 
 from penjaga_contract.core import Finding
@@ -18,6 +21,7 @@ from penjaga_detect.localise import (
     expected_gain,
     flow_band,
     hypotheses,
+    load_band,
     prior,
     update,
 )
@@ -235,8 +239,20 @@ def test_switch_off_checks_find_the_leaking_circuit() -> None:
         {
             **Likelihood.default().table,
             "residual_drop": {
-                "behind": {"dropped": 1.0, "unchanged": 0.0, "rose": 0.0, "unavailable": 0.0},
-                "other": {"dropped": 0.0, "unchanged": 1.0, "rose": 0.0, "unavailable": 0.0},
+                "behind": {
+                    "dropped": 1.0,
+                    "reduced": 0.0,
+                    "unchanged": 0.0,
+                    "rose": 0.0,
+                    "unavailable": 0.0,
+                },
+                "other": {
+                    "dropped": 0.0,
+                    "reduced": 0.0,
+                    "unchanged": 1.0,
+                    "rose": 0.0,
+                    "unavailable": 0.0,
+                },
             },
         }
     )
@@ -270,7 +286,7 @@ def test_localise_an_earth_leakage_finding_from_switch_off_checks() -> None:
             type="earth_leakage_rising",
             severity="heads_up",
             confidence=1.0,
-            evidence=[{"name": "rise", "value": 1.0, "unit": "mA"}],
+            evidence=[{"name": "rise_on_direct_circuits", "value": 1.2, "unit": "mA"}],
             at_us=1_790_000_000 * US,
             object_ids=["rcd_sockets"],
             candidates=[
@@ -294,6 +310,8 @@ def test_localise_an_earth_leakage_finding_from_switch_off_checks() -> None:
     assert first["layer"] == "L2"
     assert first["next_check"]["action"] == "switch_off_circuit"
     assert first["next_check"]["rccb_id"] == "rcd_sockets"
+    assert first["next_check"]["expect_drop_ma"] == 1.2
+    assert first["next_check"]["window_s"] == 120.0
     checks = [
         done(1, "circ_sockets_living", "unchanged"),
         done(2, "circ_sockets_kitchen", "dropped"),
@@ -302,3 +320,45 @@ def test_localise_an_earth_leakage_finding_from_switch_off_checks() -> None:
     after = localise(finding, checks, HOUSE, LocaliserSetup())
     assert after["candidates"][0]["object_id"] == "circ_sockets_kitchen"
     assert [c["evidence"] for c in after["checks_used"]] == ["unchanged", "dropped", "ignored"]
+
+    # a band table answers when the check reports the circuit's load before switching off
+    flat = {"dropped": 0.2, "reduced": 0.2, "unchanged": 0.2, "rose": 0.2, "unavailable": 0.2}
+    sharp = {
+        "behind": {**dict.fromkeys(flat, 0.0), "dropped": 1.0},
+        "other": {**dict.fromkeys(flat, 0.25), "dropped": 0.0},
+    }
+    table = {
+        **Likelihood.default().table,
+        "residual_drop": {"behind": flat, "other": flat},
+        "residual_drop@unloaded": sharp,
+    }
+    setup = LocaliserSetup({"L1": Likelihood.default(), "L2": Likelihood(table)})
+    loaded = {
+        **done(4, "circ_sockets_kitchen", "dropped"),
+        "measurements": [{"name": "circuit_before", "value": 2.5, "unit": "A"}],
+    }
+    unloaded = {**loaded, "measurements": [{"name": "circuit_before", "value": 0.0, "unit": "A"}]}
+    blind = localise(finding, [loaded], HOUSE, setup)
+    assert blind["candidates"][0]["p"] == pytest.approx(share, abs=1e-3)  # the flat table
+    sure = localise(finding, [unloaded], HOUSE, setup)
+    assert sure["candidates"][0] == {"object_id": "circ_sockets_kitchen", "p": pytest.approx(1.0)}
+
+
+def test_load_bands() -> None:
+    assert load_band(None) is None
+    assert load_band(0.01) == "unloaded"
+    assert load_band(0.4) == "loaded"
+
+
+def test_each_layer_sets_its_own_check_timings(tmp_path: Path) -> None:
+    from penjaga_detect.localise_api import LocaliserSetup
+
+    def write(name: str, plan: dict[str, float]) -> None:
+        doc = {"likelihood": Likelihood.default().table, "check_plan": plan}
+        (tmp_path / name).write_text(json.dumps(doc), encoding="utf-8")
+
+    write("l1_localiser.json", {"flow_window_s": 300.0, "residual_window_s": 900.0})
+    write("l2_localiser.json", {"flow_window_s": 60.0, "residual_window_s": 180.0})
+    timing = LocaliserSetup.load(tmp_path).timing
+    assert timing.flow_window_s == 300.0
+    assert timing.residual_window_s == 180.0

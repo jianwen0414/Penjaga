@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from penjaga_detect import checks
 from penjaga_detect.chunk import Series
@@ -98,21 +99,38 @@ def _window(values: list[float], period_s: float = 1.0, t0: int = 0) -> checks.W
 
 def test_residual_drop_when_the_leaking_circuit_is_off() -> None:
     r = np.random.default_rng(1)
-    before = _window(list(3.0 + r.normal(0, 0.05, 600)))
-    after = _window(list(1.5 + r.normal(0, 0.05, 600)))
-    off = _window([0.0] * 600)
-    outcome = checks.residual_drop(before, after, off, 0.1)
+    before = _window(list(3.0 + r.normal(0, 0.05, 120)), 1.0)
+    after = _window(list(1.5 + r.normal(0, 0.05, 120)), 1.0)
+    idle, off = _window([0.02] * 120, 1.0), _window([0.0] * 120, 1.0)
+    outcome = checks.residual_drop(before, after, (idle, off), 0.1)
     assert outcome.verdict == "dropped"
-    assert {m["name"] for m in outcome.measurements} >= {"residual_before", "residual_after"}
-    same = checks.residual_drop(before, _window(list(3.0 + r.normal(0, 0.05, 600))), off, 0.1)
+    names = {m["name"]: m["value"] for m in outcome.measurements}
+    assert {"residual_before", "residual_after", "residual_change_se"} <= set(names)
+    assert names["circuit_before"] == pytest.approx(0.02)
+    same = checks.residual_drop(
+        before, _window(list(3.0 + r.normal(0, 0.05, 120)), 1.0), (idle, off), 0.1
+    )
     assert same.verdict == "unchanged"
+
+
+def test_a_drop_smaller_than_the_finding_saw_is_only_reduced() -> None:
+    r = np.random.default_rng(2)
+    before = _window(list(3.0 + r.normal(0, 0.05, 120)), 1.0)
+    after = _window(list(2.6 + r.normal(0, 0.05, 120)), 1.0)
+    off = _window([0.0] * 120, 1.0)
+    assert checks.residual_drop(before, after, (None, off), 0.1).verdict == "dropped"
+    small = checks.residual_drop(before, after, (None, off), 0.1, expect_drop_ma=1.2)
+    assert small.verdict == "reduced"
+    assert "circuit_before" not in {m["name"] for m in small.measurements}
+    big = checks.residual_drop(before, after, (None, off), 0.1, expect_drop_ma=0.6)
+    assert big.verdict == "dropped"
 
 
 def test_residual_drop_needs_the_circuit_really_off() -> None:
     before = _window([3.0] * 600)
     after = _window([1.5] * 600)
     on = _window([2.0] * 600)
-    outcome = checks.residual_drop(before, after, on, 0.1)
+    outcome = checks.residual_drop(before, after, (None, on), 0.1)
     assert outcome.status == "unavailable"
     assert outcome.reason is not None
     assert "not switched off" in outcome.reason

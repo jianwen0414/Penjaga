@@ -33,6 +33,7 @@ from penjaga_detect.localise import (
     entropy_bits,
     evidence_verdict,
     flow_band,
+    load_band,
 )
 
 L1_TYPES = frozenset(
@@ -57,8 +58,8 @@ class Timing:
     flow_settle_s: float = 120.0
     expect_below_lpm: float = 0.02
     tank_window_s: float = 1800.0
-    residual_window_s: float = 600.0
-    residual_settle_s: float = 60.0
+    residual_window_s: float = 120.0
+    residual_settle_s: float = 30.0
 
 
 @dataclass(frozen=True)
@@ -81,10 +82,15 @@ class LocaliserSetup:
                     doc = json.loads(path.read_text(encoding="utf-8"))
                     likelihood[layer] = Likelihood(doc["likelihood"])
                     plan = doc.get("check_plan", {})
-                    timing.update(
-                        {k: v for k, v in plan.items() if k in Timing.__dataclass_fields__}
-                    )
+                    timing.update({k: v for k, v in plan.items() if _timing_layer(k) == layer})
         return LocaliserSetup(likelihood, Timing(**timing))
+
+
+def _timing_layer(key: str) -> str | None:
+    """Which layer's fit sets a timing: switch-off checks are L2's, water checks L1's."""
+    if key not in Timing.__dataclass_fields__:
+        return None
+    return "L2" if key.startswith("residual_") else "L1"
 
 
 class LocaliseError(ValueError):
@@ -126,8 +132,28 @@ def _option_for(loc: Localiser, check: Mapping[str, Any]) -> CheckOption | None:
     return None
 
 
+def _band(
+    option: CheckOption, verdict: str, flow_before: float | None, check: Mapping[str, Any]
+) -> str | None:
+    if option.kind == "residual_drop":
+        return load_band(_measurement(check, "circuit_before"))
+    return flow_band(flow_before) if verdict != "idle" else None
+
+
+def expected_drop(finding: Finding) -> float | None:
+    """The leakage rise an earth-leakage finding reported (rise_on_direct_circuits, mA)."""
+    for item in finding.evidence:
+        if item.name == "rise_on_direct_circuits" and isinstance(item.value, int | float):
+            return float(item.value)
+    return None
+
+
 def _suggestion(
-    option: CheckOption, gain: float, setup: LocaliserSetup, has_tank: bool
+    option: CheckOption,
+    gain: float,
+    setup: LocaliserSetup,
+    has_tank: bool,
+    expect_drop_ma: float | None = None,
 ) -> dict[str, Any]:
     t = setup.timing
     out: dict[str, Any] = {"kind": option.kind, "expected_gain_bits": round(gain, 4)}
@@ -141,6 +167,8 @@ def _suggestion(
             window_s=t.residual_window_s,
             hold_water_use=False,
         )
+        if expect_drop_ma is not None:
+            out["expect_drop_ma"] = round(expect_drop_ma, 3)
     elif option.kind == "flow_stop":
         out.update(
             action="close_valve",
@@ -178,7 +206,7 @@ def localise(
             verdict = evidence_verdict(
                 option.kind, check.get("verdict"), before, loc.params.idle_below_lpm
             )
-            loc.observe(option, verdict, flow_band(before) if verdict != "idle" else None)
+            loc.observe(option, verdict, _band(option, verdict, before, check))
             used.append({"check_id": check["check_id"], "evidence": verdict})
         elif check.get("status") == "unavailable" and option is not None:
             loc.observe(option, "unavailable")
@@ -197,5 +225,7 @@ def localise(
         "other_p": round(max(0.0, 1.0 - sum(p for _, p in top)), 4),
         "entropy_bits": round(entropy_bits(loc.posterior), 4),
         "checks_used": used,
-        "next_check": None if nxt is None else _suggestion(nxt[0], nxt[1], setup, has_tank),
+        "next_check": None
+        if nxt is None
+        else _suggestion(nxt[0], nxt[1], setup, has_tank, expected_drop(finding)),
     }

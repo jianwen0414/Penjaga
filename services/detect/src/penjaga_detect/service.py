@@ -543,12 +543,22 @@ class DetectService:
         before = checks.Window.of(data, since - window, since, info.period_s)
         after = checks.Window.of(data, since + settle, ready, info.period_s)
         circuit = checks.circuit_stream(request["circuit_id"])
-        circuit_after = None
+        windows: tuple[checks.Window | None, checks.Window | None] = (None, None)
         if circuit in self.streams:
-            c_info = self.streams[circuit]
-            raw = await self.m4.raw(circuit, since + settle + 1, ready + 1, c_info.period_s)
-            circuit_after = checks.Window.of(Series(*raw), since + settle, ready, c_info.period_s)
-        return checks.residual_drop(before, after, circuit_after, info.resolution)
+            c_period = self.streams[circuit].period_s
+            current = Series(*(await self.m4.raw(circuit, since - window + 1, ready + 1, c_period)))
+            windows = (
+                checks.Window.of(current, since - window, since, c_period),
+                checks.Window.of(current, since + settle, ready, c_period),
+            )
+        expect = request.get("expect_drop_ma")
+        return checks.residual_drop(
+            before,
+            after,
+            windows,
+            info.resolution,
+            expect_drop_ma=None if expect is None else float(expect),
+        )
 
     # ------------------------------------------------------------------ localisation
 

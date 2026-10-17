@@ -8,8 +8,9 @@ functions measure what changed in the readings (``docs/design/interfaces.md``, M
 - the stream's resolution.
 
 Samples of one stream are autocorrelated, so the standard error comes from block means of
-``BLOCK_S`` seconds, not from raw samples. A window with less than ``MIN_COVERAGE`` of its
-expected samples present is "unavailable", never guessed.
+``BLOCK_S`` seconds (``RESIDUAL_BLOCK_S`` for the 1 s residual current, whose windows are short
+so that other circuits' appliances have little time to switch), not from raw samples. A window
+with less than ``MIN_COVERAGE`` of its expected samples present is "unavailable", never guessed.
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ import numpy.typing as npt
 from penjaga_detect.chunk import US, Series
 
 BLOCK_S = 60.0
+RESIDUAL_BLOCK_S = 10.0
 MIN_COVERAGE = 0.5
 MIN_BLOCKS = 3
 
@@ -73,26 +75,28 @@ def unavailable(reason: str) -> Outcome:
     return Outcome("unavailable", [], None, reason)
 
 
-def _blocks(w: Window) -> npt.NDArray[np.float64]:
-    """Means of consecutive BLOCK_S blocks (from the first sample)."""
-    index = (w.ts_us - w.ts_us[0]) // round(BLOCK_S * US)
+def _blocks(w: Window, block_s: float = BLOCK_S) -> npt.NDArray[np.float64]:
+    """Means of consecutive ``block_s`` blocks (from the first sample)."""
+    index = (w.ts_us - w.ts_us[0]) // round(block_s * US)
     sums = np.bincount(index, weights=w.values)
     counts = np.bincount(index)
     return np.asarray(sums[counts > 0] / counts[counts > 0], dtype=np.float64)
 
 
-def _mean_se(w: Window) -> tuple[float, float]:
-    blocks = _blocks(w)
+def _mean_se(w: Window, block_s: float = BLOCK_S) -> tuple[float, float]:
+    blocks = _blocks(w, block_s)
     mean = float(np.mean(w.values))
     if blocks.size < MIN_BLOCKS:
         return mean, math.inf  # too short to judge a change
     return mean, float(np.std(blocks, ddof=1) / math.sqrt(blocks.size))
 
 
-def _change(before: Window, after: Window, resolution: float) -> tuple[float, float, int]:
+def _change(
+    before: Window, after: Window, resolution: float, block_s: float = BLOCK_S
+) -> tuple[float, float, int]:
     """(after - before, its standard error, sign of a significant change or 0)."""
-    mb, sb = _mean_se(before)
-    ma, sa = _mean_se(after)
+    mb, sb = _mean_se(before, block_s)
+    ma, sa = _mean_se(after, block_s)
     delta = ma - mb
     se = math.hypot(sb, sa)
     significant = abs(delta) > 2 * se and abs(delta) > resolution
@@ -201,20 +205,37 @@ def _ols_slope(x: npt.NDArray[np.float64], y: npt.NDArray[np.float64]) -> tuple[
 
 
 def residual_drop(
-    before: Window, after: Window, circuit_after: Window | None, resolution: float
+    before: Window,
+    after: Window,
+    circuit: tuple[Window | None, Window | None],
+    resolution: float,
+    *,
+    expect_drop_ma: float | None = None,
 ) -> Outcome:
     """Did the RCCB's residual current fall after one circuit was switched off at its MCB?
 
-    ``circuit_after`` is the circuit's current in the after window; if it still draws current,
-    the circuit was not off and the check cannot say anything."""
+    ``circuit`` is the circuit's current in the before and after windows. If it still draws
+    current after, the circuit was not off and the check cannot say anything; what it drew
+    before is reported (``circuit_before``), as the leakage of its running appliances falls with
+    it. Every circuit leaks a little, so switching off a healthy one also lowers the residual
+    current: with ``expect_drop_ma`` (the rise the finding saw), a fall of at least half of it is
+    ``dropped`` and a smaller significant fall ``reduced``."""
+    circuit_before, circuit_after = circuit
     if not (before.usable and after.usable):
         return unavailable("too few residual current readings in the measurement windows")
     if circuit_after is not None and circuit_after.usable:
         drawn = float(np.mean(circuit_after.values))
         if drawn >= CIRCUIT_OFF_BELOW_A:
             return unavailable(f"the circuit still drew {drawn:.2f} A: it was not switched off")
-    delta, se, sign = _change(before, after, resolution)
+    delta, se, sign = _change(before, after, resolution, RESIDUAL_BLOCK_S)
     verdict = {-1: "dropped", 0: "unchanged", 1: "rose"}[sign]
+    if verdict == "dropped" and expect_drop_ma is not None and -delta < 0.5 * expect_drop_ma:
+        verdict = "reduced"
+    load = (
+        [_m("circuit_before", float(np.mean(circuit_before.values)), "A")]
+        if circuit_before is not None and circuit_before.usable
+        else []
+    )
     return Outcome(
         "complete",
         [
@@ -222,6 +243,7 @@ def residual_drop(
             _m("residual_after", float(np.mean(after.values)), "mA"),
             _m("residual_change", delta, "mA"),
             *_se("residual_change_se", se, "mA"),
+            *load,
         ],
         verdict,
     )
