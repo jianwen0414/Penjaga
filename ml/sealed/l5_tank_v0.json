@@ -1,0 +1,8 @@
+{
+  "suite": "l5_tank_v0",
+  "split": "test",
+  "episodes": 54,
+  "generator": "penjaga-sim/4",
+  "digest": "af3b9ec4e42785fa76d597a0ce271e32d80f1c06d97d84b2884fc0d0a1525646",
+  "sealed_at": "2026-10-17T08:42:00+00:00"
+}
