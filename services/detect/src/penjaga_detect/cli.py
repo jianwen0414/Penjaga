@@ -24,6 +24,7 @@ from penjaga_contract.validate import load_context
 from penjaga_detect.api import create_app
 from penjaga_detect.deployment import DEFAULT_PATH, Deployment
 from penjaga_detect.detector import HouseContext
+from penjaga_detect.localise_api import LocaliserSetup
 from penjaga_detect.m4 import HttpM4
 from penjaga_detect.service import DetectConfig, DetectService, StreamInfo
 from penjaga_detect.store import FindingStore
@@ -74,6 +75,7 @@ def _cmd_serve(args: argparse.Namespace) -> int:
         streams=stream_infos(),
         store=store,
         config=DetectConfig(data_dir=args.data_dir),
+        localiser=LocaliserSetup.load(args.params_dir),
     )
     try:
         uvicorn.run(create_app(service, tokens=callers), host=args.host, port=args.port)

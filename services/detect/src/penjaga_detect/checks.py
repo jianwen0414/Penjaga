@@ -29,10 +29,16 @@ MIN_BLOCKS = 3
 
 FLOW_STREAM = "water.main.flow_lpm"
 TANK_STREAM = "water.tank.level_pct"
+CIRCUIT_OFF_BELOW_A = 0.1  # a circuit switched off at its MCB draws (almost) nothing
+TANK_FULL_PCT = 97.0  # the float valve has (nearly) closed: refilling no longer shows as flow
 
 
 def circuit_stream(circuit_id: str) -> str:
     return f"elec.circuit.{circuit_id}.current_a"
+
+
+def residual_stream(rccb_id: str) -> str:
+    return f"elec.rcd.{rccb_id}.residual_ma"
 
 
 @dataclass(frozen=True)
@@ -192,3 +198,38 @@ def _ols_slope(x: npt.NDArray[np.float64], y: npt.NDArray[np.float64]) -> tuple[
     dof = max(1, x.size - 2)
     se = math.sqrt(float(np.sum(residuals * residuals)) / dof / sxx)
     return slope, se
+
+
+def residual_drop(
+    before: Window, after: Window, circuit_after: Window | None, resolution: float
+) -> Outcome:
+    """Did the RCCB's residual current fall after one circuit was switched off at its MCB?
+
+    ``circuit_after`` is the circuit's current in the after window; if it still draws current,
+    the circuit was not off and the check cannot say anything."""
+    if not (before.usable and after.usable):
+        return unavailable("too few residual current readings in the measurement windows")
+    if circuit_after is not None and circuit_after.usable:
+        drawn = float(np.mean(circuit_after.values))
+        if drawn >= CIRCUIT_OFF_BELOW_A:
+            return unavailable(f"the circuit still drew {drawn:.2f} A: it was not switched off")
+    delta, se, sign = _change(before, after, resolution)
+    verdict = {-1: "dropped", 0: "unchanged", 1: "rose"}[sign]
+    return Outcome(
+        "complete",
+        [
+            _m("residual_before", float(np.mean(before.values)), "mA"),
+            _m("residual_after", float(np.mean(after.values)), "mA"),
+            _m("residual_change", delta, "mA"),
+            *_se("residual_change_se", se, "mA"),
+        ],
+        verdict,
+    )
+
+
+def tank_is_full(window: Window, full_pct: float = TANK_FULL_PCT) -> bool | None:
+    """Whether the roof tank has been at full through the window (None without readings).
+    Flow checks wait for it: while the tank refills, closing a valve barely changes the flow."""
+    if not window.usable:
+        return None
+    return bool(np.min(window.values) >= full_pct)

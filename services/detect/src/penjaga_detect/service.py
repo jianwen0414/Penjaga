@@ -42,6 +42,7 @@ from penjaga_detect import checks
 from penjaga_detect.chunk import US, Chunk, Series
 from penjaga_detect.detector import HouseContext
 from penjaga_detect.engine import DetectorSpec, Engine
+from penjaga_detect.localise_api import LocaliseError, LocaliserSetup, localise
 from penjaga_detect.m4 import M4, M4UnavailableError, iso
 from penjaga_detect.store import FindingStore, StoredRevision
 
@@ -133,8 +134,10 @@ class DetectService:
         streams: Mapping[str, StreamInfo],
         store: FindingStore,
         config: DetectConfig,
+        localiser: LocaliserSetup | None = None,
     ) -> None:
         self.m4 = m4
+        self.localiser = localiser or LocaliserSetup()
         self.house = house
         self.specs = list(specs)
         self.streams = dict(streams)
@@ -429,19 +432,29 @@ class DetectService:
         since = to_us(datetime.fromisoformat(request["since"]))
         if since < run.start_us:
             raise RequestError("'since' is before the episode start")
+        if kind in ("flow_stop", "tank_level_trend") and "valve_id" in request:
+            valve = request["valve_id"]
+            index = self.house.index
+            if not index.exists(valve) or index.kind_of(valve) is not ElementKind.valve:
+                raise RequestError(f"{valve!r} is not a valve of this house")
         if kind == "tank_level_trend":
             ready = since + round(float(request["window_s"]) * US)
             stream = checks.TANK_STREAM
         else:
             ready = since + round((float(request["settle_s"]) + float(request["window_s"])) * US)
+            index = self.house.index
             if kind == "flow_stop":
                 stream = checks.FLOW_STREAM
             else:
                 circuit = request["circuit_id"]
-                index = self.house.index
                 if not index.exists(circuit) or index.kind_of(circuit) is not ElementKind.circuit:
                     raise RequestError(f"{circuit!r} is not a circuit of this house")
                 stream = checks.circuit_stream(circuit)
+                if kind == "residual_drop":
+                    rccb = request["rccb_id"]
+                    if rccb not in index.rccb_chain(circuit):
+                        raise RequestError(f"{circuit!r} is not protected by RCCB {rccb!r}")
+                    stream = checks.residual_stream(rccb)
         doc: dict[str, Any] = {
             "check_id": f"chk_{secrets.token_hex(6)}",
             "request": request,
@@ -502,6 +515,8 @@ class DetectService:
             return checks.tank_level_trend(
                 checks.Window.of(data, since, ready, info.period_s), info.resolution
             )
+        if kind == "residual_drop":
+            return await self._measure_residual(request, ready)
         stream = (
             checks.FLOW_STREAM
             if kind == "flow_stop"
@@ -517,6 +532,34 @@ class DetectService:
                 before, after, float(request["expect_below_lpm"]), info.resolution
             )
         return checks.circuit_load(before, after, info.resolution)
+
+    async def _measure_residual(self, request: Mapping[str, Any], ready: int) -> checks.Outcome:
+        since = to_us(datetime.fromisoformat(request["since"]))
+        window = round(float(request["window_s"]) * US)
+        settle = round(float(request["settle_s"]) * US)
+        stream = checks.residual_stream(request["rccb_id"])
+        info = self.streams[stream]
+        data = Series(*(await self.m4.raw(stream, since - window + 1, ready + 1, info.period_s)))
+        before = checks.Window.of(data, since - window, since, info.period_s)
+        after = checks.Window.of(data, since + settle, ready, info.period_s)
+        circuit = checks.circuit_stream(request["circuit_id"])
+        circuit_after = None
+        if circuit in self.streams:
+            c_info = self.streams[circuit]
+            raw = await self.m4.raw(circuit, since + settle + 1, ready + 1, c_info.period_s)
+            circuit_after = checks.Window.of(Series(*raw), since + settle, ready, c_info.period_s)
+        return checks.residual_drop(before, after, circuit_after, info.resolution)
+
+    # ------------------------------------------------------------------ localisation
+
+    def localise(self, request: Mapping[str, Any]) -> dict[str, Any]:
+        """POST /detect/v1/localise: the finding's location after the checks given."""
+        finding = Finding.model_validate(self.finding(request["finding_id"])[-1])
+        docs = [self.check(check_id) for check_id in request["check_ids"]]
+        try:
+            return localise(finding, docs, self.house, self.localiser)
+        except LocaliseError as exc:
+            raise RequestError(str(exc)) from None
 
     # ------------------------------------------------------------------ health
 

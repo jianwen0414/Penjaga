@@ -84,3 +84,41 @@ def test_too_short_windows_report_no_standard_error() -> None:
     out = checks.flow_stop(before, after, 0.05, 0.06)
     assert out.verdict == "stopped"  # below the expected flow, which needs no error bar
     assert "flow_change_se" not in [m["name"] for m in out.measurements]
+
+
+def _window(values: list[float], period_s: float = 1.0, t0: int = 0) -> checks.Window:
+    ts = (t0 + (np.arange(len(values)) + 1) * period_s * US).astype(np.int64)
+    return checks.Window.of(
+        Series(ts, np.array(values, dtype=np.float64), np.zeros(len(values), np.uint8)),
+        t0,
+        int(ts[-1]),
+        period_s,
+    )
+
+
+def test_residual_drop_when_the_leaking_circuit_is_off() -> None:
+    r = np.random.default_rng(1)
+    before = _window(list(3.0 + r.normal(0, 0.05, 600)))
+    after = _window(list(1.5 + r.normal(0, 0.05, 600)))
+    off = _window([0.0] * 600)
+    outcome = checks.residual_drop(before, after, off, 0.1)
+    assert outcome.verdict == "dropped"
+    assert {m["name"] for m in outcome.measurements} >= {"residual_before", "residual_after"}
+    same = checks.residual_drop(before, _window(list(3.0 + r.normal(0, 0.05, 600))), off, 0.1)
+    assert same.verdict == "unchanged"
+
+
+def test_residual_drop_needs_the_circuit_really_off() -> None:
+    before = _window([3.0] * 600)
+    after = _window([1.5] * 600)
+    on = _window([2.0] * 600)
+    outcome = checks.residual_drop(before, after, on, 0.1)
+    assert outcome.status == "unavailable"
+    assert outcome.reason is not None
+    assert "not switched off" in outcome.reason
+
+
+def test_tank_is_full() -> None:
+    assert checks.tank_is_full(_window([98.0, 99.5, 100.0], 60.0)) is True
+    assert checks.tank_is_full(_window([96.0, 99.5, 100.0], 60.0)) is False
+    assert checks.tank_is_full(_window([float("nan")] * 3, 60.0)) is None

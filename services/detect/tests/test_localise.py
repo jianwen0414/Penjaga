@@ -12,8 +12,11 @@ from penjaga_detect.localise import (
     Likelihood,
     Localiser,
     check_options,
+    direct_circuits,
+    earth_leakage_localiser,
     evidence_verdict,
     expected_gain,
+    flow_band,
     hypotheses,
     prior,
     update,
@@ -161,7 +164,8 @@ def test_a_check_that_cannot_change_the_belief_gains_nothing() -> None:
 def test_perfect_checks_narrow_a_leak_to_what_the_valves_can_separate(truth: str) -> None:
     loc = Localiser(INDEX, PERFECT)
     loc.start_from(None)
-    while (option := loc.next_check()) is not None:
+    while (step := loc.next_check()) is not None:
+        option = step[0]
         positive = VERDICTS[option.kind][0]
         negative = VERDICTS[option.kind][2 if option.kind == "flow_stop" else 1]
         loc.observe(option, positive if truth in option.behind else negative)
@@ -193,3 +197,106 @@ def test_a_still_meter_before_the_check_is_no_evidence() -> None:
     before = prior(None, hyps)
     after = update(before, option, "idle", lik)
     assert after == pytest.approx(before)  # idle is equally likely either way
+
+
+# ---------------------------------------------------------------------------- flow bands, L2
+
+
+def test_flow_bands() -> None:
+    assert flow_band(None) is None
+    assert flow_band(0.05) == "low"
+    assert flow_band(0.5) == "mid"
+    assert flow_band(12.0) == "high"
+
+
+def test_a_band_gets_its_own_table_only_with_enough_checks() -> None:
+    counts = {
+        "flow_stop": {"behind": {"stopped": 30}, "other": {"unchanged": 30}},
+        "flow_stop@high": {"behind": {"stopped": 25}, "other": {"unchanged": 25}},
+        "flow_stop@low": {"behind": {"stopped": 3}, "other": {"unchanged": 40}},
+    }
+    lik = Likelihood.from_counts(counts, min_n=20)
+    assert "flow_stop@high" in lik.table
+    assert "flow_stop@low" not in lik.table  # too few behind: the pooled table answers
+    assert lik.p("flow_stop", True, "stopped", "low") == lik.p("flow_stop", True, "stopped")
+    assert lik.p("flow_stop", True, "stopped", "high") == pytest.approx(26 / 30)
+
+
+def test_direct_circuits_of_an_rccb() -> None:
+    sockets = direct_circuits(INDEX, "rcd_sockets")
+    assert "circ_sockets_kitchen" in sockets
+    assert len(sockets) == 7
+    assert direct_circuits(INDEX, "rcd_wh_bath2") == ("circ_wh_bath2",)
+    assert "circ_wh_bath2" not in direct_circuits(INDEX, "rcd_main")  # behind its own RCCB
+
+
+def test_switch_off_checks_find_the_leaking_circuit() -> None:
+    lik = Likelihood(
+        {
+            **Likelihood.default().table,
+            "residual_drop": {
+                "behind": {"dropped": 1.0, "unchanged": 0.0, "rose": 0.0, "unavailable": 0.0},
+                "other": {"dropped": 0.0, "unchanged": 1.0, "rose": 0.0, "unavailable": 0.0},
+            },
+        }
+    )
+    truth = "circ_sockets_kitchen"
+    loc = earth_leakage_localiser(INDEX, "rcd_sockets", lik)
+    loc.params = loc.params.__class__(max_checks=7)
+    while (step := loc.next_check()) is not None:
+        option = step[0]
+        assert option.rccb_id == "rcd_sockets"
+        loc.observe(option, "dropped" if truth in option.behind else "unchanged")
+    assert loc.ranked()[0] == (truth, pytest.approx(1.0))
+    with pytest.raises(ValueError, match="protects no circuit"):
+        earth_leakage_localiser(INDEX, "rcd_nowhere")
+
+
+def test_localise_an_earth_leakage_finding_from_switch_off_checks() -> None:
+    from penjaga_detect.localise_api import LocaliserSetup, localise
+
+    tracker = FindingTracker(
+        HOUSE.house_id,
+        DetectorInfo("l2_leakage_baseline", "L2", "baseline", "1.0.0").source(),
+        HOUSE.zone,
+    )
+    circuits = direct_circuits(INDEX, "rcd_sockets")
+    share = 1 / len(circuits)
+    finding = tracker.observe(
+        Observation(
+            key="L2:earth_leakage_rising:rcd_sockets:baseline",
+            type="earth_leakage_rising",
+            severity="heads_up",
+            confidence=1.0,
+            evidence=[{"name": "rise", "value": 1.0, "unit": "mA"}],
+            at_us=1_790_000_000 * US,
+            object_ids=["rcd_sockets"],
+            candidates=[
+                {"object_id": c, "p": round(share, 6), "basis": "behind_rccb"} for c in circuits
+            ],
+            candidates_other_p=round(1 - round(share, 6) * len(circuits), 6),
+        )
+    )
+    assert finding is not None
+
+    def done(i: int, circuit: str, verdict: str) -> dict[str, object]:
+        return {
+            "check_id": f"chk_{i:06d}",
+            "status": "complete",
+            "verdict": verdict,
+            "request": {"kind": "residual_drop", "rccb_id": "rcd_sockets", "circuit_id": circuit},
+            "measurements": [],
+        }
+
+    first = localise(finding, [], HOUSE, LocaliserSetup())
+    assert first["layer"] == "L2"
+    assert first["next_check"]["action"] == "switch_off_circuit"
+    assert first["next_check"]["rccb_id"] == "rcd_sockets"
+    checks = [
+        done(1, "circ_sockets_living", "unchanged"),
+        done(2, "circ_sockets_kitchen", "dropped"),
+        {**done(3, "circ_sockets_bed2", "dropped"), "request": {"kind": "circuit_load"}},
+    ]
+    after = localise(finding, checks, HOUSE, LocaliserSetup())
+    assert after["candidates"][0]["object_id"] == "circ_sockets_kitchen"
+    assert [c["evidence"] for c in after["checks_used"]] == ["unchanged", "dropped", "ignored"]

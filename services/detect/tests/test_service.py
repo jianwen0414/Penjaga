@@ -318,3 +318,81 @@ def test_a_restarted_m4_starts_a_new_run_even_with_the_same_episode_number(
         assert second.service.run is not None
         assert second.service.run.key == "epi_00000000000000ff"
         assert second.get("/findings").json() == []  # nothing from the previous M4 run
+
+
+def _wait_check(h: Harness, check_id: str) -> dict[str, Any]:
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline:
+        doc: dict[str, Any] = h.get(f"/checks/{check_id}").json()
+        if doc["status"] != "pending":
+            return doc
+        time.sleep(0.05)
+    raise AssertionError("check still pending")
+
+
+def test_localise_a_burst_with_a_valve_check(h: Harness) -> None:
+    h.publish(11)
+    h.wait_processed(us(10.75))
+    burst = next(f for f in h.get("/findings").json() if f["type"] == "burst_pipe_suspected")
+    r = h.client.post(
+        "/detect/v1/localise", headers=AUTH, json={"finding_id": burst["id"], "check_ids": []}
+    )
+    assert r.status_code == 200, r.text
+    first = r.json()
+    check(first, "detect_api.schema.json#/$defs/LocaliseResponse")
+    assert first["layer"] == "L1"
+    assert first["next_check"] is not None
+    assert first["next_check"]["action"] == "close_valve"
+    # close a bathroom branch valve while the porch-tap burst runs: the meter keeps flowing
+    stop = {
+        "kind": "flow_stop", "valve_id": "valve_bath2_branch",
+        "since": at(START, 11.0).isoformat(), "settle_s": 120, "window_s": 600,
+        "expect_below_lpm": 0.02,
+    }  # fmt: skip
+    created = h.client.post("/detect/v1/checks", headers=AUTH, json=stop).json()
+    h.publish(1)
+    h.wait_processed(us(11.5))
+    done = _wait_check(h, created["check_id"])
+    assert done["verdict"] == "unchanged"
+    body = {"finding_id": burst["id"], "check_ids": [created["check_id"]]}
+    after = h.client.post("/detect/v1/localise", headers=AUTH, json=body).json()
+    check(after, "detect_api.schema.json#/$defs/LocaliseResponse")
+    assert after["checks_used"] == [{"check_id": created["check_id"], "evidence": "unchanged"}]
+    assert after["entropy_bits"] < first["entropy_bits"]
+    p_before = {c["object_id"]: c["p"] for c in first["candidates"]}
+    p_after = {c["object_id"]: c["p"] for c in after["candidates"]}
+    # the closed valve's branch lost probability (it fell out of the top 10, or below where it was)
+    bath2 = "fix_bath2_wc_cistern"
+    assert bath2 in p_before
+    assert p_after.get(bath2, 0.0) < p_before[bath2]
+
+
+def test_localise_refuses_what_it_cannot_localise(h: Harness) -> None:
+    h.publish(4)
+    h.wait_processed(us(3.75))
+    cut = next(f for f in h.get("/findings").json() if f["type"] == "power_supply_interruption")
+    body = {"finding_id": cut["id"], "check_ids": []}
+    assert h.client.post("/detect/v1/localise", headers=AUTH, json=body).status_code == 422
+    missing = {"finding_id": "fnd_" + "0" * 20, "check_ids": []}
+    assert h.client.post("/detect/v1/localise", headers=AUTH, json=missing).status_code == 404
+
+
+def test_residual_drop_checks(h: Harness) -> None:
+    h.publish(2)
+    h.wait_processed(us(1.75))
+    req = {
+        "kind": "residual_drop", "rccb_id": "rcd_sockets", "circuit_id": "circ_sockets_kitchen",
+        "since": at(START, 2.5).isoformat(), "settle_s": 60, "window_s": 600,
+    }  # fmt: skip
+    r = h.client.post("/detect/v1/checks", headers=AUTH, json=req)
+    assert r.status_code == 201, r.text
+    wrong = {**req, "rccb_id": "rcd_wh_bath2"}
+    assert h.client.post("/detect/v1/checks", headers=AUTH, json=wrong).status_code == 422
+    h.publish(2)
+    h.wait_processed(us(3.0))
+    done = _wait_check(h, r.json()["check_id"])
+    check(done, "detect_api.schema.json#/$defs/Check")
+    # nobody switched the circuit off in this world: the check says so rather than guessing
+    assert done["status"] in {"complete", "unavailable"}
+    if done["status"] == "unavailable":
+        assert "not switched off" in done["reason"]
