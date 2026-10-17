@@ -26,6 +26,14 @@ from penjaga_contract.core import StreamDef
 from penjaga_contract.house import HouseIndex
 from penjaga_contract.lab import AnomalySpec, AnomalyType, FaultSpec
 from penjaga_contract.validate import load_context
+from penjaga_sim.actions import (
+    ActionError,
+    CheckAction,
+    day_actions,
+    isolate_leaks,
+    isolation,
+    restrict_plan,
+)
 from penjaga_sim.calibration import Calibration, load_calibration
 from penjaga_sim.electrical import ElecInputs, ElecState, simulate_electrical
 from penjaga_sim.faults import (
@@ -40,7 +48,14 @@ from penjaga_sim.household import DayModifiers, N, NaturalAnomaly, plan_day
 from penjaga_sim.model import HouseModel
 from penjaga_sim.sensors import DayPhysics, Registers, SensorKit, StreamDay
 from penjaga_sim.timeutil import to_us
-from penjaga_sim.water import WaterInputs, WaterState, demand_from_uses, simulate_water
+from penjaga_sim.water import (
+    WaterDay,
+    WaterInputs,
+    WaterState,
+    demand_from_uses,
+    low_pressure_weight,
+    simulate_water,
+)
 from penjaga_sim.weather import day_weather
 
 US = 1_000_000
@@ -54,6 +69,7 @@ IMPOSABLE_ANOMALIES = {
     AnomalyType.heatwave,
     AnomalyType.night_bucket_fill,
     AnomalyType.washer_delay_timer,
+    AnomalyType.low_supply_pressure,
 }
 # Imposing these forces an occurrence on each affected day; the occurrence (with its exact time)
 # is the ground truth, so no whole-day record is written for the request itself.
@@ -102,6 +118,8 @@ class DayOutput:
     events: list[SimEvent]
     natural: list[NaturalAnomaly]
     summary: dict[str, float]
+    # ground truth per minute (minute ends at start_us + 60 s x (i + 1)), for the truth store
+    water_truth: dict[str, np.ndarray] = field(default_factory=dict)
 
 
 @dataclass
@@ -124,6 +142,7 @@ class World:
     _outputs: dict[date, DayOutput] = field(default_factory=dict)
     _natural: dict[date, list[tuple[dict[str, Any], int]]] = field(default_factory=dict)
     _fault_params: dict[str, dict[str, Any]] = field(default_factory=dict)
+    _actions: list[CheckAction] = field(default_factory=list)
     _counter: int = 0
 
     def __post_init__(self) -> None:
@@ -249,6 +268,23 @@ class World:
         self._invalidate_from(start)
         return record
 
+    def act(self, action: CheckAction) -> None:
+        """Apply a guided check's household action (``penjaga_sim.actions``)."""
+        if action.end_us <= action.start_us:
+            raise WorldError("an action needs end_us after start_us")
+        if action.start_us < self.day_start_us(self.config.start):
+            raise WorldError("action starts before the episode")
+        for valve in action.close_valves:
+            if not self.model.index.exists(valve):
+                raise WorldError(f"unknown valve {valve!r}")
+            try:
+                isolation(self.model.index, valve)
+            except (ActionError, TypeError, KeyError) as exc:
+                raise WorldError(str(exc)) from None
+        self._check_not_published(action.start_us, "action start")
+        self._actions.append(action)
+        self._invalidate_from(action.start_us)
+
     # ------------------------------------------------------------------ generation
 
     def _modifiers(self, day: date) -> tuple[DayModifiers, np.ndarray]:
@@ -278,6 +314,15 @@ class World:
                     heat += float(p.get("extra_c", 3.0))
         return DayModifiers(**mods), heat
 
+    def _low_pressure(self, day: date) -> bool:
+        start, end = self.day_start_us(day), self.day_start_us(day) + DAY_US
+        return any(
+            a.spec.anomaly_type is AnomalyType.low_supply_pressure
+            and a.start_us < end
+            and a.end_us > start
+            for a in self._anomalies
+        )
+
     def _state(self, day: date) -> _DayState:
         if day < self.config.start:
             raise WorldError(f"{day} is before the episode start {self.config.start}")
@@ -304,6 +349,17 @@ class World:
         effects, realised = apply_faults(model, day, start_us, self.faults, weather.rh_pct)
         for fid, info in realised.items():
             self._fault_params.setdefault(fid, info)
+        acts = day_actions(model.index, self._actions, start_us)
+        if acts is not None:
+            plan = restrict_plan(plan, acts)
+            isolate_leaks(effects, acts)
+        low_today = self._low_pressure(day)
+        low_yesterday = day > self.config.start and self._low_pressure(day - timedelta(days=1))
+        low = (
+            low_pressure_weight(model, low_yesterday, low_today)
+            if low_today or low_yesterday
+            else None
+        )
         tank_dem, main_dem = demand_from_uses(
             model, [(u.fixture, u.start, u.dur, u.lpm) for u in plan.water]
         )
@@ -316,6 +372,8 @@ class World:
             effects.water_supply_on,
             effects.stuck_float_lps,
             drawn,
+            low,
+            None if acts is None else acts.inlet_closed,
         )
         water, water_end = simulate_water(model, day.toordinal(), water_in, state.water)
         elec, elec_end = simulate_electrical(
@@ -333,6 +391,7 @@ class World:
         natural = list(plan.natural) + _post_outage_refills(
             effects.water_supply_on, water.tank_fraction
         )
+        tank_capacity = float(model.index.house.water.tanks[0].capacity_l)
         summary = {
             "water_true_l": float(water.meter_true_lps.sum()),
             "water_registered_l": float(water.meter_registered_lps.sum()),
@@ -342,7 +401,9 @@ class World:
         }
         for app, p in elec.appliance_power_w.items():
             summary[f"kwh.{app}"] = float(p.sum() / 3.6e6)
-        out = DayOutput(day, start_us, streams, events, natural, summary)
+        out = DayOutput(
+            day, start_us, streams, events, natural, summary, _water_truth(water, tank_capacity)
+        )
         self._outputs[day] = out
         self._natural[day] = [self._natural_record(day, start_us, n) for n in natural]
         self._states[day + timedelta(days=1)] = _DayState(water_end, elec_end, regs)
@@ -429,6 +490,22 @@ def _payload(stream: str, payload: dict[str, str]) -> dict[str, str]:
     if stream == "elec.protection.trip":
         return {"type": "protection_device_state", **payload}
     return {"type": "supply_state", **payload}
+
+
+def _water_truth(water: WaterDay, capacity_l: float) -> dict[str, np.ndarray]:
+    """Per-minute physical truth: tank volume at each minute's end and mean flows (L/min)."""
+
+    def mean_lpm(lps: np.ndarray) -> np.ndarray:
+        return np.asarray(lps.reshape(-1, 60).mean(axis=1) * 60.0)
+
+    return {
+        "tank_l": np.asarray(water.tank_fraction[59::60] * capacity_l),
+        "meter_true_lpm": mean_lpm(water.meter_true_lps),
+        "tank_inflow_lpm": mean_lpm(water.inflow_lps),
+        "tank_outflow_lpm": mean_lpm(water.tank_served_lps),
+        "overflow_lpm": mean_lpm(water.overflow_lps),
+        "pressure_bar": np.asarray(water.pressure_bar.reshape(-1, 60).mean(axis=1)),
+    }
 
 
 def _post_outage_refills(supply_on: np.ndarray, tank_fraction: np.ndarray) -> list[NaturalAnomaly]:

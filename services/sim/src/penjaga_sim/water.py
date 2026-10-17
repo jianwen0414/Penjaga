@@ -2,7 +2,10 @@
 
 * Supply pressure: per-house mean, dips at the morning and evening demand peaks, AR(1) noise,
   interruptions (pressure falls to a residual, then ramps back), and a friction drop across
-  the service pipe proportional to the square of the metered flow.
+  the service pipe proportional to the square of the metered flow. On days with low supply
+  pressure (a legitimate anomaly, DS-033 to DS-035) the pressure falls to a low daytime level
+  after the morning peak and recovers slowly after the evening peak, so the roof tank, which
+  cannot fill by day, refills at night.
 * Roof tank: the float valve admits q = k * sqrt(p - static_head) when fully open; it opens
   proportionally as the level falls within the float band below full, closes at full. A stuck
   float valve (W3) keeps admitting water; the excess leaves by the overflow pipe.
@@ -17,6 +20,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -45,6 +49,8 @@ class WaterInputs:
     supply_on: npt.NDArray[np.bool_]
     stuck_float_lps: Arr  # W3: minimum inflow forced by a float valve that does not shut
     purifier_draw_l: Arr  # litres taken from the purifier's storage in each second
+    low_pressure: Arr | None = None  # weight (0..1) of the low daytime supply pressure
+    inlet_closed: npt.NDArray[np.bool_] | None = None  # main stop valve closed (guided check)
 
 
 @dataclass(frozen=True)
@@ -58,6 +64,40 @@ class WaterDay:
     tank_served_lps: Arr
     main_served_lps: Arr
     purifier_feed_lps: Arr  # drawn from the main by RO production (permeate + reject)
+
+
+def low_pressure_weight(model: HouseModel, yesterday: bool, today: bool) -> Arr:
+    """Weight (0..1) of the low daytime level in the supply pressure at each second of a day.
+
+    On a low-pressure day the pressure falls over ``low_fall_hours`` from the start of the
+    morning demand peak (one standard width before its centre) and stays at the low level
+    through the day. From the end of the evening peak it recovers linearly over
+    ``low_recovery_hours``, but only by the house's ``low_night_recovery`` fraction of the way
+    back to normal: 1 is a full recovery at night, 0 is pressure that stays low through the
+    night (DS-035 reports both). The night level holds until the next morning, which either
+    falls to the low level again or, after the last low day, returns to normal.
+    """
+    cal, d = model.cal, model.draws
+    t = (np.arange(N) + 0.5) / 3600.0
+    fall_from = cal.value("water.supply.demand_peak_morning_h") - cal.value(
+        "water.supply.demand_peak_morning_width_h"
+    )
+    rise_from = cal.value("water.supply.demand_peak_evening_h") + cal.value(
+        "water.supply.demand_peak_evening_width_h"
+    )
+    fall = cal.value("water.supply.low_fall_hours")
+    recovery = d.house("water.supply.low_recovery_hours")
+    regained = d.house("water.supply.low_night_recovery")
+
+    def night(hours_since_rise: npt.NDArray[np.floating[Any]]) -> Arr:
+        return np.asarray(1.0 - regained * np.clip(hours_since_rise / recovery, 0.0, 1.0))
+
+    early = night(t + 24.0 - rise_from) if yesterday else np.zeros(N)
+    morning = np.clip((t - fall_from) / fall, 0.0, 1.0)
+    weight = early * (1.0 - morning) + (1.0 if today else 0.0) * morning
+    if today:
+        weight = np.where(t >= rise_from, night(t - rise_from), weight)
+    return np.asarray(weight)
 
 
 def _peak_shape(model: HouseModel) -> Arr:
@@ -94,9 +134,17 @@ def meter_registration(model: HouseModel, true_lps: Arr) -> Arr:
 
 
 def supply_pressure(
-    model: HouseModel, day_ordinal: int, supply_on: npt.NDArray[np.bool_], state: WaterState
+    model: HouseModel,
+    day_ordinal: int,
+    supply_on: npt.NDArray[np.bool_],
+    state: WaterState,
+    low: Arr | None = None,
 ) -> tuple[Arr, WaterState]:
-    """Static supply pressure before friction (bar), with interruptions and recovery."""
+    """Static supply pressure before friction (bar), with interruptions and recovery.
+
+    ``low`` (from ``low_pressure_weight``) blends the house's mean towards its low daytime
+    level; the demand-peak dips and the noise still apply on top.
+    """
     d = model.draws
     r = rng(model.seed, "day", day_ordinal, "water_pressure")
     mean, dip = d.house("water.supply.pressure_mean"), d.house("water.supply.peak_dip")
@@ -108,7 +156,11 @@ def supply_pressure(
     for i in range(N):
         ar = phi * ar + shocks[i]
         noise[i] = ar
-    p = mean - dip * _peak_shape(model) + noise
+    if low is not None and low.any():
+        level = mean + (d.house("water.supply.low_day_bar") - mean) * low
+    else:
+        level = np.full(N, mean)
+    p = level - dip * _peak_shape(model) + noise
     residual = d.house("water.supply.outage_residual")
     recovery_s = 60.0 * d.house("water.supply.recovery_minutes")
     out = ~supply_on
@@ -138,7 +190,9 @@ def simulate_water(
     k_lps = d.house("water.tank.float_k") / 60.0
     head = model.cal.value("water.tank.static_head_bar")
     friction = d.house("water.supply.friction_bar_at_30lpm") / (0.5**2)  # bar per (L/s)^2
-    p_static, next_state = supply_pressure(model, day_ordinal, inputs.supply_on, state)
+    p_static, next_state = supply_pressure(
+        model, day_ordinal, inputs.supply_on, state, inputs.low_pressure
+    )
 
     tank_dem, main_dem, stuck = (
         inputs.tank_demand_lps,
@@ -146,11 +200,13 @@ def simulate_water(
         inputs.stuck_float_lps,
     )
     supply = inputs.supply_on
+    # a closed main stop valve passes no water, but the network pressure behind it stays
+    flowing = supply if inputs.inlet_closed is None else supply & ~inputs.inlet_closed
     level = np.empty(N)
     inflow = np.empty(N)
     overflow = np.zeros(N)
     tank_served = np.empty(N)
-    main_served = np.where(supply, main_dem, 0.0)
+    main_served = np.where(flowing, main_dem, 0.0)
     pressure = np.empty(N)
     purifier = model.purifier
     draw = inputs.purifier_draw_l
@@ -161,7 +217,7 @@ def simulate_water(
     for i in range(N):
         p = max(0.0, p_static[i] - friction * q_prev * q_prev)
         pressure[i] = p
-        if supply[i] and p > head:
+        if flowing[i] and p > head:
             q_max = k_lps * math.sqrt(p - head)
             opening = min(1.0, max(0.0, (cap - v) / band))
             q_in = max(opening * q_max, min(q_max, stuck[i]))
@@ -178,7 +234,7 @@ def simulate_water(
         tank_served[i] = out
         if purifier is not None:
             deficit = min(purifier.storage_l, deficit + draw[i])
-            if deficit > 0.0 and supply[i] and p >= purifier.min_pressure_bar:
+            if deficit > 0.0 and flowing[i] and p >= purifier.min_pressure_bar:
                 made = min(purifier.permeate_lps, deficit)
                 deficit -= made
                 feed[i] = made * purifier.feed_per_permeate

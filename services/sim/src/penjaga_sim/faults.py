@@ -212,6 +212,9 @@ class DayEffects:
     fridge_duty_add: Arr = field(default_factory=lambda: np.zeros(N))
     fridge_power_factor: Arr = field(default_factory=lambda: np.ones(N))
     fridge_on_minutes: Arr = field(default_factory=lambda: np.full(N, np.nan))
+    # each water leak's own flow (location, drawn through the tank?, L/s), already included in
+    # tank_leak_lps or main_leak_lps; a closed valve uses it to stop the leaks it isolates
+    water_leaks: list[tuple[str, bool, Arr]] = field(default_factory=list)
 
 
 def _window(fault: ActiveFault, day_start_us: int) -> Mask:
@@ -284,17 +287,22 @@ class _FaultDay:
         return float(self.model.cal[f"faults.{self.fault.type}.{name}"].sample(r or self.r))
 
 
+def _add_leak(c: _FaultDay, tank_side: bool, lps: Arr) -> None:
+    target = c.eff.tank_leak_lps if tank_side else c.eff.main_leak_lps
+    target += lps
+    c.eff.water_leaks.append((c.loc, tank_side, lps))
+
+
 def _leak(c: _FaultDay) -> None:  # W1, W4, W5: continuous flow out of the pipework
-    target = c.eff.tank_leak_lps if _water_target(c.model, c.loc) else c.eff.main_leak_lps
-    target += c.prog * c.mag / 60.0
+    _add_leak(c, _water_target(c.model, c.loc), c.prog * c.mag / 60.0)
 
 
 def _cistern(c: _FaultDay) -> None:  # W2: a trickle, or periodic phantom refills
     m, f = c.model, c.fault
-    target = c.eff.tank_leak_lps if m.is_tank_fed(c.loc) else c.eff.main_leak_lps
+    tank_side = m.is_tank_fed(c.loc)
     fr = rng(m.seed, "fault", f.fault_id, "kind")  # fixed for the fault's life, not per day
     if fr.random() < c.param("continuous_prob"):
-        target += c.prog * c.mag / 60.0
+        _add_leak(c, tank_side, c.prog * c.mag / 60.0)
         c.info["pattern"] = "continuous"
         return
     drop = c.sample("refill_drop_l", fr)
@@ -303,7 +311,8 @@ def _cistern(c: _FaultDay) -> None:  # W2: a trickle, or periodic phantom refill
     dur = max(1, round(drop / fill_lps))
     phase = fr.uniform(0, period)
     t_since = (np.arange(N) + (c.day_start_us - f.start_us) / US + phase) % period
-    target += ((t_since < dur) & (c.prog > 0)) * fill_lps
+    refills = ((t_since < dur) & (c.prog > 0)) * fill_lps
+    _add_leak(c, tank_side, np.asarray(refills, dtype=np.float64))
     c.info.update(
         pattern="periodic_refill", refill_period_s=round(period, 1), refill_litres=round(drop, 2)
     )

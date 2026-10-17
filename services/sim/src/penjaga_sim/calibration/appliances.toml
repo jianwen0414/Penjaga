@@ -53,6 +53,21 @@ cycle_minutes = { dist = "uniform", low = 45, high = 70, unit = "min", basis = "
 agitate_period_s = { dist = "fixed", value = 15, unit = "s", basis = "assumption", note = "Agitator reversal period during wash and rinse phases." }
 agitate_on_s = { dist = "fixed", value = 10, unit = "s", basis = "assumption", note = "Seconds of motor drive in each agitator period." }
 
+[purifier]
+# Countertop RO purifier with hot and cold tanks (penjaga-sim/4). The reference unit's manual
+# gives no electrical rating ("refer to the rating plate", DS-029); its sibling models' listings
+# give the heater and compressor (DS-037) and ENERGY STAR's certified plumbed hot-and-cold units
+# give the energy needed to hold the tanks at temperature (DS-036).
+heater_w = { dist = "uniform", low = 300, high = 380, unit = "W", basis = "source", source = "DS-037", note = "Hot-tank heater of the Coway Neo CHP-260N / Neo Plus CHP-264L (same chassis and tanks as the reference CHP-260L), per house." }
+compressor_a = { dist = "fixed", value = 0.7, unit = "A", basis = "source", source = "DS-037", note = "Cold-tank compressor current. Real power = 0.7 A x supply voltage x the compressor power factor (about 120 W); the distributor's 154-168 W is 0.7 A x 220-240 V, an apparent power." }
+hot_tank_l = { dist = "fixed", value = 1.0, unit = "L", basis = "source", source = "DS-029", note = "Hot-water tank of the reference unit." }
+standby_kwh_per_day = { dist = "uniform", low = 0.52, high = 0.80, unit = "kWh/day", basis = "source", source = "DS-036", note = "Energy per day to hold hot and cold water at temperature with no draws: the range of the 30 ENERGY STAR certified plumbed (tap-water) hot-and-cold storage units (median 0.67). The distributor's 'around RM8 a month' (DS-037) is about 0.6 kWh/day at TNB's 2025 domestic rate, consistent with it. Per house." }
+heater_share = { dist = "uniform", low = 0.35, high = 0.65, unit = "1", basis = "assumption", note = "Share of the standby energy used by the heater (the rest by the compressor), per house. No published split; both tanks lose heat to a ~28-32 C room." }
+thermostat_band_k = { dist = "uniform", low = 2.0, high = 4.0, unit = "K", basis = "assumption", note = "Hot-tank thermostat hysteresis: each heater run reheats the tank by this much (run length = 4186 J/(kg K) x 1 L x band / heater power, about 25-55 s)." }
+compressor_on_minutes = { dist = "uniform", low = 5, high = 15, unit = "min", basis = "assumption", note = "Length of each compressor run holding the 2.3 L cold tank, per house." }
+heater_phase = { dist = "uniform", low = 0.0, high = 1.0, unit = "1", basis = "assumption", note = "Phase of the heater cycle (fraction of its period), per house: when its runs fall is arbitrary." }
+compressor_phase = { dist = "uniform", low = 0.0, high = 1.0, unit = "1", basis = "assumption", note = "Phase of the compressor cycle (fraction of its period), per house." }
+
 [washer.fill_phases]
 note = "Water a top loader draws per cycle is split over its fills: the wash fill at the start, then two rinse fills at the given fractions of the cycle. Assumption based on a typical wash-rinse-rinse programme."
 volume_fraction = [0.45, 0.30, 0.25]

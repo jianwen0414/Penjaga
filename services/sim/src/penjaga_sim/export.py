@@ -11,6 +11,8 @@ see are separate trees:
     observed/events.jsonl       Event documents
     truth/truth.jsonl           TruthRecord documents (validated against the lab schema)
     truth/days.jsonl            per-day physical totals (true water use, energy, overflow)
+    truth/water.parquet         per-minute water truth: tank litres, true meter flow, tank
+                                inflow and outflow, overflow, inlet pressure (scorer only)
 
 An episode covers house time (start, start + duration_days]: a sample is included when its
 timestamp (the end of its period) falls in that window.
@@ -194,6 +196,29 @@ def _day_table(out: DayOutput, t0_us: int, t1_us: int, stream_ids: list[str]) ->
     )
 
 
+WATER_TRUTH_COLUMNS = (
+    "tank_l",
+    "meter_true_lpm",
+    "tank_inflow_lpm",
+    "tank_outflow_lpm",
+    "overflow_lpm",
+    "pressure_bar",
+)
+
+
+def _water_truth_table(out: DayOutput, t0_us: int, t1_us: int) -> pa.Table | None:
+    """One day's per-minute water truth in (t0, t1], stamped at each minute's end."""
+    if not out.water_truth:
+        return None
+    n = out.water_truth["tank_l"].size
+    ts = out.start_us + (np.arange(n, dtype=np.int64) + 1) * 60 * US
+    keep = (ts > t0_us) & (ts <= t1_us)
+    columns: dict[str, Any] = {"ts_us": pa.array(ts[keep], pa.int64())}
+    for name in WATER_TRUTH_COLUMNS:
+        columns[name] = pa.array(out.water_truth[name][keep], pa.float64())
+    return pa.table(columns)
+
+
 def world_for(manifest: EpisodeManifest) -> World:
     """A world configured, faulted and anomalied as the manifest says."""
     if manifest.generator_version != GENERATOR_VERSION:
@@ -291,6 +316,7 @@ def run_episode(
     counters = SeqCounters()
     stream_ids = kept_streams(manifest, streams)
     days: list[dict[str, Any]] = []
+    water_truth: list[pa.Table] = []
     n_readings = n_events = 0
     with (
         pq.ParquetWriter(
@@ -307,6 +333,9 @@ def run_episode(
                     ev_fh.write(json.dumps(event_document(world, ev, counters)) + "\n")
                     n_events += 1
             days.append({"day": out.day.isoformat(), **out.summary})
+            minutes = _water_truth_table(out, t0, t1)
+            if minutes is not None:
+                water_truth.append(minutes)
             world.forget_before(out.day)
     truth = [{**r, "episode_id": manifest.episode_id} for r in world.truth_records(t1)]
     with (partial / "truth" / "truth.jsonl").open("w", encoding="utf-8", newline="\n") as fh:
@@ -316,6 +345,10 @@ def run_episode(
     with (partial / "truth" / "days.jsonl").open("w", encoding="utf-8", newline="\n") as fh:
         for d in days:
             fh.write(json.dumps(d) + "\n")
+    if water_truth:
+        pq.write_table(
+            pa.concat_tables(water_truth), partial / "truth" / "water.parquet", compression="zstd"
+        )
     (partial / "manifest.json").write_text(
         json.dumps(manifest_document(manifest), indent=2) + "\n", encoding="utf-8", newline="\n"
     )

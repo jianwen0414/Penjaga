@@ -143,7 +143,14 @@ def test_episode_directory(tmp_path: Path, location: Any, ctx: ContractContext) 
         "observed/readings.parquet",
         "truth/days.jsonl",
         "truth/truth.jsonl",
+        "truth/water.parquet",
     ]
+    water = pq.read_table(root / "truth" / "water.parquet")
+    assert water.num_rows == 12 * 60  # one row per minute of (12:00, 24:00]
+    minutes = water.column("ts_us").to_pylist()
+    assert minutes[0] == us(0, 12.0) + 60 * US
+    assert minutes[-1] == us(1, 0.0)
+    assert 0 < min(water.column("tank_l").to_pylist()) <= 1364
     table = pq.read_table(root / "observed" / "readings.parquet")
     assert table.column_names == ["stream", "ts_us", "value", "quality"]
     bounds = pc.min_max(table.column("ts_us")).as_py()

@@ -282,6 +282,44 @@ class _Loads:
         )
         return power, FridgeState(on, remaining, since_defrost)
 
+    # RO purifier --------------------------------------------------------------------
+
+    def purifier(self) -> None:
+        """The countertop purifier's heater and compressor keep its hot and cold tanks at
+        temperature (DS-036, DS-037).
+
+        Each runs a thermostat cycle: a fixed run length, repeated so that the two together use
+        the house's standby energy per day (the ENERGY STAR on-mode figure, which excludes
+        dispensing), split between them by ``heater_share``. The cycle phase is fixed per house
+        and keyed to absolute time, so it runs on across midnight. Power-saving mode is off,
+        the manual's default (DS-029). Dispensing hot or cold water would add energy; it is not
+        modelled.
+        """
+        app = self.m.appliance_of(ApplianceKind.water_purifier)
+        if app is None:
+            return
+        seconds = (self.ordinal * N + np.arange(N, dtype=np.int64)).astype(np.float64)
+        daily_j = self.h("purifier.standby_kwh_per_day") * 3.6e6
+        share = self.h("purifier.heater_share")
+        heater_w = self.h("purifier.heater_w")
+        compressor_w = self.c("purifier.compressor_a") * self.v_supply * self.pf("compressor")
+        hot_l = self.c("purifier.hot_tank_l")
+        heater_on_s = 4186.0 * hot_l * self.h("purifier.thermostat_band_k") / heater_w
+        compressor_on_s = 60.0 * self.h("purifier.compressor_on_minutes")
+
+        def cycle(on_s: float, power_w: float, energy_j: float, part: str) -> Arr:
+            period = on_s * power_w * N / energy_j  # on for on_s in every period
+            phase = self.h(f"purifier.{part}_phase") * period
+            return ((seconds + phase) % period < on_s).astype(np.float64)
+
+        heater = cycle(heater_on_s, heater_w, share * daily_j, "heater")
+        compressor = cycle(compressor_on_s, compressor_w, (1 - share) * daily_j, "compressor")
+        leak = self.leak("small_appliance_ma", app)
+        self.add(self.m.circuit_of(app), heater * heater_w, self.pf("resistive"), leak, app)
+        self.add(
+            self.m.circuit_of(app), compressor * compressor_w, self.pf("compressor"), leak, app
+        )
+
     # small appliances and household loads ---------------------------------------
 
     def events(self) -> None:
@@ -513,12 +551,21 @@ def _sums(model: HouseModel, loads: list[_Load], v_supply: Arr, inputs: ElecInpu
     for c in model.circuits:
         real, re, im = np.zeros(N), np.zeros(N), np.zeros(N)
         leak = np.full(N, d.house("electrical.leakage.cable_ma_per_circuit", c))
+        # an appliance leaks once while any of its loads is energised (the purifier has two)
+        appliance_on: dict[str, tuple[Mask, float]] = {}
         for ld in by_circuit[c]:
             real += ld.power
             amps = ld.power / v_supply
             re += amps
             im += amps * math.tan(math.acos(min(1.0, ld.pf)))
-            leak += np.where(ld.power > energised, ld.leak_ma, 0.0)
+            on = ld.power > energised
+            if ld.appliance is None:
+                leak += np.where(on, ld.leak_ma, 0.0)
+            else:
+                seen, ma = appliance_on.get(ld.appliance, (np.zeros(N, np.bool_), 0.0))
+                appliance_on[ld.appliance] = (seen | on, max(ma, ld.leak_ma))
+        for on, ma in appliance_on.values():
+            leak += np.where(on, ma, 0.0)
         if c in model.outdoor_circuits:
             leak *= 1 + d.house("electrical.leakage.humidity_gain") * humid
         leak += inputs.effects.extra_leak_ma.get(c, 0.0)
@@ -664,6 +711,7 @@ def simulate_electrical(
     loads.heaters()
     fridge_power, fridge_state = loads.fridge(state.fridge)
     loads.events()
+    loads.purifier()
     loads.household()
     v_supply, voltage_ar = _supply_voltage(model, ordinal, state)
     sums = _sums(model, loads.loads, v_supply, inputs)
@@ -686,7 +734,10 @@ def simulate_electrical(
     power_on = inputs.effects.power_on
     z = model.draws.house("electrical.supply.source_impedance_ohm")
     voltage = np.where(power_on, v_supply - z * total_current, 0.0)
-    app_power = {ld.appliance: ld.power * live[ld.circuit] for ld in loads.loads if ld.appliance}
+    app_power: dict[str, Arr] = {}
+    for ld in loads.loads:  # an appliance may have several loads (the purifier: two)
+        if ld.appliance:
+            app_power[ld.appliance] = app_power.get(ld.appliance, 0.0) + ld.power * live[ld.circuit]
     plug: dict[str, Arr] = {}
     fridge = model.appliance_of(ApplianceKind.refrigerator)
     fridge_circuit = model.circuit_of(fridge) if fridge else None

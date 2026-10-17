@@ -252,8 +252,9 @@ def test_post_outage_refill_is_recorded() -> None:
 FINGERPRINT = {
     "water_true_l": 808.307,
     "water_registered_l": 801.387,
-    "energy_kwh": 11.229,
+    "energy_kwh": 11.901,
     "kwh.app_fridge_kitchen": 1.182,
+    "kwh.app_ro_purifier_kitchen": 0.672,
 }
 
 
