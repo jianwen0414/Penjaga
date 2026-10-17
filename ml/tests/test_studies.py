@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from datetime import datetime
 from pathlib import Path
@@ -12,7 +13,13 @@ import pytest
 
 from penjaga_contract.validate import load_context
 from penjaga_detect.detector import HouseContext
-from penjaga_detect.localise import Likelihood, LocaliseParams, check_options, hypotheses
+from penjaga_detect.localise import (
+    Likelihood,
+    LocaliseParams,
+    check_options,
+    direct_circuits,
+    hypotheses,
+)
 from penjaga_eval import calibration, episodes, localisation, outlook
 from penjaga_eval.localisation import CheckPlan, Task, first_slot
 from penjaga_eval.scoring import TruthFault, load_truth
@@ -227,5 +234,139 @@ def test_outlook_score_handles_censored_and_dry_cuts() -> None:
     assert m["coverage"] == pytest.approx(2 / 3)
     assert m["litres_mae"] == pytest.approx(20 / 3)
     assert m["hours_mae_dry"] == pytest.approx(3.0)
+    assert m["hours_rel_error_dry"] == pytest.approx(3 / 8)
+    assert m["hours_late_dry"] == 0.0  # 5 h said, 8 h true: it ran out later than said
     assert m["censored_consistent"] == 1.0
     assert m["rate_factor"] == pytest.approx(np.exp(np.median([np.log(50 / 40), np.log(80 / 50)])))
+
+
+# ---------------------------------------------------------------------------- earth leakage (L2)
+
+LEAK = """
+name = "leak"
+layers = ["L2"]
+days = 3
+fault_types = ["E2"]
+fault_start_days = [0.3, 0.5]
+anomaly_prob = 0.0
+anomaly_types = []
+anomaly_days = [1, 1]
+sensors = ["sensor_db_monitor", "sensor_weather_feed"]
+
+[split.train]
+years = [2023]
+archetypes = ["working_family"]
+episodes_per_fault_type = 1
+fault_free_episodes = 0
+
+[split.validation]
+years = [2024]
+archetypes = ["working_family"]
+episodes_per_fault_type = 1
+fault_free_episodes = 0
+
+[split.test]
+years = [2025]
+archetypes = ["working_family"]
+episodes_per_fault_type = 1
+fault_free_episodes = 0
+"""
+
+
+@pytest.fixture(scope="module")
+def leak_suite(tmp_path_factory: pytest.TempPathFactory) -> Suite:
+    directory = tmp_path_factory.mktemp("leak_suite")
+    (directory / "leak.toml").write_text(LEAK, encoding="utf-8")
+    return load_suite("leak", directory)
+
+
+@pytest.fixture(scope="module")
+def leak_episode(leak_suite: Suite, episodes_root: Path) -> tuple[Path, TruthFault]:
+    paths = episodes.ensure(
+        manifests(leak_suite, "validation"), episodes_root, workers=1, streams=leak_suite.streams
+    )
+    for path in paths:
+        faults, _, _ = load_truth(path)
+        for f in faults:
+            if f.fault_type == "E2":
+                return path, f
+    raise AssertionError("the leak suite has an E2 episode")
+
+
+def direct_circuits_of(task: Task) -> tuple[str, ...]:
+    assert task.rccb is not None
+    return direct_circuits(HouseContext.canonical().index, task.rccb)
+
+
+def _leak_task(path: Path, fault: TruthFault) -> Task:
+    """A switch-off task as a leakage finding would start it: its RCCB and the rise it saw."""
+    rccb = HouseContext.canonical().index.rccb_chain(fault.object_ids[0])[0]
+    return Task(
+        str(path),
+        fault.fault_type,
+        fault.object_ids[0],
+        fault.start_us,
+        layer="L2",
+        rccb=rccb,
+        expect_drop_ma=fault.magnitude,
+    )
+
+
+def test_switch_off_checks_find_the_leaking_circuit(
+    leak_episode: tuple[Path, TruthFault],
+) -> None:
+    record = localisation._run((_leak_task(*leak_episode), Likelihood.default().as_dict(), {}, {}))
+    behind = [c["verdict"] for c in record["checks"] if c["behind"]]
+    assert behind == ["dropped"]  # the leaking circuit, switched off
+    # a healthy circuit with nothing running leaks only through its wiring: at most "reduced"
+    # (one with an appliance running loses that appliance's leakage too: the "loaded" band)
+    idle = [c["verdict"] for c in record["checks"] if not c["behind"] and c["band"] == "unloaded"]
+    assert idle
+    assert "dropped" not in idle
+    assert all(c["band"] in ("loaded", "unloaded") for c in record["checks"])
+
+
+def test_l2_fitting_starts_from_the_leakage_findings(
+    leak_suite: Suite,
+    leak_episode: tuple[Path, TruthFault],
+    episodes_root: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path, fault = leak_episode
+    found = dataclasses.replace(
+        _leak_task(path, fault),
+        detector=localisation.L2_FIT_DETECTOR,
+        finding="{}",
+        first_seen_us=fault.start_us + 6 * 3600 * US,
+    )
+    asked: list[tuple[str, ...]] = []
+
+    def tasks(at: Path, detectors: list[str], layer: str, house: HouseContext) -> list[Task]:
+        asked.append(tuple(detectors))
+        assert layer == "L2"
+        return [found] if Path(at) == path else []
+
+    monkeypatch.setattr(localisation, "_tasks", tasks)
+    out = tmp_path / "l2_localiser.json"
+    doc = localisation.fit([leak_suite], episodes_root=episodes_root, workers=1, out=out)
+    assert set(asked) == {(localisation.L2_FIT_DETECTOR,)}
+    assert doc["fitted_on"]["layer"] == "L2"
+    assert doc["fitted_on"]["faults"] == 1
+    counts = doc["counts"]["residual_drop"]
+    assert counts["behind"] == {"dropped": 1}
+    assert sum(counts["other"].values()) == len(direct_circuits_of(found)) - 1
+    assert doc["counts"]["residual_drop@unloaded"]["other"].get("dropped", 0) == 0
+    lik, plan, _ = localisation.load_likelihood(out)
+    assert plan.residual_window_s == 120.0
+    assert lik.p("residual_drop", True, "dropped") > lik.p("residual_drop", False, "dropped")
+
+
+def test_flow_checks_wait_for_a_full_tank(cistern_episode: tuple[Path, TruthFault]) -> None:
+    path, fault = cistern_episode
+    task = Task(str(path), fault.fault_type, fault.object_ids[0], fault.start_us)
+    record = localisation._run((task, Likelihood.default().as_dict(), {}, {}))
+    flow = [c for c in record["checks"] if c["kind"] == "flow_stop"]
+    assert flow
+    assert all(c["tank_full"] in (True, False) for c in flow)
+    assert all(c["band"] in (None, "low", "mid", "high") for c in flow)

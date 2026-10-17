@@ -103,7 +103,9 @@ def _parser() -> argparse.ArgumentParser:
     cb.add_argument("--split", choices=("validation", "test"), required=True)
     cb.add_argument("--artifact", type=Path, help="default: the tuned l1_leak_model artifact")
     cb.add_argument("--markdown", type=Path)
-    lc = sub.add_parser("localise", help="localisation after guided checks (L1)")
+    lc = sub.add_parser(
+        "localise", help="localisation after guided checks (L1 water, L2 earth leakage)"
+    )
     lc.add_argument("--suite", action="append", required=True)
     lc.add_argument("--split", choices=SPLITS, default="validation")
     lc.add_argument("--detector", action="append", default=[])

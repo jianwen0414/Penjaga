@@ -10,8 +10,10 @@ compared with the truth (``truth/water.parquet``, per minute; scorer only):
   so it is the main score: the median absolute log ratio, shown as a typical factor
   (``exp(median |ln(predicted / true)|)``, 1.0 is perfect), and the bias (median log ratio).
 - **Hours**: when the tank ran dry before the supply came back (its volume at or below 2% of
-  capacity), the hours error. Otherwise the true time is only known to be longer than the cut
-  (censored), and an outlook is consistent if it did not claim the tank would run dry sooner.
+  capacity), the hours error: mean absolute, median relative, and how often the outlook said
+  the water would last longer than it did. Otherwise the true time is only known to be longer
+  than the cut (censored), and an outlook is consistent if it did not claim the tank would run
+  dry sooner.
 - **Coverage**: the share of findings that carry an hours figure at all.
 
 ``select`` compares outlook settings on a validation split (the smallest typical factor among
@@ -111,6 +113,14 @@ def score(cases: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         "hours_mae_dry": None
         if not dry
         else float(np.mean([abs(c["hours"] - c["true_hours"]) for c in dry])),
+        # the share of the true time the outlook was off by, and how often it said the water
+        # would last longer than it did (the costly direction: the household stores too little)
+        "hours_rel_error_dry": None
+        if not dry
+        else float(np.median([abs(c["hours"] - c["true_hours"]) / c["true_hours"] for c in dry])),
+        "hours_late_dry": None
+        if not dry
+        else sum(c["hours"] > c["true_hours"] for c in dry) / len(dry),
         "censored_consistent": None
         if not censored
         else sum(c["hours"] >= c["cut_hours"] for c in censored) / len(censored),
@@ -245,14 +255,15 @@ def render(report: Mapping[str, Any]) -> str:
         f"`{report['params']['outlook_method']}`, tank share {report['params']['tank_share']}.",
         "",
         "| Cuts | Coverage | Litres MAE (L) | Draw-rate factor (median / p90) | Bias | Ran dry "
-        "| Hours MAE when dry | Consistent when censored |",
-        "|---|---|---|---|---|---|---|---|",
+        "| Hours MAE when dry (median % off) | Said it lasts longer | Consistent when censored |",
+        "|---|---|---|---|---|---|---|---|---|",
     ]
     for label, m in [("all", report["metrics"]), *report["by_fault_type"].items()]:
         lines.append(
             f"| {label}: {m['cuts']} | {num(m['coverage'], '.0%')} | {num(m['litres_mae'], '.1f')} "
             f"| {num(m['rate_factor'], '.2f')} / {num(m['rate_factor_p90'], '.2f')} "
             f"| {num(m['rate_bias'], '.2f')} | {m['ran_dry']} | {num(m['hours_mae_dry'], '.1f')} "
+            f"({num(m.get('hours_rel_error_dry'), '.0%')}) | {num(m.get('hours_late_dry'), '.0%')} "
             f"| {num(m['censored_consistent'], '.0%')} |"
         )
     return "\n".join(lines)
