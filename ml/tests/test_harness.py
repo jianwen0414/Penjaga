@@ -114,7 +114,7 @@ def test_tuning_uses_validation_and_records_its_choice(
 def test_tuning_scores_each_setting_as_a_separate_run_would(
     tiny: Suite, episodes_root: Path, tmp_path: Path
 ) -> None:
-    grid = {"threshold_lpm": [0.02, 0.3], "nights": [1, 2]}
+    grid: dict[str, list[float]] = {"threshold_lpm": [0.02, 0.3], "nights": [1, 2]}
     record = tune(
         tiny,
         "l1_mnf_baseline",
