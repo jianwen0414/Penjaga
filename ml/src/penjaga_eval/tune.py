@@ -2,7 +2,9 @@
 
 The objective is the operating point a homeowner would accept: the highest recall whose false
 alarms stay within a budget per house-month; ties go to higher precision. If no setting meets
-the budget, the one with the fewest false alarms wins (and the file says so).
+the budget, the one with the fewest false alarms wins (and the file says so). With several
+suites, a setting's counts are pooled over their validation splits (recall over all faults,
+false alarms over all house-months).
 """
 
 from __future__ import annotations
@@ -21,8 +23,21 @@ from penjaga_eval.suites import Suite
 from penjaga_sim import GENERATOR_VERSION
 
 
+def _pooled(metrics: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    faults = sum(m["faults"] for m in metrics)
+    tp = sum(m["detected"] for m in metrics)
+    fp = sum(m["false_alarms"] for m in metrics)
+    dup = sum(m["duplicate_findings"] for m in metrics)
+    months = sum(m["house_months"] for m in metrics)
+    return {
+        "recall": None if faults == 0 else tp / faults,
+        "precision": None if tp + dup + fp == 0 else (tp + dup) / (tp + dup + fp),
+        "false_alarms_per_house_month": None if months == 0 else round(fp / months, 4),
+    }
+
+
 def tune(
-    suite: Suite,
+    suites: Suite | Sequence[Suite],
     detector: str,
     grid: Mapping[str, Sequence[Any]],
     *,
@@ -32,6 +47,7 @@ def tune(
     workers: int | None = None,
     limit: int | None = None,
 ) -> dict[str, Any]:
+    pooled = [suites] if isinstance(suites, Suite) else list(suites)
     names = sorted(grid)
     layer = registry.build(
         detector, HouseContext.canonical(), registry.parameters(detector)
@@ -39,24 +55,19 @@ def tune(
     candidates = []
     for values in itertools.product(*(grid[n] for n in names)):
         params = dict(zip(names, values, strict=True))
-        report = evaluate(
-            suite,
-            "validation",
-            [detector],
-            overrides={detector: params},
-            episodes_root=episodes_root,
-            workers=workers,
-            limit=limit,
-        )
-        m = report["detectors"][detector]["metrics"][layer]
-        candidates.append(
-            {
-                "params": params,
-                "recall": m["recall"],
-                "precision": m["precision"],
-                "false_alarms_per_house_month": m["false_alarms_per_house_month"],
-            }
-        )
+        per_suite = [
+            evaluate(
+                suite,
+                "validation",
+                [detector],
+                overrides={detector: params},
+                episodes_root=episodes_root,
+                workers=workers,
+                limit=limit,
+            )["detectors"][detector]["metrics"][layer]
+            for suite in pooled
+        ]
+        candidates.append({"params": params, **_pooled(per_suite)})
 
     def fa(c: dict[str, Any]) -> float:
         return float(c["false_alarms_per_house_month"] or 0.0)
@@ -73,7 +84,8 @@ def tune(
         "detector": detector,
         "params": {**previous, **best["params"]},
         "tuned_on": {
-            "suite": suite.name,
+            "suite": "+".join(s.name for s in pooled),
+            "suites": [s.name for s in pooled],
             "split": "validation",
             "generator": GENERATOR_VERSION,
             "budget_false_alarms_per_house_month": budget_fa_per_house_month,

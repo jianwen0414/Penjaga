@@ -1,4 +1,4 @@
-"""Train the L1 leak model on the train split only (D-008, rung 2).
+"""Train the L1 leak model on train splits only (D-008, rung 2).
 
 Feature rows come from replaying each episode through ``L1LeakModel`` in collection mode, so
 training sees exactly what live detection computes. Each night is labelled from the episode's
@@ -8,7 +8,8 @@ Model: scikit-learn HistGradientBoostingClassifier (balanced class weights; miss
 are native NaN), calibrated with temperature scaling (CalibratedClassifierCV, method
 "temperature", multiclass) over folds grouped by episode, so nights of one house never sit on
 both sides of a fold. The decision threshold is then chosen on the validation split by
-``penjaga-eval tune``.
+``penjaga-eval tune``. Several suites can be pooled (their train splits only); fold groups stay
+per episode.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ import hashlib
 import json
 import pickle
 from collections import Counter
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -61,23 +63,26 @@ def night_rows(path: Path, house: HouseContext) -> tuple[list[npt.NDArray[np.flo
 
 
 def dataset(
-    suite: Suite, split: str, root: Path, workers: int | None = None
+    suites: Suite | Sequence[Suite], split: str, root: Path, workers: int | None = None
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.str_], npt.NDArray[np.int64]]:
-    paths = episodes.ensure(manifests(suite, split), root, workers, suite.streams)
+    """Night rows of a split, pooled over ``suites``; ``groups`` numbers the episodes."""
     house = HouseContext.canonical()
     xs: list[npt.NDArray[np.float64]] = []
     ys: list[str] = []
     groups: list[int] = []
-    for i, path in enumerate(paths):
-        x, y = night_rows(path, house)
-        xs += x
-        ys += y
-        groups += [i] * len(y)
+    i = 0
+    for suite in [suites] if isinstance(suites, Suite) else suites:
+        for path in episodes.ensure(manifests(suite, split), root, workers, suite.streams):
+            x, y = night_rows(path, house)
+            xs += x
+            ys += y
+            groups += [i] * len(y)
+            i += 1
     return np.vstack(xs), np.array(ys), np.array(groups, dtype=np.int64)
 
 
 def train(
-    suite: Suite,
+    suites: Suite | Sequence[Suite],
     *,
     root: Path = episodes.DEFAULT_ROOT,
     artifact: Path = ARTIFACT,
@@ -86,7 +91,8 @@ def train(
     workers: int | None = None,
     folds: int = 5,
 ) -> dict[str, Any]:
-    x, y, groups = dataset(suite, "train", root, workers)
+    pooled = [suites] if isinstance(suites, Suite) else list(suites)
+    x, y, groups = dataset(pooled, "train", root, workers)
     base = HistGradientBoostingClassifier(
         learning_rate=0.05, max_iter=300, class_weight="balanced", random_state=seed
     )
@@ -109,7 +115,8 @@ def train(
         "artifact": artifact.as_posix(),
         "artifact_sha256": hashlib.sha256(blob).hexdigest(),
         "trained_on": {
-            "suite": suite.name,
+            "suite": "+".join(s.name for s in pooled),
+            "suites": [s.name for s in pooled],
             "split": "train",
             "generator": GENERATOR_VERSION,
             "episodes": int(groups.max()) + 1,

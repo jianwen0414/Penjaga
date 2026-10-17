@@ -27,6 +27,7 @@ from penjaga_sim.export import manifest_document
 from penjaga_sim.faults import random_spec, spec_document
 from penjaga_sim.model import HouseModel
 from penjaga_sim.rng import rng, stable_key
+from penjaga_sim.world import IMPOSABLE_ANOMALIES
 
 SPLITS = ("train", "validation", "test")
 SUITES_DIR = Path(__file__).resolve().parents[2] / "suites"
@@ -58,6 +59,7 @@ class Suite:
     splits: dict[str, SplitSpec]
     sensors: tuple[str, ...] | None = None  # sensor kit; None = the full kit
     streams: tuple[str, ...] | None = None  # stored streams (fnmatch); None = all of the kit
+    conditions: tuple[str, ...] = ()  # legitimate anomalies imposed on every whole episode
 
     @property
     def seed(self) -> int:
@@ -92,6 +94,7 @@ def load_suite(name: str, directory: Path = SUITES_DIR) -> Suite:
         splits=splits,
         sensors=tuple(raw["sensors"]) if "sensors" in raw else None,
         streams=tuple(raw["streams"]) if "streams" in raw else None,
+        conditions=tuple(raw.get("conditions", ())),
     )
     _check(suite)
     return suite
@@ -114,6 +117,9 @@ def _check(suite: Suite) -> None:
     lo, hi = suite.fault_start_days
     if not 0 < lo <= hi < suite.days:
         raise SuiteError(f"{suite.name}: fault_start_days must lie inside the episode")
+    imposable = {a.value for a in IMPOSABLE_ANOMALIES}
+    if not set(suite.conditions) <= imposable:
+        raise SuiteError(f"{suite.name}: conditions must be imposable anomalies")
 
 
 def _start(r: np.random.Generator, year: int, days: int, zone: ZoneInfo) -> datetime:
@@ -147,7 +153,12 @@ def manifests(suite: Suite, split: str) -> list[EpisodeManifest]:
             at = at.replace(microsecond=0)
             model = HouseModel(load_index(), load_calibration(), seed)
             faults.append(random_spec(model, fault_type, at, r))
-        anomalies = []
+        # conditions hold for the whole episode and use no random draws, so adding them never
+        # changes anything else about a suite's episodes
+        anomalies: list[dict[str, Any]] = [
+            {"anomaly_type": kind, "start_at": start.isoformat(), "duration_s": 86_400 * suite.days}
+            for kind in suite.conditions
+        ]
         if suite.anomaly_types and r.random() < suite.anomaly_prob:
             kind = suite.anomaly_types[int(r.integers(0, len(suite.anomaly_types)))]
             first_day = int(r.integers(1, suite.days - 1))

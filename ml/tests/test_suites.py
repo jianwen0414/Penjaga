@@ -76,9 +76,27 @@ def test_sealing(tmp_path: Path, tiny: object) -> None:
     assert seal(tiny, tmp_path, reseal=True)["digest"] == record["digest"]
 
 
-@pytest.mark.parametrize("name", ["l1_v0", "l2_v0", "l3_v0", "l5_v0"])
+@pytest.mark.parametrize("name", ["l1_v0", "l1_lowp_v0", "l2_v0", "l3_v0", "l5_v0", "l5_tank_v0"])
 def test_every_shipped_suite_builds_valid_manifests(name: str) -> None:
     suite = load_suite(name)
     for split in ("train", "validation", "test"):
         for m in manifests(suite, split):
             schema_registry.validate("lab", "episode_manifest", manifest_document(m))
+
+
+def test_conditions_hold_for_the_whole_episode() -> None:
+    suite = load_suite("l1_lowp_v0")
+    assert suite.conditions == ("low_supply_pressure",)
+    for m in manifests(suite, "validation"):
+        whole = [a for a in m.anomalies if a.anomaly_type.value == "low_supply_pressure"]
+        assert len(whole) == 1
+        assert whole[0].start_at == m.start
+        assert whole[0].duration_s == 86_400 * m.duration_days
+
+
+def test_conditions_must_be_imposable(tmp_path: Path, suites_dir: Path) -> None:
+    text = (suites_dir / "tiny.toml").read_text(encoding="utf-8")
+    bad = text.replace('name = "tiny"', 'name = "bad"\nconditions = ["post_outage_tank_refill"]')
+    (tmp_path / "bad.toml").write_text(bad, encoding="utf-8")
+    with pytest.raises(SuiteError, match="imposable"):
+        load_suite("bad", tmp_path)

@@ -1,0 +1,32 @@
+# L5 tank v0: water cuts U1 (scheduled) and U2 (unannounced) a week or more into ten-day
+# episodes, so the roof-tank outlook has a week of household history behind it. Scores the
+# outlook (penjaga-eval outlook), not detection, which l5_v0 covers. Same split rules as l1_v0;
+# the test split is sealed (ml/sealed/l5_tank_v0.json).
+
+name = "l5_tank_v0"
+layers = ["L5"]
+days = 10
+fault_types = ["U1", "U2"]
+fault_start_days = [7.0, 9.0]
+anomaly_prob = 0.35
+anomaly_types = ["guests", "holiday_absence", "festive_cooking", "night_bucket_fill"]
+anomaly_days = [1, 2]
+sensors = ["sensor_water_meter_main", "sensor_water_pressure_inlet", "sensor_tank_level"]
+
+[split.train]
+years = [2023]
+archetypes = ["working_family", "retired_couple", "young_couple", "large_family"]
+episodes_per_fault_type = 4
+fault_free_episodes = 2
+
+[split.validation]
+years = [2024]
+archetypes = ["working_family", "retired_couple", "young_couple", "large_family"]
+episodes_per_fault_type = 20
+fault_free_episodes = 2
+
+[split.test]
+years = [2025]
+archetypes = ["working_family", "retired_couple", "young_couple", "large_family", "shift_family"]
+episodes_per_fault_type = 25
+fault_free_episodes = 4

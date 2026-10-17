@@ -44,7 +44,8 @@ def episode_dir(root: Path, manifest: EpisodeManifest) -> Path:
 
 def _is_current(path: Path, manifest: EpisodeManifest, streams: Sequence[str] | None) -> bool:
     stored, meta = path / "manifest.json", path / "observed" / "meta.json"
-    if not (stored.exists() and meta.exists()):
+    water = path / "truth" / "water.parquet"  # written by every penjaga-sim/4+ export
+    if not (stored.exists() and meta.exists() and water.exists()):
         return False
     if json.loads(stored.read_text(encoding="utf-8")) != manifest_document(manifest):
         return False

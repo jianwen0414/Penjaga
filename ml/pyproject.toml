@@ -13,6 +13,7 @@ dependencies = [
     "pyarrow>=26.0.0,<27",
     "fastapi>=0.143.1,<0.144",
     "uvicorn[standard]>=0.54.0,<0.55",
+    "matplotlib>=3.11.2,<3.12",
 ]
 
 [project.scripts]

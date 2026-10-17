@@ -1,0 +1,37 @@
+# L1 low-pressure v0: the l1_v0 population (faults W1-W5, fault-free houses, legitimate
+# anomalies) in houses with low supply pressure for the whole episode (anomaly
+# low_supply_pressure, penjaga-sim/4). By day the pressure is too low to fill the roof tank;
+# it recovers at night, partly or fully, so the tank refills at night: continuous legitimate
+# night flow, which raises a minimum-night-flow statistic (DS-033 to DS-035).
+#
+# A stress test, not a prevalence estimate: every house here has the condition. Same split
+# rules as l1_v0; the test split is sealed (ml/sealed/l1_lowp_v0.json).
+
+name = "l1_lowp_v0"
+layers = ["L1"]
+days = 14
+conditions = ["low_supply_pressure"]
+fault_types = ["W1", "W2", "W3", "W4", "W5"]
+fault_start_days = [3.0, 8.0]
+anomaly_prob = 0.35
+anomaly_types = ["guests", "holiday_absence", "festive_cooking", "night_bucket_fill", "washer_delay_timer"]
+anomaly_days = [1, 3]
+sensors = ["sensor_water_meter_main", "sensor_water_pressure_inlet", "sensor_tank_level"]
+
+[split.train]
+years = [2023]
+archetypes = ["working_family", "retired_couple", "young_couple", "large_family"]
+episodes_per_fault_type = 12
+fault_free_episodes = 12
+
+[split.validation]
+years = [2024]
+archetypes = ["working_family", "retired_couple", "young_couple", "large_family"]
+episodes_per_fault_type = 8
+fault_free_episodes = 8
+
+[split.test]
+years = [2025]
+archetypes = ["working_family", "retired_couple", "young_couple", "large_family", "shift_family"]
+episodes_per_fault_type = 10
+fault_free_episodes = 10
