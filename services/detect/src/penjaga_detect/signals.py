@@ -16,16 +16,28 @@ Floats = npt.NDArray[np.float64]
 Ints = npt.NDArray[np.int64]
 
 
+FIXED_POINT = float(2**20)  # sums use exact integers in units of 2^-20 (about 1e-6)
+
+
 def rolling_mean(
     ts: Ints, values: Floats, window_us: int, expected_samples: float, min_coverage: float
 ) -> Floats:
-    """Mean over (t - window, t] at each sample; NaN when too few samples are present."""
+    """Mean over (t - window, t] at each sample; NaN when too few samples are present.
+
+    Window sums are differences of running sums. In floating point those differences depend on
+    where the running sum started, which depends on how house time was chunked, so a mean on a
+    rounding boundary could differ between live detection and replay. The sums are therefore
+    taken over integers (each value rounded to 2^-20), which makes every window's mean a
+    function of its own samples only.
+    """
     valid = ~np.isnan(values)
-    cs = np.concatenate(([0.0], np.cumsum(np.where(valid, values, 0.0))))
+    fixed = np.rint(np.where(valid, values, 0.0) * FIXED_POINT).astype(np.int64)
+    cs_exact = np.concatenate(([0], np.cumsum(fixed)))
     cn = np.concatenate(([0], np.cumsum(valid)))
     start = np.searchsorted(ts, ts - window_us, side="right")
     idx = np.arange(1, ts.size + 1)
-    total, count = cs[idx] - cs[start], cn[idx] - cn[start]
+    total = (cs_exact[idx] - cs_exact[start]) / FIXED_POINT
+    count = cn[idx] - cn[start]
     out = np.full(ts.size, np.nan)
     ok = count >= min_coverage * expected_samples
     out[ok] = total[ok] / count[ok]
