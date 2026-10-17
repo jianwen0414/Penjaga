@@ -247,7 +247,9 @@ def test_switch_off_checks_find_the_leaking_circuit() -> None:
         option = step[0]
         assert option.rccb_id == "rcd_sockets"
         loc.observe(option, "dropped" if truth in option.behind else "unchanged")
-    assert loc.ranked()[0] == (truth, pytest.approx(1.0))
+    top, p_top = loc.ranked()[0]
+    assert top == truth
+    assert p_top == pytest.approx(1.0)
     with pytest.raises(ValueError, match="protects no circuit"):
         earth_leakage_localiser(INDEX, "rcd_nowhere")
 
