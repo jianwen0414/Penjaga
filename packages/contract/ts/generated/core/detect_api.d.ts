@@ -173,7 +173,7 @@ export type CheckRequest = FlowStopCheck | TankLevelTrendCheck | CircuitLoadChec
  */
 export type CheckStatus = "pending" | "complete" | "unavailable";
 /**
- * flow_stop: stopped (below expect_below_lpm), reduced (significantly lower, not below), unchanged. tank_level_trend: falling, steady, rising. circuit_load: dropped, unchanged, rose. Significance: the difference exceeds twice its standard error and the stream's resolution.
+ * flow_stop: stopped (below expect_below_lpm), reduced (significantly lower, not below), unchanged. tank_level_trend: falling, steady, rising. circuit_load: dropped, unchanged, rose. residual_drop: dropped, reduced, unchanged, rose. Significance: the difference exceeds twice its standard error and the stream's resolution.
  *
  * This interface was referenced by `DetectApi`'s JSON-Schema
  * via the `definition` "CheckVerdict".
@@ -354,7 +354,7 @@ export interface CircuitLoadCheck {
   window_s: number;
 }
 /**
- * (contract 1.5.0) Did the residual (earth leakage) current through an RCCB fall when the household switched off one circuit's MCB at `since`? Compares the window before `since` with the window starting `settle_s` after it, and confirms from the circuit's current that it was off. Verdict: dropped, unchanged or rose.
+ * (contract 1.5.0) Did the residual (earth leakage) current through an RCCB fall when the household switched off one circuit's MCB at `since`? Compares the window before `since` with the window starting `settle_s` after it, and confirms from the circuit's current that it was off. Verdict: dropped, reduced, unchanged or rose.
  *
  * This interface was referenced by `DetectApi`'s JSON-Schema
  * via the `definition` "ResidualDropCheck".
@@ -366,6 +366,10 @@ export interface ResidualDropCheck {
   since: HouseTime;
   settle_s: number;
   window_s: number;
+  /**
+   * The leakage the finding attributes to the RCCB's circuits (its rise_on_direct_circuits). A fall of at least half of it is `dropped`; a smaller significant fall is `reduced`, as switching off a healthy circuit also removes its own small normal leakage. Without it any significant fall is `dropped`.
+   */
+  expect_drop_ma?: number;
 }
 /**
  * GET /detect/v1/checks/{id}.
@@ -471,6 +475,7 @@ export interface CheckSuggestion {
    * Flow checks read a roof-tank refill as flow; do them once the tank level is back at full.
    */
   wait_for_full_tank?: boolean;
+  expect_drop_ma?: number;
 }
 /**
  * (contract 1.5.0) Location probabilities after the checks, most likely first, and the next check (null when the localiser is confident enough, out of useful checks, or at its check limit). Show them as possibilities, not facts.

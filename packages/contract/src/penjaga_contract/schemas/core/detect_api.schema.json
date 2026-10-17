@@ -236,7 +236,7 @@
     },
     "ResidualDropCheck": {
       "title": "ResidualDropCheck",
-      "description": "(contract 1.5.0) Did the residual (earth leakage) current through an RCCB fall when the household switched off one circuit's MCB at `since`? Compares the window before `since` with the window starting `settle_s` after it, and confirms from the circuit's current that it was off. Verdict: dropped, unchanged or rose.",
+      "description": "(contract 1.5.0) Did the residual (earth leakage) current through an RCCB fall when the household switched off one circuit's MCB at `since`? Compares the window before `since` with the window starting `settle_s` after it, and confirms from the circuit's current that it was off. Verdict: dropped, reduced, unchanged or rose.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -270,6 +270,11 @@
           "type": "number",
           "minimum": 60,
           "maximum": 7200
+        },
+        "expect_drop_ma": {
+          "type": "number",
+          "minimum": 0,
+          "description": "The leakage the finding attributes to the RCCB's circuits (its rise_on_direct_circuits). A fall of at least half of it is `dropped`; a smaller significant fall is `reduced`, as switching off a healthy circuit also removes its own small normal leakage. Without it any significant fall is `dropped`."
         }
       }
     },
@@ -303,7 +308,7 @@
     },
     "CheckVerdict": {
       "title": "CheckVerdict",
-      "description": "flow_stop: stopped (below expect_below_lpm), reduced (significantly lower, not below), unchanged. tank_level_trend: falling, steady, rising. circuit_load: dropped, unchanged, rose. Significance: the difference exceeds twice its standard error and the stream's resolution.",
+      "description": "flow_stop: stopped (below expect_below_lpm), reduced (significantly lower, not below), unchanged. tank_level_trend: falling, steady, rising. circuit_load: dropped, unchanged, rose. residual_drop: dropped, reduced, unchanged, rose. Significance: the difference exceeds twice its standard error and the stream's resolution.",
       "type": "string",
       "enum": [
         "stopped",
@@ -564,6 +569,10 @@
         "wait_for_full_tank": {
           "type": "boolean",
           "description": "Flow checks read a roof-tank refill as flow; do them once the tank level is back at full."
+        },
+        "expect_drop_ma": {
+          "type": "number",
+          "minimum": 0
         }
       }
     },

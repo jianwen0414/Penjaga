@@ -112,11 +112,12 @@ class CheckSuggestion(ContractModel):
     """
     Flow checks read a roof-tank refill as flow; do them once the tank level is back at full.
     """
+    expect_drop_ma: Annotated[float | None, Field(ge=0.0)] = None
 
 
 class CheckVerdict(StrEnum):
     """
-    flow_stop: stopped (below expect_below_lpm), reduced (significantly lower, not below), unchanged. tank_level_trend: falling, steady, rising. circuit_load: dropped, unchanged, rose. Significance: the difference exceeds twice its standard error and the stream's resolution.
+    flow_stop: stopped (below expect_below_lpm), reduced (significantly lower, not below), unchanged. tank_level_trend: falling, steady, rising. circuit_load: dropped, unchanged, rose. residual_drop: dropped, reduced, unchanged, rose. Significance: the difference exceeds twice its standard error and the stream's resolution.
     """
 
     stopped = "stopped"
@@ -356,7 +357,7 @@ class LocalisedCandidate(ContractModel):
 
 class ResidualDropCheck(ContractModel):
     """
-    (contract 1.5.0) Did the residual (earth leakage) current through an RCCB fall when the household switched off one circuit's MCB at `since`? Compares the window before `since` with the window starting `settle_s` after it, and confirms from the circuit's current that it was off. Verdict: dropped, unchanged or rose.
+    (contract 1.5.0) Did the residual (earth leakage) current through an RCCB fall when the household switched off one circuit's MCB at `since`? Compares the window before `since` with the window starting `settle_s` after it, and confirms from the circuit's current that it was off. Verdict: dropped, reduced, unchanged or rose.
     """
 
     model_config = ConfigDict(
@@ -383,6 +384,10 @@ class ResidualDropCheck(ContractModel):
     """
     settle_s: Annotated[float, Field(ge=0.0, le=3600.0)]
     window_s: Annotated[float, Field(ge=60.0, le=7200.0)]
+    expect_drop_ma: Annotated[float | None, Field(ge=0.0)] = None
+    """
+    The leakage the finding attributes to the RCCB's circuits (its rise_on_direct_circuits). A fall of at least half of it is `dropped`; a smaller significant fall is `reduced`, as switching off a healthy circuit also removes its own small normal leakage. Without it any significant fall is `dropped`.
+    """
 
 
 class RunRequest(ContractModel):
