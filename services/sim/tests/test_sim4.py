@@ -209,3 +209,43 @@ def test_water_truth_has_one_row_per_minute() -> None:
     }
     assert all(v.shape == (1440,) for v in truth.values())
     assert np.all(truth["tank_l"] <= 1364.0 + 1e-9)
+
+
+# ---------------------------------------------------------------------------- MCB switched off
+
+
+def test_switching_off_a_leaking_circuit_removes_its_leakage_from_the_rccb() -> None:
+    world = new_world()
+    world.inject(fault("E2", "circ_sockets_kitchen", 1.5, at(START, 1)))
+    start, end = _us(1, 20.0), _us(1, 20.5)
+    world.act(
+        CheckAction(start, end, hold_water_use=False, switch_off_circuits=("circ_sockets_kitchen",))
+    )
+    out = world.output(DAY1)
+    residual = out.streams["elec.rcd.rcd_sockets.residual_ma"].values
+    current = out.streams["elec.circuit.circ_sockets_kitchen.current_a"].values
+    second = 3600
+    before = np.nanmean(residual[int(19.6 * second) : 20 * second])
+    during = np.nanmean(residual[int(20.1 * second) : int(20.5 * second)])
+    assert before - during > 1.0  # the 1.5 mA fault and the circuit's own leakage
+    assert np.nanmax(current[int(20.01 * second) : int(20.5 * second)]) < 0.05
+
+
+def test_switching_off_another_circuit_leaves_the_leak() -> None:
+    world = new_world()
+    world.inject(fault("E2", "circ_sockets_kitchen", 1.5, at(START, 1)))
+    world.act(
+        CheckAction(
+            _us(1, 20.0),
+            _us(1, 20.5),
+            hold_water_use=False,
+            switch_off_circuits=("circ_sockets_living",),
+        )
+    )
+    residual = world.output(DAY1).streams["elec.rcd.rcd_sockets.residual_ma"].values
+    assert np.nanmean(residual[int(20.1 * 3600) : int(20.5 * 3600)]) > 1.4
+
+
+def test_unknown_circuits_cannot_be_switched_off() -> None:
+    with pytest.raises(WorldError, match="unknown circuit"):
+        new_world().act(CheckAction(_us(1, 3), _us(1, 4), switch_off_circuits=("circ_nowhere",)))

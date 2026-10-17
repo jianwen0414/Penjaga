@@ -1,4 +1,5 @@
-"""Household actions during a guided check: closing a valve, holding off water use.
+"""Household actions during a guided check: closing a valve, holding off water use, switching a
+circuit off at its MCB.
 
 A guided check (PRD §18.2) asks the household to do something and measures the effect in the
 readings: "please don't use any water for the next 25 minutes; now close the valve under the
@@ -12,6 +13,10 @@ tank (the main stop valve) stops all flow through the meter while the network pr
 it remains. A leak on a valve's own pipe counts as downstream of it (the valve sits where its
 branch starts). The float valve and the roof-space gate valve are not owner-operable; the float
 valve cannot be closed at all.
+
+Switching a circuit off at its MCB (an L2 check: does the RCCB's residual current fall?) cuts
+the circuit's loads and its leakage for the window; it is a manual action, not a trip, so no
+protection event is reported.
 
 Holding off water use removes the household's planned uses in the window, including showers'
 water heater runs. Automatic flows continue: leaks, the purifier refilling its storage, and the
@@ -49,6 +54,7 @@ class CheckAction:
     end_us: int
     close_valves: tuple[str, ...] = ()
     hold_water_use: bool = True
+    switch_off_circuits: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -83,6 +89,7 @@ class DayActions:
     hold: Mask
     inlet_closed: Mask
     closed: dict[str, Mask]  # element -> seconds during which it is isolated
+    circuits_off: dict[str, Mask]  # circuit -> seconds its MCB is switched off by hand
 
     def blocked(self, element: str) -> Mask | None:
         return self.closed.get(element)
@@ -94,6 +101,7 @@ def day_actions(
     hold = np.zeros(N, np.bool_)
     inlet = np.zeros(N, np.bool_)
     closed: dict[str, Mask] = {}
+    circuits_off: dict[str, Mask] = {}
     touched = False
     for action in actions:
         sl = _seconds(action, day_start_us)
@@ -108,7 +116,9 @@ def day_actions(
                 inlet[sl] = True
             for element in iso.elements:
                 closed.setdefault(element, np.zeros(N, np.bool_))[sl] = True
-    return DayActions(hold, inlet, closed) if touched else None
+        for circuit in action.switch_off_circuits:
+            circuits_off.setdefault(circuit, np.zeros(N, np.bool_))[sl] = True
+    return DayActions(hold, inlet, closed, circuits_off) if touched else None
 
 
 def _segments(mask: Mask) -> list[tuple[int, int]]:

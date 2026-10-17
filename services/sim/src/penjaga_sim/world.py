@@ -281,6 +281,9 @@ class World:
                 isolation(self.model.index, valve)
             except (ActionError, TypeError, KeyError) as exc:
                 raise WorldError(str(exc)) from None
+        for circuit in action.switch_off_circuits:
+            if circuit not in self.model.circuits:
+                raise WorldError(f"unknown circuit {circuit!r}")
         self._check_not_published(action.start_us, "action start")
         self._actions.append(action)
         self._invalidate_from(action.start_us)
@@ -353,6 +356,7 @@ class World:
         if acts is not None:
             plan = restrict_plan(plan, acts)
             isolate_leaks(effects, acts)
+            effects.circuit_off.update(acts.circuits_off)
         low_today = self._low_pressure(day)
         low_yesterday = day > self.config.start and self._low_pressure(day - timedelta(days=1))
         low = (

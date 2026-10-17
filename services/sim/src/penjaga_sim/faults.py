@@ -215,6 +215,8 @@ class DayEffects:
     # each water leak's own flow (location, drawn through the tank?, L/s), already included in
     # tank_leak_lps or main_leak_lps; a closed valve uses it to stop the leaks it isolates
     water_leaks: list[tuple[str, bool, Arr]] = field(default_factory=list)
+    # circuits whose MCB the household switched off by hand (guided checks), per second
+    circuit_off: dict[str, Mask] = field(default_factory=dict)
 
 
 def _window(fault: ActiveFault, day_start_us: int) -> Mask:

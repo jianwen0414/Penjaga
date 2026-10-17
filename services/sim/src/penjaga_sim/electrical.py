@@ -582,6 +582,7 @@ class _Protection:
         d, cal = model.draws, model.cal
         self.m, self.sums, self.state = model, sums, state
         self.power_on = inputs.effects.power_on
+        self.switched_off = inputs.effects.circuit_off
         self.trip_fraction = {
             dev: d.house("electrical.rcd.trip_fraction", dev) for dev in model.rccbs
         }
@@ -625,6 +626,8 @@ class _Protection:
 
     def live(self, c: str) -> Mask:
         mask = self.power_on.copy()
+        if c in self.switched_off:  # the MCB switched off by hand: no load, no leakage
+            mask &= ~self.switched_off[c]
         for dev in self.chain[c]:
             for a, b in self.off.get(dev, []):
                 mask[a:b] = False
