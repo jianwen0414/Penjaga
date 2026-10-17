@@ -12,15 +12,6 @@ from pydantic import AwareDatetime, ConfigDict, Field
 from . import common_schema, finding_schema
 
 
-class Action(StrEnum):
-    """
-    What the household is asked to do (and to undo after the window).
-    """
-
-    close_valve = "close_valve"
-    switch_off_circuit = "switch_off_circuit"
-
-
 class Check(ContractModel):
     """
     GET /detect/v1/checks/{id}.
@@ -31,7 +22,7 @@ class Check(ContractModel):
     )
     check_id: Annotated[str, Field(pattern="^chk_[0-9a-z]{6,32}$")]
     request: Annotated[
-        FlowStopCheck | TankLevelTrendCheck | CircuitLoadCheck | ResidualDropCheck,
+        FlowStopCheck | TankLevelTrendCheck | CircuitLoadCheck,
         Field(title="CheckRequest"),
     ]
     """
@@ -53,9 +44,6 @@ class Check(ContractModel):
     """
 
 
-type CheckId = Annotated[str, Field(pattern="^chk_[0-9a-z]{6,32}$")]
-
-
 class CheckStatus(StrEnum):
     """
     pending: house time has not yet reached the end of the measurement window. complete: measured. unavailable: the readings needed are missing (sensor absent or too little data).
@@ -66,58 +54,9 @@ class CheckStatus(StrEnum):
     unavailable = "unavailable"
 
 
-class CheckSuggestion(ContractModel):
-    """
-    The most informative next check. The agent turns it into a request (adding `since`) once the household has done the action.
-    """
-
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    kind: Kind
-    action: Action
-    """
-    What the household is asked to do (and to undo after the window).
-    """
-    valve_id: Annotated[
-        str | None,
-        Field(max_length=64, pattern="^[a-z][a-z0-9]*(_[a-z0-9]+)+$", title="ObjectId"),
-    ] = None
-    """
-    Stable, unique, human-readable ID of a physical element: <kind-prefix>_<descriptor>, lowercase snake_case. The prefix must match the element kind (enforced by the semantic validator).
-    """
-    circuit_id: Annotated[
-        str | None,
-        Field(max_length=64, pattern="^[a-z][a-z0-9]*(_[a-z0-9]+)+$", title="ObjectId"),
-    ] = None
-    """
-    Stable, unique, human-readable ID of a physical element: <kind-prefix>_<descriptor>, lowercase snake_case. The prefix must match the element kind (enforced by the semantic validator).
-    """
-    rccb_id: Annotated[
-        str | None,
-        Field(max_length=64, pattern="^[a-z][a-z0-9]*(_[a-z0-9]+)+$", title="ObjectId"),
-    ] = None
-    """
-    Stable, unique, human-readable ID of a physical element: <kind-prefix>_<descriptor>, lowercase snake_case. The prefix must match the element kind (enforced by the semantic validator).
-    """
-    expect_below_lpm: Annotated[float | None, Field(ge=0.0)] = None
-    settle_s: Annotated[float, Field(ge=0.0, le=3600.0)]
-    window_s: Annotated[float, Field(ge=60.0, le=86400.0)]
-    expected_gain_bits: Annotated[float, Field(ge=0.0)]
-    hold_water_use: bool | None = None
-    """
-    Ask the household not to use water from the window before the action until the window ends.
-    """
-    wait_for_full_tank: bool | None = None
-    """
-    Flow checks read a roof-tank refill as flow; do them once the tank level is back at full.
-    """
-    expect_drop_ma: Annotated[float | None, Field(ge=0.0)] = None
-
-
 class CheckVerdict(StrEnum):
     """
-    flow_stop: stopped (below expect_below_lpm), reduced (significantly lower, not below), unchanged. tank_level_trend: falling, steady, rising. circuit_load: dropped, unchanged, rose. residual_drop: dropped, reduced, unchanged, rose. Significance: the difference exceeds twice its standard error and the stream's resolution.
+    flow_stop: stopped (below expect_below_lpm), reduced (significantly lower, not below), unchanged. tank_level_trend: falling, steady, rising. circuit_load: dropped, unchanged, rose. Significance: the difference exceeds twice its standard error and the stream's resolution.
     """
 
     stopped = "stopped"
@@ -128,17 +67,6 @@ class CheckVerdict(StrEnum):
     rising = "rising"
     dropped = "dropped"
     rose = "rose"
-
-
-class ChecksUsedItem(ContractModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    check_id: Annotated[str, Field(pattern="^chk_[0-9a-z]{6,32}$")]
-    evidence: str
-    """
-    The verdict as the localiser used it: a check's verdict, idle (no flow before the action: no evidence), unavailable, or ignored (the check does not name its valve or circuit, or is not complete).
-    """
 
 
 class CircuitLoadCheck(ContractModel):
@@ -167,7 +95,7 @@ class CircuitLoadCheck(ContractModel):
 
 type DetectApi = Annotated[Any, Field(title="DetectApi")]
 """
-Payloads of the M5 detection service /detect/v1 (docs/design/interfaces.md): detectors, layer consent, on-demand runs, guided checks, localisation and health. Findings themselves are Finding documents (finding.schema.json).
+Payloads of the M5 detection service /detect/v1 (docs/design/interfaces.md): detectors, layer consent, on-demand runs, guided checks and health. Findings themselves are Finding documents (finding.schema.json).
 """
 
 
@@ -254,13 +182,6 @@ class FlowStopCheck(ContractModel):
     settle_s: Annotated[float, Field(ge=0.0, le=3600.0)]
     window_s: Annotated[float, Field(ge=60.0, le=7200.0)]
     expect_below_lpm: Annotated[float, Field(ge=0.0)]
-    valve_id: Annotated[
-        str | None,
-        Field(max_length=64, pattern="^[a-z][a-z0-9]*(_[a-z0-9]+)+$", title="ObjectId"),
-    ] = None
-    """
-    (contract 1.5.0) The valve the household was asked to close. Optional; it lets POST /detect/v1/localise interpret the check.
-    """
 
 
 class HealthStatus(StrEnum):
@@ -270,17 +191,6 @@ class HealthStatus(StrEnum):
 
     ok = "ok"
     degraded = "degraded"
-
-
-class Kind(StrEnum):
-    flow_stop = "flow_stop"
-    tank_level_trend = "tank_level_trend"
-    residual_drop = "residual_drop"
-
-
-class Layer(StrEnum):
-    L1 = "L1"
-    L2 = "L2"
 
 
 class LayerState(ContractModel):
@@ -304,90 +214,6 @@ class LayerUpdate(ContractModel):
         extra="forbid",
     )
     enabled: bool
-
-
-class LocaliseRequest(ContractModel):
-    """
-    (contract 1.5.0) POST /detect/v1/localise: where is the problem a finding describes, given the guided checks done for it so far, and which check should come next? Supported for L1 water leaks (valve checks) and L2 earth leakage (residual_drop checks).
-    """
-
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    finding_id: Annotated[str, Field(pattern="^fnd_[0-9a-f]{20}$")]
-    check_ids: Annotated[list[CheckId], Field(max_length=20)]
-    """
-    Completed checks for this finding, in the order they were done.
-    """
-
-
-class LocaliseResponse(ContractModel):
-    """
-    (contract 1.5.0) Location probabilities after the checks, most likely first, and the next check (null when the localiser is confident enough, out of useful checks, or at its check limit). Show them as possibilities, not facts.
-    """
-
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    finding_id: Annotated[str, Field(pattern="^fnd_[0-9a-f]{20}$")]
-    layer: Layer
-    candidates: Annotated[list[LocalisedCandidate], Field(max_length=10)]
-    other_p: Annotated[float, Field(ge=0.0, le=1.0)]
-    """
-    Probability of every place not listed.
-    """
-    entropy_bits: Annotated[float, Field(ge=0.0)]
-    checks_used: list[ChecksUsedItem]
-    next_check: CheckSuggestion | None
-
-
-class LocalisedCandidate(ContractModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    object_id: Annotated[
-        str,
-        Field(max_length=64, pattern="^[a-z][a-z0-9]*(_[a-z0-9]+)+$", title="ObjectId"),
-    ]
-    """
-    Stable, unique, human-readable ID of a physical element: <kind-prefix>_<descriptor>, lowercase snake_case. The prefix must match the element kind (enforced by the semantic validator).
-    """
-    p: Annotated[float, Field(ge=0.0, le=1.0)]
-
-
-class ResidualDropCheck(ContractModel):
-    """
-    (contract 1.5.0) Did the residual (earth leakage) current through an RCCB fall when the household switched off one circuit's MCB at `since`? Compares the window before `since` with the window starting `settle_s` after it, and confirms from the circuit's current that it was off. Verdict: dropped, reduced, unchanged or rose.
-    """
-
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    kind: Literal["residual_drop"]
-    rccb_id: Annotated[
-        str,
-        Field(max_length=64, pattern="^[a-z][a-z0-9]*(_[a-z0-9]+)+$", title="ObjectId"),
-    ]
-    """
-    Stable, unique, human-readable ID of a physical element: <kind-prefix>_<descriptor>, lowercase snake_case. The prefix must match the element kind (enforced by the semantic validator).
-    """
-    circuit_id: Annotated[
-        str,
-        Field(max_length=64, pattern="^[a-z][a-z0-9]*(_[a-z0-9]+)+$", title="ObjectId"),
-    ]
-    """
-    Stable, unique, human-readable ID of a physical element: <kind-prefix>_<descriptor>, lowercase snake_case. The prefix must match the element kind (enforced by the semantic validator).
-    """
-    since: Annotated[AwareDatetime, Field(title="HouseTime")]
-    """
-    Instant in house time (see M4): an RFC 3339 date-time, which always carries an explicit UTC offset (validators must assert the format). Services emit +08:00 (Asia/Kuala_Lumpur).
-    """
-    settle_s: Annotated[float, Field(ge=0.0, le=3600.0)]
-    window_s: Annotated[float, Field(ge=60.0, le=7200.0)]
-    expect_drop_ma: Annotated[float | None, Field(ge=0.0)] = None
-    """
-    The leakage the finding attributes to the RCCB's circuits (its rise_on_direct_circuits). A fall of at least half of it is `dropped`; a smaller significant fall is `reduced`, as switching off a healthy circuit also removes its own small normal leakage. Without it any significant fall is `dropped`.
-    """
 
 
 class RunRequest(ContractModel):
@@ -442,10 +268,3 @@ class TankLevelTrendCheck(ContractModel):
     Instant in house time (see M4): an RFC 3339 date-time, which always carries an explicit UTC offset (validators must assert the format). Services emit +08:00 (Asia/Kuala_Lumpur).
     """
     window_s: Annotated[float, Field(ge=300.0, le=86400.0)]
-    valve_id: Annotated[
-        str | None,
-        Field(max_length=64, pattern="^[a-z][a-z0-9]*(_[a-z0-9]+)+$", title="ObjectId"),
-    ] = None
-    """
-    (contract 1.5.0) The valve the household was asked to close. Optional; it lets POST /detect/v1/localise interpret the check.
-    """

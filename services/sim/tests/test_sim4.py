@@ -3,15 +3,16 @@ DS-037), guided-check actions and the per-minute water truth."""
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import numpy as np
 import pytest
 
+from penjaga_contract.lab import AnomalySpec
 from penjaga_sim.actions import CheckAction
 from penjaga_sim.testing import START, anomaly, at, fault, new_world
 from penjaga_sim.water import low_pressure_weight
-from penjaga_sim.world import World, WorldError
+from penjaga_sim.world import LOW_PRESSURE_PARAMS, World, WorldError, is_low_pressure
 
 US = 1_000_000
 DAY1 = START + timedelta(days=1)
@@ -26,6 +27,21 @@ def _us(day_offset: int, hour: float) -> int:
 
 
 # ---------------------------------------------------------------------------- low pressure
+
+
+def _low_pressure(start: datetime, duration_s: float) -> AnomalySpec:
+    """Low supply pressure in contract 1.3.0: the daily variant of a tank refill."""
+    return anomaly("post_outage_tank_refill", start, duration_s, **LOW_PRESSURE_PARAMS)
+
+
+def test_only_the_low_pressure_variant_of_a_tank_refill_can_be_imposed() -> None:
+    world = new_world()
+    with pytest.raises(WorldError, match="occurs naturally"):
+        world.impose(anomaly("post_outage_tank_refill", at(START), 86_400))
+    with pytest.raises(WorldError, match="occurs naturally"):
+        world.impose(anomaly("post_outage_tank_refill", at(START), 86_400, pattern="other"))
+    assert is_low_pressure(_low_pressure(at(START), 86_400))
+    assert not is_low_pressure(anomaly("guests", at(START), 86_400, **LOW_PRESSURE_PARAMS))
 
 
 def test_low_pressure_weight_is_low_by_day_and_recovers_at_night() -> None:
@@ -65,7 +81,7 @@ def _low_world() -> World:
 def test_low_pressure_moves_the_tank_refill_into_the_night() -> None:
     low = _low_world()
     normal = new_world(seed=low.config.seed)
-    low.impose(anomaly("low_supply_pressure", at(START), 3 * 86_400))
+    low.impose(_low_pressure(at(START), 3 * 86_400))
     n, lo = normal.output(DAY1).water_truth, low.output(DAY1).water_truth
     noon = slice(_minute(11), _minute(13))
     assert lo["pressure_bar"][noon].mean() < 0.8
@@ -84,9 +100,14 @@ def test_low_pressure_moves_the_tank_refill_into_the_night() -> None:
 
 def test_low_pressure_is_recorded_as_an_imposed_anomaly() -> None:
     world = new_world()
-    world.impose(anomaly("low_supply_pressure", at(START, 5), 86_400))
-    records = [r for r in world.truth_records() if r["label"] == "low_supply_pressure"]
+    world.impose(_low_pressure(at(START, 5), 86_400))
+    records = [
+        r
+        for r in world.truth_records()
+        if r["label"] == "post_outage_tank_refill" and r["params"].get("imposed")
+    ]
     assert len(records) == 1
+    assert records[0]["params"]["spec"]["params"] == LOW_PRESSURE_PARAMS
     assert records[0]["start"] == at(START).isoformat()
     assert records[0]["end"] == at(START + timedelta(days=2)).isoformat()  # whole days
 

@@ -27,11 +27,16 @@ from penjaga_sim.export import manifest_document
 from penjaga_sim.faults import random_spec, spec_document
 from penjaga_sim.model import HouseModel
 from penjaga_sim.rng import rng, stable_key
-from penjaga_sim.world import IMPOSABLE_ANOMALIES
+from penjaga_sim.world import IMPOSABLE_ANOMALIES, LOW_PRESSURE_PARAMS
 
 SPLITS = ("train", "validation", "test")
 SUITES_DIR = Path(__file__).resolve().parents[2] / "suites"
 MAX_SEED = 2**53 - 1
+# Named conditions a suite can impose on whole episodes, as the anomaly spec that expresses each
+# in contract 1.3.0 (``conditions`` may also name an imposable anomaly type directly).
+CONDITIONS: dict[str, tuple[str, dict[str, Any]]] = {
+    "low_supply_pressure": ("post_outage_tank_refill", LOW_PRESSURE_PARAMS),
+}
 
 
 class SuiteError(ValueError):
@@ -125,9 +130,21 @@ def _check(suite: Suite) -> None:
     for t, lo, hi in suite.fault_hours:
         if t not in suite.fault_types or not t.startswith("U") or not 0 < lo <= hi:
             raise SuiteError(f"{suite.name}: fault_hours are for the suite's supply faults")
-    imposable = {a.value for a in IMPOSABLE_ANOMALIES}
+    imposable = {a.value for a in IMPOSABLE_ANOMALIES} | set(CONDITIONS)
     if not set(suite.conditions) <= imposable:
         raise SuiteError(f"{suite.name}: conditions must be imposable anomalies")
+
+
+def _condition(kind: str, start: datetime, duration_s: float) -> dict[str, Any]:
+    anomaly_type, params = CONDITIONS.get(kind, (kind, {}))
+    doc: dict[str, Any] = {
+        "anomaly_type": anomaly_type,
+        "start_at": start.isoformat(),
+        "duration_s": duration_s,
+    }
+    if params:
+        doc["params"] = dict(params)
+    return doc
 
 
 def _start(r: np.random.Generator, year: int, days: int, zone: ZoneInfo) -> datetime:
@@ -170,8 +187,7 @@ def manifests(suite: Suite, split: str) -> list[EpisodeManifest]:
         # conditions hold for the whole episode and use no random draws, so adding them never
         # changes anything else about a suite's episodes
         anomalies: list[dict[str, Any]] = [
-            {"anomaly_type": kind, "start_at": start.isoformat(), "duration_s": 86_400 * suite.days}
-            for kind in suite.conditions
+            _condition(kind, start, 86_400 * suite.days) for kind in suite.conditions
         ]
         if suite.anomaly_types and r.random() < suite.anomaly_prob:
             kind = suite.anomaly_types[int(r.integers(0, len(suite.anomaly_types)))]

@@ -5,9 +5,11 @@ from pathlib import Path
 import pytest
 
 from penjaga_contract import schema_registry
+from penjaga_eval.scoring import anomaly_label
 from penjaga_eval.sealing import SealError, check, seal
 from penjaga_eval.suites import SuiteError, load_suite, manifests, manifests_digest
 from penjaga_sim.export import manifest_document
+from penjaga_sim.world import is_low_pressure
 
 
 def test_the_shipped_suite_loads_and_is_deterministic() -> None:
@@ -91,10 +93,20 @@ def test_conditions_hold_for_the_whole_episode() -> None:
     suite = load_suite("l1_lowp_v0")
     assert suite.conditions == ("low_supply_pressure",)
     for m in manifests(suite, "validation"):
-        whole = [a for a in m.anomalies if a.anomaly_type.value == "low_supply_pressure"]
+        # contract 1.3.0: the daily variant of a tank refill
+        whole = [a for a in m.anomalies if is_low_pressure(a)]
         assert len(whole) == 1
+        assert whole[0].anomaly_type.value == "post_outage_tank_refill"
         assert whole[0].start_at == m.start
         assert whole[0].duration_s == 86_400 * m.duration_days
+
+
+def test_low_pressure_is_reported_by_name() -> None:
+    spec = {"anomaly_type": "post_outage_tank_refill", "params": {"pattern": "daily_low_pressure"}}
+    record = {"label": "post_outage_tank_refill", "params": {"spec": spec, "imposed": True}}
+    assert anomaly_label(record) == "low_supply_pressure"
+    natural = {"label": "post_outage_tank_refill", "params": {"natural": True}}
+    assert anomaly_label(natural) == "post_outage_tank_refill"
 
 
 def test_conditions_must_be_imposable(tmp_path: Path, suites_dir: Path) -> None:

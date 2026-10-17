@@ -69,8 +69,22 @@ IMPOSABLE_ANOMALIES = {
     AnomalyType.heatwave,
     AnomalyType.night_bucket_fill,
     AnomalyType.washer_delay_timer,
-    AnomalyType.low_supply_pressure,
 }
+# Low supply pressure: the network is too weak by day to fill the roof tank, which refills at
+# night. Contract 1.3.0 has no anomaly type for it, so it is the daily variant of a tank refill
+# after a supply shortfall: ``post_outage_tank_refill`` with these params. That type otherwise
+# occurs only naturally (after a water cut) and cannot be imposed.
+LOW_PRESSURE_PARAMS: dict[str, Any] = {"pattern": "daily_low_pressure"}
+
+
+def is_low_pressure(spec: AnomalySpec) -> bool:
+    """Whether an anomaly spec is the low-supply-pressure variant."""
+    return (
+        spec.anomaly_type is AnomalyType.post_outage_tank_refill
+        and (spec.params or {}).get("pattern") == LOW_PRESSURE_PARAMS["pattern"]
+    )
+
+
 # Imposing these forces an occurrence on each affected day; the occurrence (with its exact time)
 # is the ground truth, so no whole-day record is written for the request itself.
 OCCURRENCE_ANOMALIES = {AnomalyType.night_bucket_fill, AnomalyType.washer_delay_timer}
@@ -254,7 +268,7 @@ class World:
         The behaviour change applies to every day the requested interval touches, so the truth
         record spans those whole days: that is when the house actually behaves differently.
         """
-        if spec.anomaly_type not in IMPOSABLE_ANOMALIES:
+        if spec.anomaly_type not in IMPOSABLE_ANOMALIES and not is_low_pressure(spec):
             raise WorldError(f"{spec.anomaly_type.value} occurs naturally and cannot be imposed")
         start_day = spec.start_at.astimezone(self.zone).date()
         if start_day < self.config.start:
@@ -320,9 +334,7 @@ class World:
     def _low_pressure(self, day: date) -> bool:
         start, end = self.day_start_us(day), self.day_start_us(day) + DAY_US
         return any(
-            a.spec.anomaly_type is AnomalyType.low_supply_pressure
-            and a.start_us < end
-            and a.end_us > start
+            is_low_pressure(a.spec) and a.start_us < end and a.end_us > start
             for a in self._anomalies
         )
 
@@ -466,6 +478,7 @@ class World:
             a.record_id
             for a in self._anomalies
             if a.spec.anomaly_type.value == n.anomaly_type
+            and not is_low_pressure(a.spec)  # not what imposed a natural post-outage refill
             and a.start_us < day_start_us + DAY_US
             and a.end_us > day_start_us
         ]

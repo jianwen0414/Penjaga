@@ -8,5 +8,6 @@
 # penjaga-sim/2: night-time toilet visits (DS-026, DS-027).
 # penjaga-sim/3: RO purifier refills (DS-029 to DS-032); meter cutoff from 1.4 L/h (DS-028).
 # penjaga-sim/4: the purifier's heater and compressor load (DS-036, DS-037); the imposable
-#   low_supply_pressure anomaly (DS-033 to DS-035); guided-check actions; per-minute water truth.
+#   low-supply-pressure anomaly (post_outage_tank_refill, pattern daily_low_pressure; DS-033 to
+#   DS-035); guided-check actions; per-minute water truth.
 GENERATOR_VERSION = "penjaga-sim/4"

@@ -35,7 +35,8 @@ demand_peak_evening_width_h = { dist = "fixed", value = 1.2, unit = "h", basis =
 friction_bar_at_30lpm = { dist = "uniform", low = 0.1, high = 0.3, unit = "bar", basis = "assumption", note = "Pressure drop across the service pipe and meter at 30 L/min, scaling with flow squared." }
 outage_residual = { dist = "uniform", low = 0.0, high = 0.08, unit = "bar", basis = "assumption", note = "Residual pressure reading during a supply interruption." }
 recovery_minutes = { dist = "uniform", low = 5, high = 25, unit = "min", basis = "assumption", note = "Pressure ramps back to normal after an interruption as the network refills." }
-# Low supply pressure (legitimate anomaly low_supply_pressure, penjaga-sim/4): low by day,
+# Low supply pressure (imposed as post_outage_tank_refill with pattern daily_low_pressure,
+# penjaga-sim/4): low by day,
 # recovering slowly at night, so the roof tank refills at night (DS-033 to DS-035).
 low_day_bar = { dist = "uniform", low = 0.5, high = 1.0, unit = "bar", basis = "derived", source = "DS-018", note = "Daytime pressure in a low-pressure area, per house. SPAN's design minimum residual head is 7.5 m (about 0.74 bar, DS-018), close to the roof tank's 0.75 bar static head, so near this level the tank fills slowly or not at all by day. Residents of a low-pressure Selangor area report daytime pressure too low to reach a kitchen dispenser, returning to normal at night (DS-035). The range around the design minimum is an assumption." }
 low_fall_hours = { dist = "fixed", value = 1.0, unit = "h", basis = "assumption", note = "Time over which the pressure falls to the daytime low from the start of the morning demand peak." }

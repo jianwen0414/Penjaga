@@ -88,7 +88,7 @@ export type Layer = "L1" | "L2" | "L3" | "L4" | "L5";
  */
 export type ScenarioPeriod = "any" | "hottest_week" | "wettest_week";
 /**
- * Legitimate behaviour that must not raise false alarms (PRD §12.3, extended in PRD v1.1). low_supply_pressure (contract 1.4.0): the network pressure is low during the day and recovers at night, so the roof tank refills at night.
+ * Legitimate behaviour that must not raise false alarms (PRD §12.3, extended in PRD v1.1).
  */
 export type AnomalyType =
   | "night_bucket_fill"
@@ -100,8 +100,7 @@ export type AnomalyType =
   | "festive_cooking"
   | "aircon_setpoint_change"
   | "occupancy_change"
-  | "post_outage_tank_refill"
-  | "low_supply_pressure";
+  | "post_outage_tank_refill";
 /**
  * Only for presets with period 'any'; null means midnight today in house time.
  */

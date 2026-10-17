@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import itertools
 import json
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -32,6 +32,7 @@ import numpy as np
 
 from penjaga_contract.core import Finding
 from penjaga_contract.house import HouseIndex
+from penjaga_sim.world import LOW_PRESSURE_PARAMS
 
 US = 1_000_000
 DAY_US = 86_400 * US
@@ -123,6 +124,18 @@ def summarise(findings: Iterable[Finding]) -> list[FindingSummary]:
     return sorted(out, key=lambda s: (s.first_seen_us, s.id))
 
 
+def anomaly_label(record: Mapping[str, Any]) -> str:
+    """The context a legitimate anomaly is reported as. Low supply pressure is imposed as the
+    daily variant of ``post_outage_tank_refill`` (contract 1.3.0); it is reported by name."""
+    spec = record.get("params", {}).get("spec") or {}
+    if (
+        record["label"] == "post_outage_tank_refill"
+        and (spec.get("params") or {}).get("pattern") == LOW_PRESSURE_PARAMS["pattern"]
+    ):
+        return "low_supply_pressure"
+    return str(record["label"])
+
+
 def load_truth(episode: Path) -> tuple[list[TruthFault], list[TruthAnomaly], float]:
     """The episode's truth (scorer only) and its length in days."""
     meta = json.loads((episode / "observed" / "meta.json").read_text(encoding="utf-8"))
@@ -149,7 +162,7 @@ def load_truth(episode: Path) -> tuple[list[TruthFault], list[TruthAnomaly], flo
                     )
                 )
             else:
-                anomalies.append(TruthAnomaly(r["label"], start, end))
+                anomalies.append(TruthAnomaly(anomaly_label(r), start, end))
     return faults, anomalies, (t1 - t0) / DAY_US
 
 
