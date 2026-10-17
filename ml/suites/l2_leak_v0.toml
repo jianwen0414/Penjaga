@@ -1,0 +1,32 @@
+# L2 leak v0: rising earth leakage (E2) only, to measure localisation after switch-off checks
+# (penjaga-eval localise). The leakage baseline needs 72 hours to learn each RCCB's normal, so
+# faults start 3.5-5 days into ten-day episodes. Board monitor and weather only, as in l2_v0.
+# Same split rules as l1_v0; the test split is sealed (ml/sealed/l2_leak_v0.json).
+
+name = "l2_leak_v0"
+layers = ["L2"]
+days = 10
+fault_types = ["E2"]
+fault_start_days = [3.5, 5.0]
+anomaly_prob = 0.35
+anomaly_types = ["guests", "heatwave", "festive_cooking", "aircon_setpoint_change", "occupancy_change"]
+anomaly_days = [1, 2]
+sensors = ["sensor_db_monitor", "sensor_weather_feed"]
+
+[split.train]
+years = [2023]
+archetypes = ["working_family", "retired_couple", "young_couple", "large_family"]
+episodes_per_fault_type = 4
+fault_free_episodes = 0
+
+[split.validation]
+years = [2024]
+archetypes = ["working_family", "retired_couple", "young_couple", "large_family"]
+episodes_per_fault_type = 24
+fault_free_episodes = 0
+
+[split.test]
+years = [2025]
+archetypes = ["working_family", "retired_couple", "young_couple", "large_family", "shift_family"]
+episodes_per_fault_type = 30
+fault_free_episodes = 0

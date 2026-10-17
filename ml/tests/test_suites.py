@@ -76,7 +76,10 @@ def test_sealing(tmp_path: Path, tiny: object) -> None:
     assert seal(tiny, tmp_path, reseal=True)["digest"] == record["digest"]
 
 
-@pytest.mark.parametrize("name", ["l1_v0", "l1_lowp_v0", "l2_v0", "l3_v0", "l5_v0", "l5_tank_v0"])
+@pytest.mark.parametrize(
+    "name",
+    ["l1_v0", "l1_lowp_v0", "l2_v0", "l2_leak_v0", "l3_v0", "l5_v0", "l5_tank_v0", "l5_drain_v0"],
+)
 def test_every_shipped_suite_builds_valid_manifests(name: str) -> None:
     suite = load_suite(name)
     for split in ("train", "validation", "test"):
@@ -99,4 +102,21 @@ def test_conditions_must_be_imposable(tmp_path: Path, suites_dir: Path) -> None:
     bad = text.replace('name = "tiny"', 'name = "bad"\nconditions = ["post_outage_tank_refill"]')
     (tmp_path / "bad.toml").write_text(bad, encoding="utf-8")
     with pytest.raises(SuiteError, match="imposable"):
+        load_suite("bad", tmp_path)
+
+
+def test_fault_hours_replace_the_calibrated_duration() -> None:
+    suite = load_suite("l5_drain_v0")
+    for m in manifests(suite, "validation"):
+        (f,) = m.faults
+        assert f.duration_s is not None
+        lo, hi = {"U1": (24, 72), "U2": (24, 96)}[f.fault_type.value]
+        assert 3600 * lo <= f.duration_s <= 3600 * hi
+
+
+def test_fault_hours_are_only_for_supply_faults(tmp_path: Path, suites_dir: Path) -> None:
+    text = (suites_dir / "tiny.toml").read_text(encoding="utf-8")
+    bad = text.replace('name = "tiny"', 'name = "bad"') + "\n[fault_hours]\nW2 = [1, 2]\n"
+    (tmp_path / "bad.toml").write_text(bad, encoding="utf-8")
+    with pytest.raises(SuiteError, match="fault_hours"):
         load_suite("bad", tmp_path)

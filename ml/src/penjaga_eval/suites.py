@@ -60,6 +60,8 @@ class Suite:
     sensors: tuple[str, ...] | None = None  # sensor kit; None = the full kit
     streams: tuple[str, ...] | None = None  # stored streams (fnmatch); None = all of the kit
     conditions: tuple[str, ...] = ()  # legitimate anomalies imposed on every whole episode
+    # per fault type, a (low, high) range of hours replacing the calibrated duration draw
+    fault_hours: tuple[tuple[str, float, float], ...] = ()
 
     @property
     def seed(self) -> int:
@@ -95,6 +97,9 @@ def load_suite(name: str, directory: Path = SUITES_DIR) -> Suite:
         sensors=tuple(raw["sensors"]) if "sensors" in raw else None,
         streams=tuple(raw["streams"]) if "streams" in raw else None,
         conditions=tuple(raw.get("conditions", ())),
+        fault_hours=tuple(
+            (t, float(lo), float(hi)) for t, (lo, hi) in sorted(raw.get("fault_hours", {}).items())
+        ),
     )
     _check(suite)
     return suite
@@ -117,6 +122,9 @@ def _check(suite: Suite) -> None:
     lo, hi = suite.fault_start_days
     if not 0 < lo <= hi < suite.days:
         raise SuiteError(f"{suite.name}: fault_start_days must lie inside the episode")
+    for t, lo, hi in suite.fault_hours:
+        if t not in suite.fault_types or not t.startswith("U") or not 0 < lo <= hi:
+            raise SuiteError(f"{suite.name}: fault_hours are for the suite's supply faults")
     imposable = {a.value for a in IMPOSABLE_ANOMALIES}
     if not set(suite.conditions) <= imposable:
         raise SuiteError(f"{suite.name}: conditions must be imposable anomalies")
@@ -152,7 +160,13 @@ def manifests(suite: Suite, split: str) -> list[EpisodeManifest]:
             at = start + timedelta(days=float(r.uniform(lo, hi)))
             at = at.replace(microsecond=0)
             model = HouseModel(load_index(), load_calibration(), seed)
-            faults.append(random_spec(model, fault_type, at, r))
+            drawn = random_spec(model, fault_type, at, r)
+            hours = {t: (lo, hi) for t, lo, hi in suite.fault_hours}
+            if fault_type in hours:  # own random stream: the other draws stay as they were
+                lo_h, hi_h = hours[fault_type]
+                h = float(rng(suite.seed, split, i, "fault_hours").uniform(lo_h, hi_h))
+                drawn = drawn.model_copy(update={"duration_s": round(3600 * h)})
+            faults.append(drawn)
         # conditions hold for the whole episode and use no random draws, so adding them never
         # changes anything else about a suite's episodes
         anomalies: list[dict[str, Any]] = [

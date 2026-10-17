@@ -1,0 +1,8 @@
+{
+  "suite": "l2_leak_v0",
+  "split": "test",
+  "episodes": 30,
+  "generator": "penjaga-sim/4",
+  "digest": "84a6221b4733c632f4301a66763f51b0d341181a775486d671d0dd18791d8840",
+  "sealed_at": "2026-10-17T14:01:43+00:00"
+}

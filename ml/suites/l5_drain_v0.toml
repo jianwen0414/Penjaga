@@ -1,0 +1,37 @@
+# L5 drain v0: multi-day water cuts that can empty the roof tank, to score the outlook's hours
+# to empty. Klang Valley disruptions were planned at two to four days ("up to 72 hours", "up to
+# four days") and unscheduled ones lasted up to six days (DS-038); here scheduled cuts (U1) last
+# 24-72 h and unannounced ones (U2) 24-96 h, starting a week into twelve-day episodes so the
+# outlook has a week of history. Same split rules as l1_v0; the test split is sealed.
+
+name = "l5_drain_v0"
+layers = ["L5"]
+days = 12
+fault_types = ["U1", "U2"]
+fault_start_days = [7.0, 8.0]
+anomaly_prob = 0.35
+anomaly_types = ["guests", "holiday_absence", "festive_cooking", "night_bucket_fill"]
+anomaly_days = [1, 2]
+sensors = ["sensor_water_meter_main", "sensor_water_pressure_inlet", "sensor_tank_level"]
+
+[fault_hours]
+U1 = [24, 72]
+U2 = [24, 96]
+
+[split.train]
+years = [2023]
+archetypes = ["working_family", "retired_couple", "young_couple", "large_family"]
+episodes_per_fault_type = 4
+fault_free_episodes = 0
+
+[split.validation]
+years = [2024]
+archetypes = ["working_family", "retired_couple", "young_couple", "large_family"]
+episodes_per_fault_type = 20
+fault_free_episodes = 0
+
+[split.test]
+years = [2025]
+archetypes = ["working_family", "retired_couple", "young_couple", "large_family", "shift_family"]
+episodes_per_fault_type = 25
+fault_free_episodes = 0
