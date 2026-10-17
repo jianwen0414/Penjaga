@@ -2,17 +2,17 @@
   "likelihood": {
     "flow_stop": {
       "behind": {
-        "stopped": 0.2542372881355932,
-        "reduced": 0.3050847457627119,
-        "unchanged": 0.06779661016949153,
-        "idle": 0.3559322033898305,
+        "stopped": 0.288135593220339,
+        "reduced": 0.5084745762711864,
+        "unchanged": 0.05084745762711865,
+        "idle": 0.13559322033898305,
         "unavailable": 0.01694915254237288
       },
       "other": {
-        "stopped": 0.011844331641285956,
-        "reduced": 0.16074450084602368,
-        "unchanged": 0.55668358714044,
-        "idle": 0.26903553299492383,
+        "stopped": 0.015228426395939087,
+        "reduced": 0.1844331641285956,
+        "unchanged": 0.6480541455160744,
+        "idle": 0.1505922165820643,
         "unavailable": 0.001692047377326565
       }
     },
@@ -29,6 +29,38 @@
         "rising": 0.03225806451612903,
         "unavailable": 0.03225806451612903
       }
+    },
+    "residual_drop": {
+      "behind": {
+        "dropped": 0.7,
+        "reduced": 0.1,
+        "unchanged": 0.15,
+        "rose": 0.02,
+        "unavailable": 0.03
+      },
+      "other": {
+        "dropped": 0.03,
+        "reduced": 0.3,
+        "unchanged": 0.55,
+        "rose": 0.09,
+        "unavailable": 0.03
+      }
+    },
+    "flow_stop@mid": {
+      "behind": {
+        "stopped": 0.16666666666666666,
+        "reduced": 0.7222222222222222,
+        "unchanged": 0.05555555555555555,
+        "idle": 0.027777777777777776,
+        "unavailable": 0.027777777777777776
+      },
+      "other": {
+        "stopped": 0.022099447513812154,
+        "reduced": 0.4198895027624309,
+        "unchanged": 0.5469613259668509,
+        "idle": 0.0055248618784530384,
+        "unavailable": 0.0055248618784530384
+      }
     }
   },
   "counts": {
@@ -43,16 +75,49 @@
     },
     "flow_stop": {
       "other": {
-        "stopped": 6,
-        "idle": 158,
-        "reduced": 94,
-        "unchanged": 328
+        "stopped": 8,
+        "idle": 88,
+        "reduced": 108,
+        "unchanged": 382
       },
       "behind": {
-        "stopped": 14,
-        "reduced": 17,
-        "unchanged": 3,
-        "idle": 20
+        "stopped": 16,
+        "reduced": 29,
+        "unchanged": 2,
+        "idle": 7
+      }
+    },
+    "flow_stop@low": {
+      "other": {
+        "stopped": 5,
+        "unchanged": 112,
+        "reduced": 4
+      },
+      "behind": {
+        "stopped": 11,
+        "reduced": 1
+      }
+    },
+    "flow_stop@mid": {
+      "behind": {
+        "stopped": 5,
+        "reduced": 25,
+        "unchanged": 1
+      },
+      "other": {
+        "reduced": 75,
+        "unchanged": 98,
+        "stopped": 3
+      }
+    },
+    "flow_stop@high": {
+      "other": {
+        "reduced": 29,
+        "unchanged": 172
+      },
+      "behind": {
+        "reduced": 3,
+        "unchanged": 1
       }
     }
   },
@@ -63,7 +128,11 @@
     "flow_window_s": 600.0,
     "flow_settle_s": 120.0,
     "expect_below_lpm": 0.02,
-    "tank_window_s": 1800.0
+    "tank_window_s": 1800.0,
+    "wait_for_full_tank": true,
+    "max_wait_h": 4.0,
+    "residual_window_s": 120.0,
+    "residual_settle_s": 30.0
   },
   "fitted_on": {
     "suites": [
@@ -71,8 +140,10 @@
       "l1_lowp_v0"
     ],
     "split": "validation",
+    "layer": "L1",
     "generator": "penjaga-sim/4",
     "faults": 80,
+    "flow_checks_with_full_tank": 0.8141,
     "date": "2026-10-17"
   }
 }
