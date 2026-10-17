@@ -111,6 +111,33 @@ def test_tuning_uses_validation_and_records_its_choice(
         registry.parameters("l1_mnf_baseline", {"nope": 1})
 
 
+def test_tuning_scores_each_setting_as_a_separate_run_would(
+    tiny: Suite, episodes_root: Path, tmp_path: Path
+) -> None:
+    grid = {"threshold_lpm": [0.02, 0.3], "nights": [1, 2]}
+    record = tune(
+        tiny,
+        "l1_mnf_baseline",
+        grid,
+        budget_fa_per_house_month=1.0,
+        episodes_root=episodes_root,
+        params_dir=tmp_path,
+        workers=2,
+    )
+    for candidate in record["candidates"]:
+        report = evaluate(
+            tiny,
+            "validation",
+            ["l1_mnf_baseline"],
+            overrides={"l1_mnf_baseline": candidate["params"]},
+            episodes_root=episodes_root,
+            workers=1,
+        )
+        m = report["detectors"]["l1_mnf_baseline"]["metrics"]["L1"]
+        for key in ("recall", "precision", "false_alarms_per_house_month"):
+            assert candidate[key] == pytest.approx(m[key]), (candidate["params"], key)
+
+
 def test_l1_training_records_provenance(tiny: Suite, episodes_root: Path, tmp_path: Path) -> None:
     from penjaga_eval.train_l1 import train
 

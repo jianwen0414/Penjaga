@@ -75,6 +75,15 @@ def replay(
     episode: Path, detectors: Sequence[Detector], chunk_h: float = 24.0
 ) -> dict[str, list[Finding]]:
     """All finding revisions each detector produced over the episode, in order."""
+    found = replay_each(episode, detectors, chunk_h)
+    return {d.info.name: f for d, f in zip(detectors, found, strict=True)}
+
+
+def replay_each(
+    episode: Path, detectors: Sequence[Detector], chunk_h: float = 24.0
+) -> list[list[Finding]]:
+    """Like ``replay``, one list per detector in order (detectors may share a name, e.g. one
+    detector under several parameter settings while tuning)."""
     streams: set[str] | None = set()
     event_streams: set[str] = set()
     for d in detectors:
@@ -84,7 +93,7 @@ def replay(
             streams |= d.info.streams
         event_streams |= d.info.event_streams
     obs = load_observed(episode, streams, event_streams)
-    out: dict[str, list[Finding]] = {d.info.name: [] for d in detectors}
+    out: list[list[Finding]] = [[] for _ in detectors]
     step = round(chunk_h * 3600 * US)
     t = obs.t0_us
     while t < obs.t1_us:
@@ -96,7 +105,7 @@ def replay(
             {s: v.between(t, t1) for s, v in obs.series.items()},
             tuple(e for e in obs.events if t < e.ts_us <= t1),
         )
-        for d in detectors:
-            out[d.info.name] += d.update(chunk)
+        for i, d in enumerate(detectors):
+            out[i] += d.update(chunk)
         t = t1
     return out

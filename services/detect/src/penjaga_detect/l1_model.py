@@ -54,6 +54,10 @@ TAPS = {
 }  # fmt: skip
 
 
+_PREDICTIONS: dict[tuple[str, bytes], np.ndarray] = {}
+_PREDICTIONS_MAX = 100_000
+
+
 @dataclass(frozen=True)
 class L1Params:
     artifact: str = ""  # path to the trained model; empty = feature collection only
@@ -156,7 +160,7 @@ class L1LeakModel:
         assert self.model is not None
         if not np.isfinite(row["mnf"]):
             return  # no data tonight: no evidence either way
-        proba = self.model["estimator"].predict_proba(as_vector(row)[None, :])[0]
+        proba = self._predict(as_vector(row))
         classes = list(self.model["classes"])
         p_leak = 1.0 - float(proba[classes.index("none")])
         if p_leak >= self.p.threshold:
@@ -171,6 +175,20 @@ class L1LeakModel:
             if self.state.quiet >= self.p.clear_nights:
                 self._emit(self.tracker.clear(self.leak_key, t1))
                 self.state.quiet = 0
+
+    def _predict(self, x: np.ndarray) -> np.ndarray:
+        """Class probabilities for one night. Memoised per process by artifact and features:
+        tuning replays the same nights under many settings, and scikit-learn's per-row
+        prediction dominates replay time (about 1.4 s a night for this model)."""
+        assert self.model is not None
+        key = (self.p.artifact, x.tobytes())
+        cached = _PREDICTIONS.get(key)
+        if cached is None:
+            cached = np.asarray(self.model["estimator"].predict_proba(x[None, :])[0])
+            if len(_PREDICTIONS) >= _PREDICTIONS_MAX:
+                _PREDICTIONS.clear()
+            _PREDICTIONS[key] = cached
+        return cached
 
     def _observe_leak(
         self, row: dict[str, float], leak: str, p_leak: float, t0: int, t1: int, *, specific: bool

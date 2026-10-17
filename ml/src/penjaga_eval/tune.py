@@ -11,15 +11,18 @@ from __future__ import annotations
 
 import itertools
 import json
+import os
 from collections.abc import Mapping, Sequence
+from concurrent.futures import ProcessPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from penjaga_detect.detector import HouseContext
 from penjaga_eval import episodes, registry
-from penjaga_eval.run import evaluate
-from penjaga_eval.suites import Suite
+from penjaga_eval.replay import replay_each
+from penjaga_eval.scoring import EpisodeResult, result_for, score_episodes
+from penjaga_eval.suites import Suite, manifests
 from penjaga_sim import GENERATOR_VERSION
 
 
@@ -34,6 +37,43 @@ def _pooled(metrics: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         "precision": None if tp + dup + fp == 0 else (tp + dup) / (tp + dup + fp),
         "false_alarms_per_house_month": None if months == 0 else round(fp / months, 4),
     }
+
+
+def _grid_episode(job: tuple[Path, str, list[Any]]) -> list[EpisodeResult]:
+    """One validation episode replayed once through the detector under every setting."""
+    path, detector, settings = job
+    house = HouseContext.canonical()
+    built = [registry.build(detector, house, params) for params in settings]
+    return [result_for(path, found) for found in replay_each(path, built)]
+
+
+def _grid_metrics(
+    suite: Suite,
+    detector: str,
+    settings: list[Any],
+    layer: str,
+    *,
+    episodes_root: Path,
+    workers: int | None,
+    limit: int | None,
+) -> list[dict[str, Any]]:
+    """The layer's metrics for each setting on the suite's validation split."""
+    items = manifests(suite, "validation")
+    if limit is not None:
+        items = items[:limit]
+    paths = episodes.ensure(items, episodes_root, workers, suite.streams)
+    jobs = [(path, detector, settings) for path in paths]
+    n = workers if workers is not None else max(1, (os.cpu_count() or 2) - 1)
+    if n == 1 or len(jobs) <= 1:
+        per_episode = [_grid_episode(job) for job in jobs]
+    else:
+        with ProcessPoolExecutor(max_workers=min(n, len(jobs))) as pool:
+            per_episode = list(pool.map(_grid_episode, jobs))
+    index = HouseContext.canonical().index
+    return [
+        score_episodes([results[i] for results in per_episode], suite.layers, index)[layer]
+        for i in range(len(settings))
+    ]
 
 
 def tune(
@@ -52,22 +92,26 @@ def tune(
     layer = registry.build(
         detector, HouseContext.canonical(), registry.parameters(detector)
     ).info.layer
-    candidates = []
-    for values in itertools.product(*(grid[n] for n in names)):
-        params = dict(zip(names, values, strict=True))
-        per_suite = [
-            evaluate(
-                suite,
-                "validation",
-                [detector],
-                overrides={detector: params},
-                episodes_root=episodes_root,
-                workers=workers,
-                limit=limit,
-            )["detectors"][detector]["metrics"][layer]
-            for suite in pooled
-        ]
-        candidates.append({"params": params, **_pooled(per_suite)})
+    combos = [
+        dict(zip(names, v, strict=True)) for v in itertools.product(*(grid[n] for n in names))
+    ]
+    settings = [registry.parameters(detector, combo) for combo in combos]
+    per_suite = [
+        _grid_metrics(
+            suite,
+            detector,
+            settings,
+            layer,
+            episodes_root=episodes_root,
+            workers=workers,
+            limit=limit,
+        )
+        for suite in pooled
+    ]
+    candidates = [
+        {"params": combo, **_pooled([metrics[i] for metrics in per_suite])}
+        for i, combo in enumerate(combos)
+    ]
 
     def fa(c: dict[str, Any]) -> float:
         return float(c["false_alarms_per_house_month"] or 0.0)
