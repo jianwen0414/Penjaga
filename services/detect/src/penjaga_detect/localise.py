@@ -1,4 +1,4 @@
-"""Where is the problem? Narrowing locations with guided checks (PRD §18.2, D-029, D-031).
+"""Where is the problem? Narrowing locations with guided checks (PRD §18.2, D-029, D-032).
 
 A meter at the boundary cannot say where water is lost, and an RCCB cannot say which of its
 circuits leaks to earth. The household can: closing a valve and watching the meter tells
@@ -20,7 +20,13 @@ operate (``owner_operable``):
 
 **Earth leakage (L2).** Hypotheses: the circuits an RCCB protects directly (the leakage
 baseline's candidates). Checks: ``residual_drop`` after switching one of them off at its MCB:
-the RCCB's residual current falls if that circuit leaks (``dropped``).
+the RCCB's residual current falls if that circuit leaks (``dropped``). Through ``/detect/v1``
+(contract 1.3.0) this is a ``circuit_load`` check on that circuit, whose measurements carry the
+RCCB's residual current (``checks.switch_off_evidence``).
+
+**A library.** Contract 1.3.0 has no localisation endpoint, and its water checks do not say
+which valve was closed, so the localiser is used by the evaluation (M11) and is ready for the
+agent once the team adds both (D-031).
 
 **Prior.** From a finding: its certain ``object_ids`` (when they are hypotheses), then its
 ``candidates`` with their probabilities; the rest (``candidates_other_p``) is spread evenly over
@@ -309,6 +315,15 @@ def direct_circuits(index: HouseIndex, rccb_id: str) -> tuple[str, ...]:
             if index.rccb_chain(c.id)[:1] == (rccb_id,)
         )
     )
+
+
+def expected_drop(finding: Finding) -> float | None:
+    """The leakage rise an earth-leakage finding reported (rise_on_direct_circuits, mA): how much
+    switching off the leaking circuit should take away (``checks.switch_off_evidence``)."""
+    for item in finding.evidence:
+        if item.name == "rise_on_direct_circuits" and isinstance(item.value, int | float):
+            return float(item.value)
+    return None
 
 
 def earth_leakage_localiser(

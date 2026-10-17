@@ -126,6 +126,27 @@ def test_a_drop_smaller_than_the_finding_saw_is_only_reduced() -> None:
     assert big.verdict == "dropped"
 
 
+def test_a_circuit_load_check_gives_the_same_switch_off_evidence() -> None:
+    """The API path (circuit_load + residual_measurements, read by switch_off_evidence) and the
+    evaluation's residual_drop agree."""
+    r = np.random.default_rng(3)
+    for after_level, expect in ((1.5, None), (2.6, 1.2), (2.6, 0.6), (3.0, None), (3.6, None)):
+        before = _window(list(3.0 + r.normal(0, 0.05, 120)))
+        after = _window(list(after_level + r.normal(0, 0.05, 120)))
+        on, off = _window([1.2] * 120), _window([0.0] * 120)
+        load = checks.circuit_load(on, off, 0.01)
+        measured = [*load.measurements, *checks.residual_measurements("rcd_x", before, after, 0.1)]
+        api = checks.switch_off_evidence(measured, 0.1, expect)
+        sim = checks.residual_drop(before, after, (on, off), 0.1, expect_drop_ma=expect).verdict
+        assert api == sim, (after_level, expect)
+    still_on = [*checks.circuit_load(on, on, 0.01).measurements, *measured]
+    still_on = [m for m in still_on if m["name"] != "current_after"] + [
+        {"name": "current_after", "value": 1.2}
+    ]
+    assert checks.switch_off_evidence(still_on, 0.1) == "unavailable"
+    assert checks.switch_off_evidence(load.measurements, 0.1) == "unavailable"  # no residual
+
+
 def test_residual_drop_needs_the_circuit_really_off() -> None:
     before = _window([3.0] * 600)
     after = _window([1.5] * 600)

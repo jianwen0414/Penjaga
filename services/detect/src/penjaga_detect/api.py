@@ -1,4 +1,4 @@
-"""``/detect/v1``: findings, layer consent, on-demand runs, guided checks and localisation.
+"""``/detect/v1``: findings, layer consent, on-demand runs and guided checks.
 
 Specified in docs/design/interfaces.md (M5).
 
@@ -41,9 +41,6 @@ from penjaga_contract.core import (
     Layer,
     LayerState,
     LayerUpdate,
-    LocaliseRequest,
-    LocaliseResponse,
-    ResidualDropCheck,
     RunRequest,
     RunResponse,
     TankLevelTrendCheck,
@@ -56,8 +53,7 @@ BEARER = HTTPBearer(auto_error=False)  # module level: FastAPI resolves annotati
 SSE_KEEPALIVE_S = 15.0
 
 CheckRequest = Annotated[
-    FlowStopCheck | TankLevelTrendCheck | CircuitLoadCheck | ResidualDropCheck,
-    Field(discriminator="kind"),
+    FlowStopCheck | TankLevelTrendCheck | CircuitLoadCheck, Field(discriminator="kind")
 ]
 
 
@@ -238,8 +234,3 @@ def _add_action_routes(app: FastAPI, service: DetectService, auth: list[Any]) ->
     @app.get(f"{PREFIX}/checks/{{check_id}}", dependencies=auth, response_model=Check)
     async def get_check(check_id: str) -> JSONResponse:
         return document(service.check(check_id), "Check")
-
-    @app.post(f"{PREFIX}/localise", dependencies=auth, response_model=LocaliseResponse)
-    async def post_localise(body: LocaliseRequest) -> JSONResponse:
-        request = body.model_dump(mode="json", by_alias=True)
-        return document(service.localise(request), "LocaliseResponse")

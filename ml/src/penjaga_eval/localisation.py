@@ -14,13 +14,14 @@ leakage (L2, E2) a detector found in a split:
    actions: no water use during a water check, the valve closed or the circuit switched off as
    asked) and measured exactly as the live service measures it (``penjaga_detect.checks``).
 4. **Update**: the localiser updates its belief from each measured verdict, using the flow
-   band of a flow check (D-031).
+   band of a flow check or the load band of a switch-off check (D-032, D-033).
 
 **Likelihood.** ``fit`` estimates P(verdict | the problem is or is not behind the action) on a
 validation split by doing every possible check once for every fault (on the first evening a day
 after the fault starts), so the counts do not depend on any policy. It is written to
 ``ml/params/l1_localiser.json`` or ``l2_localiser.json``, with the check plan; test runs only
-use it, and the live service loads the same files.
+use it. (The live service has no localisation endpoint in contract 1.3.0; the files are ready
+for when it does.)
 
 **Reported**, per detector and fault type, before and after the checks: the truth's rank (top-1,
 top-3, room of the top-1), the truth's probability, the perplexity (the number of equally likely
@@ -62,10 +63,10 @@ from penjaga_detect.localise import (
     earth_leakage_localiser,
     entropy_bits,
     evidence_verdict,
+    expected_drop,
     flow_band,
     load_band,
 )
-from penjaga_detect.localise_api import expected_drop
 from penjaga_eval import episodes, registry, sealing
 from penjaga_eval.replay import replay
 from penjaga_eval.scoring import LayerScore, load_truth, match_episode, result_for

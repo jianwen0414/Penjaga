@@ -204,6 +204,54 @@ def _ols_slope(x: npt.NDArray[np.float64], y: npt.NDArray[np.float64]) -> tuple[
     return slope, se
 
 
+def residual_measurements(
+    rccb_id: str, before: Window, after: Window, resolution: float
+) -> list[dict[str, Any]]:
+    """The residual (earth leakage) current through the RCCB protecting a circuit, in a
+    ``circuit_load`` check's windows; empty without readings.
+
+    Switching a circuit off at its MCB is a ``circuit_load`` check (contract 1.3.0): the circuit's
+    own current says it was off, and these measurements, added to the check's, say whether its
+    leakage went with it (``switch_off_evidence``)."""
+    if not (before.usable and after.usable):
+        return []
+    delta, se, _ = _change(before, after, resolution, RESIDUAL_BLOCK_S)
+    return [
+        {"name": "rccb", "value": rccb_id},
+        _m("residual_before", float(np.mean(before.values)), "mA"),
+        _m("residual_after", float(np.mean(after.values)), "mA"),
+        _m("residual_change", delta, "mA"),
+        *_se("residual_change_se", se, "mA"),
+    ]
+
+
+def switch_off_evidence(
+    measurements: list[dict[str, Any]], resolution: float, expect_drop_ma: float | None = None
+) -> str:
+    """What a circuit switched off at its MCB says about an earth leak on it, from a complete
+    ``circuit_load`` check's measurements: ``dropped``, ``reduced``, ``unchanged``, ``rose``, or
+    ``unavailable`` (no residual readings, or the circuit still drew current).
+
+    Every circuit leaks a little, so switching off a healthy one also lowers the residual
+    current: with ``expect_drop_ma`` (the rise the leakage finding saw), a fall of at least half
+    of it is ``dropped`` and a smaller significant fall ``reduced``."""
+    m = {x["name"]: x["value"] for x in measurements}
+    if "residual_change" not in m:
+        return "unavailable"
+    if float(m.get("current_after", 0.0)) >= CIRCUIT_OFF_BELOW_A:
+        return "unavailable"  # not switched off
+    delta = float(m["residual_change"])
+    se = float(m.get("residual_change_se", math.inf))
+    significant = abs(delta) > 2 * se and abs(delta) > resolution
+    if not significant:
+        return "unchanged"
+    if delta > 0:
+        return "rose"
+    if expect_drop_ma is not None and -delta < 0.5 * expect_drop_ma:
+        return "reduced"
+    return "dropped"
+
+
 def residual_drop(
     before: Window,
     after: Window,
@@ -212,41 +260,26 @@ def residual_drop(
     *,
     expect_drop_ma: float | None = None,
 ) -> Outcome:
-    """Did the RCCB's residual current fall after one circuit was switched off at its MCB?
+    """A switch-off check as the evaluation simulates it: what ``circuit_load`` (with
+    ``residual_measurements``) would report, read by ``switch_off_evidence``.
 
-    ``circuit`` is the circuit's current in the before and after windows. If it still draws
-    current after, the circuit was not off and the check cannot say anything; what it drew
-    before is reported (``circuit_before``), as the leakage of its running appliances falls with
-    it. Every circuit leaks a little, so switching off a healthy one also lowers the residual
-    current: with ``expect_drop_ma`` (the rise the finding saw), a fall of at least half of it is
-    ``dropped`` and a smaller significant fall ``reduced``."""
+    ``before``/``after`` are the RCCB's residual current, ``circuit`` the circuit's current in
+    the same windows. ``circuit_before`` (what the circuit drew before) is reported, as the
+    leakage of its running appliances falls with it."""
     circuit_before, circuit_after = circuit
     if not (before.usable and after.usable):
         return unavailable("too few residual current readings in the measurement windows")
+    load: list[dict[str, Any]] = []
+    if circuit_before is not None and circuit_before.usable:
+        load.append(_m("circuit_before", float(np.mean(circuit_before.values)), "A"))
     if circuit_after is not None and circuit_after.usable:
         drawn = float(np.mean(circuit_after.values))
         if drawn >= CIRCUIT_OFF_BELOW_A:
             return unavailable(f"the circuit still drew {drawn:.2f} A: it was not switched off")
-    delta, se, sign = _change(before, after, resolution, RESIDUAL_BLOCK_S)
-    verdict = {-1: "dropped", 0: "unchanged", 1: "rose"}[sign]
-    if verdict == "dropped" and expect_drop_ma is not None and -delta < 0.5 * expect_drop_ma:
-        verdict = "reduced"
-    load = (
-        [_m("circuit_before", float(np.mean(circuit_before.values)), "A")]
-        if circuit_before is not None and circuit_before.usable
-        else []
-    )
-    return Outcome(
-        "complete",
-        [
-            _m("residual_before", float(np.mean(before.values)), "mA"),
-            _m("residual_after", float(np.mean(after.values)), "mA"),
-            _m("residual_change", delta, "mA"),
-            *_se("residual_change_se", se, "mA"),
-            *load,
-        ],
-        verdict,
-    )
+        load.append(_m("current_after", drawn, "A"))
+    measured = residual_measurements("rccb", before, after, resolution)[1:]
+    verdict = switch_off_evidence(measured, resolution, expect_drop_ma)
+    return Outcome("complete", [*measured, *load], verdict)
 
 
 def tank_is_full(window: Window, full_pct: float = TANK_FULL_PCT) -> bool | None:

@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
 import pytest
 
 from penjaga_contract.core import Finding
@@ -270,100 +267,7 @@ def test_switch_off_checks_find_the_leaking_circuit() -> None:
         earth_leakage_localiser(INDEX, "rcd_nowhere")
 
 
-def test_localise_an_earth_leakage_finding_from_switch_off_checks() -> None:
-    from penjaga_detect.localise_api import LocaliserSetup, localise
-
-    tracker = FindingTracker(
-        HOUSE.house_id,
-        DetectorInfo("l2_leakage_baseline", "L2", "baseline", "1.0.0").source(),
-        HOUSE.zone,
-    )
-    circuits = direct_circuits(INDEX, "rcd_sockets")
-    share = 1 / len(circuits)
-    finding = tracker.observe(
-        Observation(
-            key="L2:earth_leakage_rising:rcd_sockets:baseline",
-            type="earth_leakage_rising",
-            severity="heads_up",
-            confidence=1.0,
-            evidence=[{"name": "rise_on_direct_circuits", "value": 1.2, "unit": "mA"}],
-            at_us=1_790_000_000 * US,
-            object_ids=["rcd_sockets"],
-            candidates=[
-                {"object_id": c, "p": round(share, 6), "basis": "behind_rccb"} for c in circuits
-            ],
-            candidates_other_p=round(1 - round(share, 6) * len(circuits), 6),
-        )
-    )
-    assert finding is not None
-
-    def done(i: int, circuit: str, verdict: str) -> dict[str, object]:
-        return {
-            "check_id": f"chk_{i:06d}",
-            "status": "complete",
-            "verdict": verdict,
-            "request": {"kind": "residual_drop", "rccb_id": "rcd_sockets", "circuit_id": circuit},
-            "measurements": [],
-        }
-
-    first = localise(finding, [], HOUSE, LocaliserSetup())
-    assert first["layer"] == "L2"
-    assert first["next_check"]["action"] == "switch_off_circuit"
-    assert first["next_check"]["rccb_id"] == "rcd_sockets"
-    assert first["next_check"]["expect_drop_ma"] == 1.2
-    assert first["next_check"]["window_s"] == 120.0
-    checks = [
-        done(1, "circ_sockets_living", "unchanged"),
-        done(2, "circ_sockets_kitchen", "dropped"),
-        {**done(3, "circ_sockets_bed2", "dropped"), "request": {"kind": "circuit_load"}},
-    ]
-    after = localise(finding, checks, HOUSE, LocaliserSetup())
-    assert after["candidates"][0]["object_id"] == "circ_sockets_kitchen"
-    assert [c["evidence"] for c in after["checks_used"]] == ["unchanged", "dropped", "ignored"]
-
-    # a band table answers when the check reports the circuit's load before switching off
-    flat = {"dropped": 0.2, "reduced": 0.2, "unchanged": 0.2, "rose": 0.2, "unavailable": 0.2}
-    sharp = {
-        "behind": {**dict.fromkeys(flat, 0.0), "dropped": 1.0},
-        "other": {**dict.fromkeys(flat, 0.25), "dropped": 0.0},
-    }
-    table = {
-        **Likelihood.default().table,
-        "residual_drop": {"behind": flat, "other": flat},
-        "residual_drop@unloaded": sharp,
-    }
-    setup = LocaliserSetup({"L1": Likelihood.default(), "L2": Likelihood(table)})
-    loaded = {
-        **done(4, "circ_sockets_kitchen", "dropped"),
-        "measurements": [{"name": "circuit_before", "value": 2.5, "unit": "A"}],
-    }
-    unloaded = {**loaded, "measurements": [{"name": "circuit_before", "value": 0.0, "unit": "A"}]}
-    blind = localise(finding, [loaded], HOUSE, setup)
-    assert blind["candidates"][0]["p"] == pytest.approx(share, abs=1e-3)  # the flat table
-    sure = localise(finding, [unloaded], HOUSE, setup)
-    assert sure["candidates"][0] == {"object_id": "circ_sockets_kitchen", "p": pytest.approx(1.0)}
-
-
 def test_load_bands() -> None:
     assert load_band(None) is None
     assert load_band(0.01) == "unloaded"
     assert load_band(0.4) == "loaded"
-
-
-def test_each_layer_sets_its_own_check_timings(tmp_path: Path) -> None:
-    from penjaga_detect.localise_api import LocaliserSetup
-
-    def write(name: str, plan: dict[str, float]) -> None:
-        doc = {"likelihood": Likelihood.default().table, "check_plan": plan}
-        (tmp_path / name).write_text(json.dumps(doc), encoding="utf-8")
-
-    write("l1_localiser.json", {"flow_window_s": 300.0, "residual_window_s": 900.0})
-    write("l2_localiser.json", {"flow_window_s": 60.0, "residual_window_s": 180.0})
-    l2 = json.loads((tmp_path / "l2_localiser.json").read_text(encoding="utf-8"))
-    l2["localise_params"] = {"max_checks": 6}
-    (tmp_path / "l2_localiser.json").write_text(json.dumps(l2), encoding="utf-8")
-    setup = LocaliserSetup.load(tmp_path)
-    assert setup.timing.flow_window_s == 300.0
-    assert setup.timing.residual_window_s == 180.0
-    assert setup.params["L1"].max_checks == 4  # the default
-    assert setup.params["L2"].max_checks == 6
