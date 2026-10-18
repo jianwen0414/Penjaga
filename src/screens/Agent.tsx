@@ -54,11 +54,25 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
   const threadEnd = useRef<HTMLDivElement>(null);
   const caseById = (id: string) => v.cases.find((c) => c.id === id);
   const say = (it: Omit<Item, 'key' | 't'> & { t?: number }) => setSession((s) => [...s, { key: `s${Date.now()}${Math.random()}`, t: houseNow(), ...it }]);
+  // What the 3D view is pointing at right now, so the owner can always put it away again.
+  const [shown, setShown] = useState<string | null>(null);
+  const focusOn = (f: FocusCommand) => {
+    const ok = !!engine?.focus(f);
+    setShown(ok ? f.label ?? 'This part' : null);
+    return ok;
+  };
+  const unfocus = (opts?: { reframe?: boolean }) => { engine?.clearFocus(opts); setShown(null); };
+  useEffect(() => {
+    if (!shown) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') unfocus(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [shown]); // eslint-disable-line react-hooks/exhaustive-deps
   // A part the 3D model doesn't have yet: clear the old highlight (it would look like the answer) and say so.
   const show = (f?: FocusCommand) => {
     if (!f || !engine) return;
-    if (!engine.focus(f)) {
-      engine.clearFocus();
+    if (!focusOn(f)) {
+      unfocus();
       say({ who: 'penjaga', tone: 'calm', text: `${f.label ? `${f.label}: ` : ''}that part isn't in the 3D model of your home yet, so I can't point to it.` });
     }
   };
@@ -277,7 +291,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
     ),
     frame: true,
     chips: [
-      { label: 'Show me my pipes and wiring', icon: 'layers', onClick: () => { engine?.clearFocus(); engine?.setLayer('water', true); engine?.setLayer('electrical', true); } },
+      { label: 'Show me my pipes and wiring', icon: 'layers', onClick: () => { unfocus(); engine?.setLayer('water', true); engine?.setLayer('electrical', true); } },
       { label: 'Can I drill somewhere?', icon: 'drill', onClick: () => { engine?.setDrill(true); say({ who: 'penjaga', tone: 'calm', kicker: 'Can I drill here?', text: 'Tap any wall in the house and I\'ll tell you what runs inside it.' }); } },
     ],
   };
@@ -321,15 +335,15 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
   useEffect(() => {
     if (!engine || !latest || lastShown.current === latestKey) return;
     lastShown.current = latestKey;
-    if (latest.focus) engine.focus(latest.focus);
-    else { engine.clearFocus(); openCases.forEach((c) => engine.flag(c.focus.object_ids.slice(0, 1), c.severity)); }
+    if (latest.focus) focusOn(latest.focus);
+    else { unfocus(); openCases.forEach((c) => engine.flag(c.focus.object_ids.slice(0, 1), c.severity)); }
   }, [engine, latestKey]); // eslint-disable-line react-hooks/exhaustive-deps
   // Follow the newest message, including a reply that replaces the "looking into it" line (same length).
   const lastKey = thread[thread.length - 1]?.key;
   useEffect(() => { threadEnd.current?.scrollIntoView({ behavior: engine?.reduceMotion ? 'auto' : 'smooth', block: 'end' }); }, [thread.length, lastKey, flow]);
   useEffect(() => { // notification deep link: bring that case forward
     const c = routeCase ? caseById(routeCase) : null;
-    if (c && engine) { engine.focus(c.focus); document.getElementById(`${c.id}:open`)?.scrollIntoView({ block: 'center' }); }
+    if (c && engine) { focusOn(c.focus); document.getElementById(`${c.id}:open`)?.scrollIntoView({ block: 'center' }); }
   }, [routeCase, engine]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setPanel(routePanel ?? null); }, [routePanel]);
   const flowCase = flow ? caseById(flow.caseId) : null;
@@ -370,7 +384,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
         <div className="stage-tools-r">
           <div className="seg" role="group" aria-label="Floors">
             {([['split', 'Both'], ['GF', 'Ground'], ['FF', 'First'], ['stack', 'Stacked']] as const).map(([id, l]) => (
-              <button key={id} className={stage.view === id ? 'on' : ''} onClick={() => { engine?.clearFocus({ reframe: false }); engine?.setView(id); }}>{l}</button>
+              <button key={id} className={stage.view === id ? 'on' : ''} onClick={() => { unfocus({ reframe: false }); engine?.setView(id); }}>{l}</button>
             ))}
           </div>
           <div className="seg" role="group" aria-label="What to show">
@@ -379,8 +393,14 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
             <button className={stage.xray ? 'on' : ''} onClick={() => engine?.setXray(!stage.xray)} aria-label="See through walls"><Icon name="eye" size={15} /><span className="lbl">See through</span></button>
           </div>
           <div className="seg"><button className={stage.drill ? 'on' : ''} onClick={() => engine?.setDrill(!stage.drill)} aria-label="Can I drill here?"><Icon name="drill" size={15} /><span className="lbl">Drill check</span></button></div>
-          <button className="round" onClick={() => { engine?.clearFocus(); }} aria-label="Whole house"><Icon name="house3d" size={17} /></button>
+          <button className="round" onClick={() => unfocus()} aria-label="Whole house"><Icon name="house3d" size={17} /></button>
         </div>
+        {shown && (
+          <div className="stage-shown" role="status">
+            <span className="stage-shown-what">Showing <b>{shown}</b></span>
+            <button onClick={() => unfocus()}><Icon name="close" size={14} /><span className="long">Back to whole house</span><span className="short">Whole house</span></button>
+          </div>
+        )}
       </div>
 
       <section className="agent-col" aria-label="Penjaga">
