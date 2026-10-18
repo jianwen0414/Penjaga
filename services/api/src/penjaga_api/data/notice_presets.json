@@ -1,0 +1,56 @@
+{
+  "version": "0.1.0",
+  "note": "Seed notices for the Lab, adapted from real past public notices onto this house's street. No phone numbers (a made-up number could be someone's real one); references use Penjaga's own format; no utility branding. 'adapted_from' is kept for the record and never shown.",
+  "label": "Adapted from",
+  "presets": {
+    "water_works": {
+      "type": "water_disruption",
+      "utility": "water",
+      "scheduled": true,
+      "title": "Scheduled water supply disruption for pipe connection works",
+      "reason": "Pipe diversion and new pipe connection works on the main supply line",
+      "areas": [
+        "Elmina Green (Seksyen U17), including Jalan Cassia U17/75",
+        "Parts of Seksyen U16 and U18"
+      ],
+      "district": "Petaling (Shah Alam)",
+      "starts_in_h": 2,
+      "duration_h": 14,
+      "recovery_after_h": 10,
+      "recovery_note": "Supply returns in stages: how long depends on each area's distance from the works and the water pressure.",
+      "advice": [
+        "Store enough water before the works start.",
+        "Use stored water sparingly until supply is fully back."
+      ],
+      "alternative_supply": "Water tankers are sent to priority premises such as hospitals and dialysis centres first.",
+      "contact": "Township management office, Elmina Green",
+      "reference": "EG-NTC-0001",
+      "adapted_from": "Air Selangor scheduled disruption for pipe diversion and connection works at Persiaran Selangor, Seksyen 15, Shah Alam (30 March 2021)",
+      "source_url": "https://www.bharian.com.my/amp/berita/nasional/2021/03/802269/bhplus"
+    },
+    "power_outage": {
+      "type": "planned_power_outage",
+      "utility": "electricity",
+      "scheduled": true,
+      "title": "Planned power outage for substation maintenance",
+      "reason": "Scheduled maintenance at the local substation",
+      "areas": [
+        "Elmina Green (Seksyen U17), Jalan Cassia U17/71 to U17/80"
+      ],
+      "district": "Petaling (Shah Alam)",
+      "starts_in_h": 3,
+      "duration_h": 5,
+      "recovery_after_h": 0,
+      "recovery_note": "Power returns when the work finishes; it may come back earlier.",
+      "advice": [
+        "Unplug sensitive appliances such as computers and the TV before it starts.",
+        "Expect a short surge when power returns; plug things back in afterwards."
+      ],
+      "alternative_supply": null,
+      "contact": "Township management office, Elmina Green",
+      "reference": "EG-NTC-0002",
+      "adapted_from": "Planned outage (hentitugas bernotis) notices from the electricity utility; the minimum notice period for planned outages could not be confirmed from current Energy Commission pages",
+      "source_url": null
+    }
+  }
+}

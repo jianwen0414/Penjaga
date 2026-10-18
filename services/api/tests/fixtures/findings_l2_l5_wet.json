@@ -1,0 +1,117 @@
+[
+ {
+  "candidates": [],
+  "candidates_other_p": 0.0,
+  "confidence": 1.0,
+  "confidence_kind": "deterministic_rule",
+  "evidence": [
+   {
+    "name": "device_kind",
+    "value": "rccb"
+   },
+   {
+    "name": "trips_in_24h",
+    "value": 1.0
+   }
+  ],
+  "first_seen": "2025-11-26T03:09:20+08:00",
+  "house_id": "elmina_g6_demo",
+  "id": "fnd_cd73dd0909c76efc40ab",
+  "key": "L2:protective_device_trip:rcd_main",
+  "last_seen": "2025-11-26T03:09:20+08:00",
+  "layer": "L2",
+  "object_ids": [
+   "rcd_main"
+  ],
+  "quantities": {},
+  "revision": 1,
+  "schema_version": "1.0",
+  "series_refs": [],
+  "severity": "act_soon",
+  "severity_floor": true,
+  "source": {
+   "detector": "l2_safety_floor",
+   "kind": "rule",
+   "version": "1.0.0"
+  },
+  "status": "active",
+  "type": "protective_device_trip",
+  "updated_at": "2025-11-26T03:09:20+08:00"
+ },
+ {
+  "candidates": [],
+  "candidates_other_p": 0.0,
+  "cleared_at": "2025-11-26T00:06:17+08:00",
+  "confidence": 1.0,
+  "confidence_kind": "deterministic_rule",
+  "evidence": [
+   {
+    "name": "device_kind",
+    "value": "rccb"
+   },
+   {
+    "name": "trips_in_24h",
+    "value": 1.0
+   }
+  ],
+  "first_seen": "2025-11-25T00:06:17+08:00",
+  "house_id": "elmina_g6_demo",
+  "id": "fnd_b1daf3c6773fa5625bf2",
+  "key": "L2:protective_device_trip:rcd_main",
+  "last_seen": "2025-11-25T00:06:17+08:00",
+  "layer": "L2",
+  "object_ids": [
+   "rcd_main"
+  ],
+  "quantities": {},
+  "revision": 2,
+  "schema_version": "1.0",
+  "series_refs": [],
+  "severity": "act_soon",
+  "severity_floor": true,
+  "source": {
+   "detector": "l2_safety_floor",
+   "kind": "rule",
+   "version": "1.0.0"
+  },
+  "status": "cleared",
+  "type": "protective_device_trip",
+  "updated_at": "2025-11-26T00:06:17+08:00"
+ },
+ {
+  "candidates": [],
+  "candidates_other_p": 0.0,
+  "cleared_at": "2025-11-24T14:33:36+08:00",
+  "confidence": 1.0,
+  "confidence_kind": "deterministic_rule",
+  "evidence": [
+   {
+    "name": "mains",
+    "value": "lost"
+   }
+  ],
+  "first_seen": "2025-11-24T10:59:08+08:00",
+  "house_id": "elmina_g6_demo",
+  "id": "fnd_b22b52d029f5a72b32a9",
+  "key": "L5:power_supply_interruption:db_main",
+  "last_seen": "2025-11-24T10:59:08+08:00",
+  "layer": "L5",
+  "object_ids": [
+   "db_main"
+  ],
+  "quantities": {},
+  "revision": 2,
+  "schema_version": "1.0",
+  "series_refs": [],
+  "severity": "heads_up",
+  "severity_floor": false,
+  "source": {
+   "detector": "l5_supply",
+   "kind": "rule",
+   "version": "1.0.0"
+  },
+  "status": "cleared",
+  "type": "power_supply_interruption",
+  "updated_at": "2025-11-24T14:33:36+08:00"
+ }
+]

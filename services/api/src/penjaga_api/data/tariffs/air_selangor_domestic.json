@@ -1,0 +1,25 @@
+{
+  "kind": "water",
+  "utility": "Pengurusan Air Selangor",
+  "tariff": "Domestic, individual meter (Selangor, Kuala Lumpur, Putrajaya)",
+  "currency": "MYR",
+  "note": "Progressive blocks: each block's rate applies only to the cubic metres within it (Air Selangor: RM3.51/m3 'for each cubic meter above 35m3'). The bill is never below the minimum charge. Sewerage (Indah Water) is billed separately and doesn't change with water use, so it isn't part of the marginal cost.",
+  "schedules": [
+    {
+      "effective_from": "2025-09-01",
+      "effective_to": null,
+      "blocks": [
+        {"up_to_m3": 20, "rm_per_m3": 0.65},
+        {"up_to_m3": 35, "rm_per_m3": 1.62},
+        {"up_to_m3": null, "rm_per_m3": 3.51}
+      ],
+      "minimum_rm_per_month": 6.50,
+      "confidence": "official",
+      "checked": "2026-10-17",
+      "sources": [
+        {"what": "block rates and minimum charge", "url": "https://content.airselangor.com/cmi-prod-blobstorageanon-001-sea/media/0t0p130p/mb-water-tariff-review-202508.pdf", "confidence": "official"},
+        {"what": "effective date 1 Sep 2025", "url": "https://ringgitplus.com/en/blog/personal-finance-news/selangor-water-tariff-increase-from-1-september-2025-heres-what-you-need-to-know.html", "confidence": "secondary"}
+      ]
+    }
+  ]
+}

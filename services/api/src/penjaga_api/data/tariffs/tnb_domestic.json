@@ -1,0 +1,93 @@
+{
+  "kind": "electricity",
+  "utility": "Tenaga Nasional Berhad (TNB)",
+  "tariff": "Domestic General, Peninsular Malaysia (RP4)",
+  "currency": "MYR",
+  "note": "Bill rules follow the Energy Commission's sample bill (ST infographic Q16): above the protection threshold AFA applies to all kWh; SST (8%) applies to the share of each kWh charge above the threshold plus the retail charge; KWTBB (1.6%) applies to energy + capacity + network less the EEI, excluding AFA and the retail charge. Each line is rounded to the sen.",
+  "schedules": [
+    {
+      "effective_from": "2025-07-01",
+      "effective_to": "2027-12-31",
+      "energy_sen_per_kwh": 27.03,
+      "energy_high_sen_per_kwh": 37.03,
+      "energy_high_above_kwh": 1500,
+      "capacity_sen_per_kwh": 4.55,
+      "network_sen_per_kwh": 12.85,
+      "retail_rm_per_month": 10.0,
+      "eei_bands": [
+        {"up_to_kwh": 200, "sen_per_kwh": 25.0},
+        {"up_to_kwh": 250, "sen_per_kwh": 24.5},
+        {"up_to_kwh": 300, "sen_per_kwh": 22.5},
+        {"up_to_kwh": 350, "sen_per_kwh": 21.0},
+        {"up_to_kwh": 400, "sen_per_kwh": 17.0},
+        {"up_to_kwh": 450, "sen_per_kwh": 14.5},
+        {"up_to_kwh": 500, "sen_per_kwh": 12.0},
+        {"up_to_kwh": 550, "sen_per_kwh": 10.5},
+        {"up_to_kwh": 600, "sen_per_kwh": 9.0},
+        {"up_to_kwh": 650, "sen_per_kwh": 7.5},
+        {"up_to_kwh": 700, "sen_per_kwh": 5.5},
+        {"up_to_kwh": 750, "sen_per_kwh": 4.5},
+        {"up_to_kwh": 800, "sen_per_kwh": 4.0},
+        {"up_to_kwh": 850, "sen_per_kwh": 2.5},
+        {"up_to_kwh": 900, "sen_per_kwh": 1.0},
+        {"up_to_kwh": 1000, "sen_per_kwh": 0.5}
+      ],
+      "sst_rate": 0.08,
+      "kwtbb_rate": 0.016,
+      "kwtbb_exempt_up_to_kwh": 300,
+      "confidence": "official",
+      "checked": "2026-10-17",
+      "sources": [
+        {"what": "energy, capacity, network, retail, AFA/SST/KWTBB bill rules", "url": "https://www.st.gov.my/sites/default/files/2026-10/Q16---AFA-dalam-Bil-Elektrik.pdf", "confidence": "official"},
+        {"what": "EEI bands", "url": "https://www.st.gov.my/sites/default/files/2026-10/Q19---Insentif-cekap-tenaga-%28Final%29.pdf", "confidence": "official"},
+        {"what": "RP4 period", "url": "https://www.st.gov.my/jadual-elektrik-baharu-lebih-236-juta-pengguna-domestik-semenanjung-nikmati-kadar-lebih-adil", "confidence": "official"},
+        {"what": "KWTBB exemption below 300 kWh", "url": "https://www.seda.gov.my/wp-content/uploads/2021/10/LP-KWTB-2020.pdf", "confidence": "official"},
+        {"what": "37.03 sen above 1,500 kWh", "url": "https://ringgitplus.com/en/blog/personal-finance-news/your-new-tnb-bill-explained-understanding-the-monthly-tariff-changes.html", "confidence": "secondary"}
+      ]
+    }
+  ],
+  "protection_thresholds": [
+    {
+      "effective_from": "2025-07-01",
+      "effective_to": null,
+      "kwh": 600,
+      "exempts": ["afa", "retail", "sst"],
+      "confidence": "official",
+      "checked": "2026-10-17",
+      "sources": [
+        {"what": "600 kWh and below exempt from AFA, retail charge and SST since 1 Jul 2025", "url": "https://www.st.gov.my/sites/default/files/2026-10/Q17---Perlindungan-Pengguna-Elektrik-2026.pdf", "confidence": "official"},
+        {"what": "TNB press release S.A. 2026/09/15_23", "url": "https://www.tnb.com.my/assets/press_releases/20260915_23_bi.pdf", "confidence": "official"}
+      ]
+    },
+    {
+      "effective_from": "2026-09-01",
+      "effective_to": "2026-12-31",
+      "kwh": 800,
+      "exempts": ["afa", "retail", "sst"],
+      "confidence": "official",
+      "checked": "2026-10-17",
+      "sources": [
+        {"what": "threshold raised to 800 kWh, 1 Sep to 31 Dec 2026", "url": "https://www.st.gov.my/sites/default/files/2026-10/Q17---Perlindungan-Pengguna-Elektrik-2026.pdf", "confidence": "official"},
+        {"what": "myTNB announcement, 18 Sep 2026", "url": "https://www.mytnb.com.my/announcements/entry/electricity-bill-protection-expanded", "confidence": "official"}
+      ]
+    }
+  ],
+  "afa": [
+    {"effective_from": "2025-07-01", "effective_to": "2025-07-31", "sen_per_kwh": 0.0, "confidence": "secondary", "checked": "2026-10-17", "sources": [{"url": "https://paultan.org/2025/11/25/tnb-st-afa-rate-dec-2025/", "confidence": "secondary"}]},
+    {"effective_from": "2025-08-01", "effective_to": "2025-08-31", "sen_per_kwh": -1.45, "confidence": "secondary", "checked": "2026-10-17", "sources": [{"url": "https://paultan.org/2025/11/25/tnb-st-afa-rate-dec-2025/", "confidence": "secondary"}]},
+    {"effective_from": "2025-09-01", "effective_to": "2025-09-30", "sen_per_kwh": -1.10, "confidence": "secondary", "checked": "2026-10-17", "sources": [{"url": "https://paultan.org/2025/11/25/tnb-st-afa-rate-dec-2025/", "confidence": "secondary"}]},
+    {"effective_from": "2025-10-01", "effective_to": "2025-10-31", "sen_per_kwh": -6.50, "confidence": "secondary", "checked": "2026-10-17", "sources": [{"url": "https://paultan.org/2025/09/29/tnb-afa-rate-oct-2025/", "confidence": "secondary"}]},
+    {"effective_from": "2025-11-01", "effective_to": "2025-11-30", "sen_per_kwh": -8.91, "confidence": "secondary", "checked": "2026-10-17", "sources": [{"url": "https://paultan.org/2025/11/07/tnb-st-afa-rate-nov-2025/", "confidence": "secondary"}]},
+    {"effective_from": "2025-12-01", "effective_to": "2025-12-31", "sen_per_kwh": -6.42, "confidence": "secondary", "checked": "2026-10-17", "sources": [{"url": "https://paultan.org/2025/11/25/tnb-st-afa-rate-dec-2025/", "confidence": "secondary"}]},
+    {"effective_from": "2026-01-01", "effective_to": "2026-01-31", "sen_per_kwh": -4.99, "confidence": "secondary", "checked": "2026-10-17", "sources": [{"url": "https://paultan.org/2025/12/26/tnb-sts-afa-rate-for-jan-2026-set-at-4-99-sen-kwh/", "confidence": "secondary"}]},
+    {"effective_from": "2026-02-01", "effective_to": "2026-02-28", "sen_per_kwh": -2.77, "confidence": "secondary", "checked": "2026-10-17", "sources": [{"url": "https://paultan.org/2026/02/03/tnb-sts-afa-rate-for-feb-2026-set-at-2-77-sen-kwh/", "confidence": "secondary"}]},
+    {"effective_from": "2026-03-01", "effective_to": "2026-03-31", "sen_per_kwh": -2.15, "confidence": "secondary", "checked": "2026-10-17", "sources": [{"url": "https://paultan.org/2026/03/06/tnb-st-afa-rate-for-march-2026-set-at-2-15-sen-kwh/", "confidence": "secondary"}]},
+    {"effective_from": "2026-04-01", "effective_to": "2026-04-30", "sen_per_kwh": -0.47, "confidence": "secondary", "checked": "2026-10-17", "sources": [{"url": "https://paultan.org/2026/03/31/tnb-st-afa-rate-for-april-2026-set-at-0-47-sen-kwh/", "confidence": "secondary"}]},
+    {"effective_from": "2026-05-01", "effective_to": "2026-05-31", "sen_per_kwh": 1.38, "confidence": "unconfirmed", "checked": "2026-10-17", "sources": [{"url": "https://paultan.org/2026/06/02/afa-rate-for-june-2026-set-at-2-59-sen-kwh/", "confidence": "unconfirmed", "what": "May figure quoted only in search summaries of monthly reports"}]},
+    {"effective_from": "2026-06-01", "effective_to": "2026-06-30", "sen_per_kwh": 2.59, "confidence": "secondary", "checked": "2026-10-17", "sources": [{"url": "https://paultan.org/2026/06/02/afa-rate-for-june-2026-set-at-2-59-sen-kwh/", "confidence": "secondary"}]},
+    {"effective_from": "2026-07-01", "effective_to": "2026-07-31", "sen_per_kwh": 3.59, "confidence": "secondary", "checked": "2026-10-17", "sources": [{"url": "https://paultan.org/2026/07/01/st-sets-tnb-afa-for-july-2026-set-at-3-59-sen-kwh/", "confidence": "secondary"}]},
+    {"effective_from": "2026-08-01", "effective_to": "2026-08-31", "sen_per_kwh": 3.80, "confidence": "secondary", "checked": "2026-10-17", "sources": [{"url": "https://paultan.org/2026/08/01/tnb-afa-rate-august-2026-set-at-3-80-sen-kwh/", "confidence": "secondary"}]},
+    {"effective_from": "2026-09-01", "effective_to": "2026-09-30", "sen_per_kwh": 3.67, "confidence": "official", "checked": "2026-10-17", "sources": [{"url": "https://www.tnb.com.my/assets/press_releases/20260915_23_bi.pdf", "confidence": "official"}]},
+    {"effective_from": "2026-10-01", "effective_to": "2026-10-31", "sen_per_kwh": 3.61, "confidence": "official", "checked": "2026-10-17", "sources": [{"url": "https://www.st.gov.my/sites/default/files/2026-10/Q16---AFA-dalam-Bil-Elektrik.pdf", "confidence": "official"}]}
+  ]
+}

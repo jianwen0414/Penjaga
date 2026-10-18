@@ -1,0 +1,68 @@
+{
+  "version": "0.2.0",
+  "status": "needs team review",
+  "checked": "2026-10-17",
+  "note": "One text per SafetyGuidanceKey in the house contract. Shown verbatim on urgent cases; the agent never writes its own safety text (PRD §18.4). '{circuit}' is replaced with the circuit's name. Lines marked \"Penjaga's own wording\" have no official source and must say so wherever sources are listed.",
+  "texts": {
+    "sg_burst_pipe": [
+      {
+        "text": "Turn off the water supply: close the main stop valve near your water meter.",
+        "source": "Air Selangor leak advice (identify the leak, turn off the water supply, call a plumber); the valve's location is Penjaga's own wording",
+        "url": "https://www.airselangor.com/support/topic/details/aa1a2e53-4692-4e76-a7d9-27f6122f4ff9?lang=en",
+        "confidence": "official"
+      },
+      {
+        "text": "Call a SPAN-registered plumber to find and repair the leak.",
+        "source": "Air Selangor leak advice and its SPAN-registered plumber recommendation",
+        "url": "https://www.airselangor.com/support/topic/details/aa1a2e53-4692-4e76-a7d9-27f6122f4ff9?lang=en",
+        "confidence": "official"
+      }
+    ],
+    "sg_circuit_overload": [
+      {
+        "text": "Unplug some of the appliances on {circuit} now, starting with high-power ones.",
+        "source": "Penjaga's own wording",
+        "url": null,
+        "confidence": "unconfirmed"
+      },
+      {
+        "text": "Don't plug too many appliances into one socket, and switch sockets off when they're not in use.",
+        "source": "Suruhanjaya Tenaga: avoid overloading sockets with too many or high-load appliances; switch off unused appliances (advisory, 24 Dec 2024)",
+        "url": "https://www.st.gov.my/st-seru-orang-ramai-utamakan-keselamatan-elektrik-dan-gas-di-musim-perayaan-1",
+        "confidence": "official"
+      },
+      {
+        "text": "Move a high-power appliance to a socket on a different circuit.",
+        "source": "Penjaga's own wording",
+        "url": null,
+        "confidence": "unconfirmed"
+      }
+    ],
+    "sg_repeated_trips": [
+      {
+        "text": "Don't keep resetting a breaker that trips again. Leave it off and unplug what is on that circuit.",
+        "source": "Electrical trade practice (no primary ST page covers repeated tripping)",
+        "url": null,
+        "confidence": "unconfirmed"
+      },
+      {
+        "text": "Contact an ST-registered electrical contractor, and check their CPIC card.",
+        "source": "Suruhanjaya Tenaga: registered electrical contractors and the Competent Person Identification Card",
+        "url": "https://www.st.gov.my/resources/competent-person-identification-card-cpic",
+        "confidence": "official"
+      },
+      {
+        "text": "Don't open the distribution board yourself.",
+        "source": "Penjaga's own wording",
+        "url": null,
+        "confidence": "unconfirmed"
+      },
+      {
+        "text": "Once it's fixed, test your safety switch (RCD) once a month by pressing its 'T' button.",
+        "source": "Suruhanjaya Tenaga: test the RCD with its 'T' button at least once a month (advisory, 24 Dec 2024)",
+        "url": "https://www.st.gov.my/st-seru-orang-ramai-utamakan-keselamatan-elektrik-dan-gas-di-musim-perayaan-1",
+        "confidence": "official"
+      }
+    ]
+  }
+}

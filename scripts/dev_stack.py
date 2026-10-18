@@ -1,10 +1,10 @@
-"""Run the whole data/ML backend locally for integration: M4, simulator, detection, evaluation.
+"""Run the whole backend locally: M4, simulator, detection, evaluation and the Core API.
 
     uv run python scripts/dev_stack.py                          # house time from today, 60x
     uv run python scripts/dev_stack.py --start 2026-10-01T00:00:00+08:00 --speed 600
     uv run python scripts/dev_stack.py --real                   # house time = wall time
 
-Starts the four services in dependency order and waits for each one's health check. Prints the
+Starts the five services in dependency order and waits for each one's health check. Prints the
 URLs and the dev token file (``var/dev-tokens.json``: one bearer token per role; never commit
 it), then keeps running until Ctrl+C, which stops them all. Logs go to ``var/dev-stack/``.
 
@@ -14,6 +14,10 @@ it), then keeps running until Ctrl+C, which stops them all. Logs go to ``var/dev
 | M2 simulator (Lab) | http://127.0.0.1:8702/sim/v1 | operator |
 | M5 detection | http://127.0.0.1:8703/detect/v1 | app, operator |
 | M11 evaluation (Lab) | http://127.0.0.1:8704/eval/v1 | operator |
+| Core API | http://127.0.0.1:8705/api/v1 | homeowner, management, operator |
+
+The Core API's homeowner and management tokens are in ``var/api-tokens.json`` (created on first
+run); its operator token is the operator token above.
 """
 
 from __future__ import annotations
@@ -34,7 +38,7 @@ ROOT = Path(__file__).resolve().parents[1]
 VAR = ROOT / "var"
 TOKENS = VAR / "dev-tokens.json"
 ZONE = ZoneInfo("Asia/Kuala_Lumpur")
-PORTS = {"stream": 8701, "sim": 8702, "detect": 8703, "eval": 8704}
+PORTS = {"stream": 8701, "sim": 8702, "detect": 8703, "eval": 8704, "api": 8705}
 
 
 def _healthy(url: str, proc: subprocess.Popen[bytes], log: Path, timeout_s: float = 90) -> None:
@@ -92,7 +96,7 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("--start needs a UTC offset, e.g. 2026-10-01T00:00:00+08:00")
         clock = ["--mode", "accelerated", "--start", start.isoformat(), "--speed", str(args.speed)]
     tokens = ["--dev-tokens", str(TOKENS)]
-    print("Penjaga data/ML stack:", flush=True)
+    print("Penjaga backend stack:", flush=True)
     with contextlib.ExitStack() as stack:
         stack.enter_context(_service(
             "stream",
@@ -117,6 +121,13 @@ def main(argv: list[str] | None = None) -> int:
             "eval",
             ["penjaga_eval.cli", "serve", "--port", str(PORTS["eval"]), *tokens],
             f"{url['eval']}/eval/v1/health",
+        ))  # fmt: skip
+        stack.enter_context(_service(
+            "api",
+            ["penjaga_api.cli", "serve", "--port", str(PORTS["api"]), "--stream-url",
+             url["stream"], "--detect-url", url["detect"], "--data-dir", str(VAR / "api"),
+             "--api-tokens", str(VAR / "api-tokens.json"), *tokens],
+            f"{url['api']}/api/v1/health",
         ))  # fmt: skip
         print(
             f"Tokens (one per role): {TOKENS.relative_to(ROOT)}. API docs: <url>/docs.", flush=True

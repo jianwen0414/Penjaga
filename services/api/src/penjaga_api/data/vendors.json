@@ -1,0 +1,199 @@
+{
+  "version": "0.1.0",
+  "illustrative": true,
+  "label": "Prices are typical Klang Valley ranges; always get a written quote.",
+  "licences": {
+    "plumber": "SPAN-registered plumber (IPA Type A1)",
+    "electrician": "ST-registered electrical contractor (check their CPIC card)",
+    "aircon_service": "Aircon servicing (no registration scheme for routine servicing)"
+  },
+  "jobs": {
+    "plumber_callout": {
+      "category": "plumber",
+      "label": "Call-out",
+      "range": "RM30–150, often waived with a job",
+      "confidence": "unconfirmed",
+      "sources": [
+        "plan research (vendor sites and marketplaces); re-check"
+      ]
+    },
+    "cistern_valve": {
+      "category": "plumber",
+      "label": "Cistern flush or fill valve",
+      "range": "RM100–250",
+      "confidence": "secondary",
+      "sources": [
+        "https://forum.lowyat.net/topic/5318425",
+        "plan research (vendor sites)"
+      ]
+    },
+    "basin_tap": {
+      "category": "plumber",
+      "label": "Basin tap replacement",
+      "range": "RM150–330",
+      "confidence": "secondary",
+      "sources": [
+        "https://www.recommend.my/blog/price-for-plumbing-services-in-malaysia/",
+        "plan research (vendor sites)"
+      ]
+    },
+    "leak_detection": {
+      "category": "plumber",
+      "label": "Concealed leak detection",
+      "range": "RM150–250",
+      "confidence": "unconfirmed",
+      "sources": [
+        "plan research (vendor sites); re-check"
+      ]
+    },
+    "pipe_in_wall": {
+      "category": "plumber",
+      "label": "Pipe repair inside a wall",
+      "range": "RM450–1,200+",
+      "confidence": "unconfirmed",
+      "sources": [
+        "plan research (vendor sites); re-check"
+      ]
+    },
+    "tank_float_valve": {
+      "category": "plumber",
+      "label": "Roof tank float valve",
+      "range": "RM100–250",
+      "confidence": "unconfirmed",
+      "sources": [
+        "assumed similar to a cistern valve; re-check"
+      ]
+    },
+    "trip_fault_finding": {
+      "category": "electrician",
+      "label": "Finding a tripping fault",
+      "range": "RM120–400",
+      "confidence": "unconfirmed",
+      "sources": [
+        "plan research (vendor sites); re-check"
+      ]
+    },
+    "rccb_mcb": {
+      "category": "electrician",
+      "label": "RCCB or MCB replacement",
+      "range": "RM150–300",
+      "confidence": "secondary",
+      "sources": [
+        "https://forum.lowyat.net/topic/5518507",
+        "plan research (vendor sites)"
+      ]
+    },
+    "socket": {
+      "category": "electrician",
+      "label": "Socket replacement",
+      "range": "RM60–200",
+      "confidence": "secondary",
+      "sources": [
+        "https://www.recommend.my/service/electrical"
+      ]
+    },
+    "insulation_test": {
+      "category": "electrician",
+      "label": "Inspection and insulation test",
+      "range": "RM120–400",
+      "confidence": "unconfirmed",
+      "sources": [
+        "plan research (vendor sites); re-check"
+      ]
+    },
+    "aircon_general": {
+      "category": "aircon_service",
+      "label": "General service (wall unit)",
+      "range": "about RM120",
+      "confidence": "secondary",
+      "sources": [
+        "https://www.recommend.my/service/air-con-maintenance-service"
+      ]
+    },
+    "aircon_chemical": {
+      "category": "aircon_service",
+      "label": "Chemical wash (wall unit)",
+      "range": "RM150–250",
+      "confidence": "secondary",
+      "sources": [
+        "https://www.recommend.my/service/air-con-maintenance-service",
+        "https://says.com/my/lifestyle/chemical-wash-aircon"
+      ]
+    },
+    "aircon_overhaul": {
+      "category": "aircon_service",
+      "label": "Chemical overhaul (wall unit)",
+      "range": "RM220–400",
+      "confidence": "secondary",
+      "sources": [
+        "https://www.recommend.my/service/air-con-maintenance-service",
+        "https://says.com/my/lifestyle/chemical-wash-aircon"
+      ]
+    }
+  },
+  "vendors": [
+    {
+      "id": "v_plumb_1",
+      "name": "Teratai Paip & Sanitari",
+      "category": "plumber",
+      "rating": 4.8,
+      "jobs": 212,
+      "area": "Elmina, Shah Alam",
+      "headline_job": "cistern_valve"
+    },
+    {
+      "id": "v_plumb_2",
+      "name": "Aliran Jernih Plumbing",
+      "category": "plumber",
+      "rating": 4.6,
+      "jobs": 340,
+      "area": "Shah Alam",
+      "headline_job": "leak_detection"
+    },
+    {
+      "id": "v_plumb_3",
+      "name": "Paip Cekap Services",
+      "category": "plumber",
+      "rating": 4.4,
+      "jobs": 98,
+      "area": "Subang, Shah Alam",
+      "headline_job": "basin_tap"
+    },
+    {
+      "id": "v_elec_1",
+      "name": "Arus Selamat Elektrik",
+      "category": "electrician",
+      "rating": 4.9,
+      "jobs": 156,
+      "area": "Elmina, Shah Alam",
+      "headline_job": "trip_fault_finding"
+    },
+    {
+      "id": "v_elec_2",
+      "name": "Voltaris Electrical Works",
+      "category": "electrician",
+      "rating": 4.7,
+      "jobs": 301,
+      "area": "Shah Alam",
+      "headline_job": "insulation_test"
+    },
+    {
+      "id": "v_air_1",
+      "name": "Bayu Dingin Aircond",
+      "category": "aircon_service",
+      "rating": 4.7,
+      "jobs": 520,
+      "area": "Elmina, Shah Alam",
+      "headline_job": "aircon_chemical"
+    },
+    {
+      "id": "v_air_2",
+      "name": "Sejuk Prima Servis",
+      "category": "aircon_service",
+      "rating": 4.5,
+      "jobs": 233,
+      "area": "Shah Alam, Setia Alam",
+      "headline_job": "aircon_general"
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+[
+ {
+  "candidates": [],
+  "candidates_other_p": 0.0,
+  "confidence": 1.0,
+  "confidence_kind": "deterministic_rule",
+  "evidence": [
+   {
+    "name": "duty_cycle",
+    "value": 0.432
+   },
+   {
+    "name": "baseline_duty_cycle",
+    "value": 0.382
+   },
+   {
+    "name": "running_power",
+    "unit": "W",
+    "value": 119.5
+   },
+   {
+    "name": "baseline_running_power",
+    "unit": "W",
+    "value": 117.7
+   },
+   {
+    "name": "mean_run",
+    "unit": "min",
+    "value": 18.2
+   },
+   {
+    "name": "baseline_mean_run",
+    "unit": "min",
+    "value": 18.5
+   },
+   {
+    "name": "cusum",
+    "value": 5.47
+   }
+  ],
+  "first_seen": "2025-08-06T00:00:00+08:00",
+  "house_id": "elmina_g6_demo",
+  "id": "fnd_77e59db9da27f9b5c3d3",
+  "key": "L3:fridge_duty_cycle_rise:app_fridge_kitchen",
+  "last_seen": "2025-08-06T00:00:00+08:00",
+  "layer": "L3",
+  "object_ids": [
+   "app_fridge_kitchen"
+  ],
+  "quantities": {
+   "extra_energy_kwh_per_day": {
+    "unit": "kWh/day",
+    "value": 0.011
+   }
+  },
+  "revision": 1,
+  "schema_version": "1.0",
+  "series_refs": [],
+  "severity": "heads_up",
+  "severity_floor": false,
+  "source": {
+   "detector": "l3_health_baseline",
+   "kind": "baseline",
+   "version": "1.0.0"
+  },
+  "status": "active",
+  "type": "fridge_duty_cycle_rise",
+  "updated_at": "2025-08-06T00:00:00+08:00"
+ }
+]

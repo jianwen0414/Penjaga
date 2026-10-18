@@ -1,0 +1,164 @@
+{
+  "version": "0.1.0",
+  "checked": "2026-10-18",
+  "note": "L4 maintenance rules. Each applies to house record elements (by ID or appliance kind) and counts from the element's install date (or the house handover date) and from the last time the owner marked it done. 'source' is the short attribution shown in the app; 'basis' is what the source says. Sources were re-checked on the date above; where the step plan's figure wasn't supported, the rule follows the source. Items of one rule due on the same day show as one reminder ('group_title').",
+  "rules": [
+    {
+      "id": "rcd_test",
+      "title": "Press the test button on the {name}",
+      "group_title": "Press the test button on each of your {count} safety switches (RCCBs)",
+      "applies_to": {
+        "element_ids": [
+          "rcd_main",
+          "rcd_sockets"
+        ]
+      },
+      "interval_days": 30,
+      "interval": "Every month",
+      "source": "Suruhanjaya Tenaga safety advisory (Dec 2024)",
+      "basis": "Suruhanjaya Tenaga: test the RCD with its 'T' button at least once a month",
+      "url": "https://www.st.gov.my/st-seru-orang-ramai-utamakan-keselamatan-elektrik-dan-gas-di-musim-perayaan-1",
+      "confidence": "official",
+      "conflict": null
+    },
+    {
+      "id": "water_heater_elcb_test",
+      "title": "Press the test button on the {name}",
+      "group_title": "Press the test button on each water heater's safety switch ({count})",
+      "applies_to": {
+        "element_ids": [
+          "rcd_wh_bath_master",
+          "rcd_wh_bath2",
+          "rcd_wh_bath3",
+          "rcd_wh_bath4"
+        ]
+      },
+      "interval_days": 30,
+      "interval": "Every month",
+      "source": "TEEAM guidance; not an Energy Commission rule",
+      "basis": "TEEAM (electrical and electronics association): check the water heater's earth leakage switch (ELCB/RCCB) once a month",
+      "url": "https://www.teeam.org.my/?p=2785",
+      "confidence": "secondary",
+      "conflict": "A news report on an Energy Commission statement advised testing the RCCB and the water heater at least four times a year."
+    },
+    {
+      "id": "aircon_filter",
+      "title": "Clean the filters of the {name}",
+      "group_title": "Clean the filters of all {count} aircons",
+      "applies_to": {
+        "appliance_kinds": [
+          "air_conditioner"
+        ]
+      },
+      "interval_days": 14,
+      "interval": "Every 2 weeks (at least monthly)",
+      "source": "Daikin Malaysia",
+      "basis": "Daikin Malaysia: clean the air filters every two weeks, or at least once a month",
+      "url": "https://www.daikin.com.my/tips/how-often-should-i-service-my-air-conditioner/",
+      "confidence": "official",
+      "conflict": null
+    },
+    {
+      "id": "aircon_service",
+      "title": "Have the {name} serviced",
+      "group_title": "Have all {count} aircons serviced",
+      "applies_to": {
+        "appliance_kinds": [
+          "air_conditioner"
+        ]
+      },
+      "interval_days": 365,
+      "interval": "At least once a year",
+      "source": "Daikin Malaysia",
+      "basis": "Daikin Malaysia: have an expert service the air conditioner at least once a year",
+      "url": "https://www.daikin.com.my/tips/how-often-should-i-service-my-air-conditioner/",
+      "confidence": "official",
+      "conflict": "Panasonic Malaysia is reported to suggest every 6 months, and heavy daily use may need service every 4 to 6 months (Recommend.my)."
+    },
+    {
+      "id": "lpg_hose",
+      "title": "Replace the {name}",
+      "group_title": null,
+      "applies_to": {
+        "appliance_kinds": [
+          "lpg_hose"
+        ]
+      },
+      "interval_days": 730,
+      "interval": "Every 2 years, or straight away if cracked or damaged",
+      "source": "Overseas supplier guidance; no Malaysian source found",
+      "basis": "Overseas LPG supplier guidance (Ramco, Trinidad): replace hoses every two years. No Malaysian regulator, Bomba or gas-supplier interval was found.",
+      "url": "https://www.guardian.co.tt/news/gas-leaks-linked-to-faulty-hoses-regulators-says-ramco-6.2.2425994.b8071f2c42",
+      "confidence": "unconfirmed",
+      "conflict": null
+    },
+    {
+      "id": "tank_inspect",
+      "title": "Look inside the roof water tank, and have it flushed if dirty",
+      "group_title": null,
+      "applies_to": {
+        "element_ids": [
+          "tank_roof_main"
+        ]
+      },
+      "interval_days": 182,
+      "interval": "Every 6 months",
+      "source": "Consumer group advice (FOMCA, 2008); no official rule found",
+      "basis": "FOMCA (consumer federation), 2008: inspect water tanks at least every six months and flush every six to eight months. Not an official rule; no current Malaysian requirement was found.",
+      "url": "https://www.hba.org.my/news/2008/01/water_tanks.htm",
+      "confidence": "unconfirmed",
+      "conflict": "CAP proposed a yearly inspection modelled on Singapore's rule (2008)."
+    },
+    {
+      "id": "ro_prefilters",
+      "title": "Replace the sediment and pre-carbon filters of the {name}",
+      "group_title": null,
+      "applies_to": {
+        "appliance_kinds": [
+          "water_purifier"
+        ]
+      },
+      "interval_days": 182,
+      "interval": "About every 6 to 8 months (varies by model)",
+      "source": "Coway Malaysia, Ferry RO model; check your unit",
+      "basis": "Coway Malaysia (Ferry RO model): sediment and pre-carbon filters every 6 to 8 months under standard use",
+      "url": "https://www.coway.com.my/products/water-purifier/ferry",
+      "confidence": "secondary",
+      "conflict": "Intervals differ by model and water quality; check the unit's own sticker or manual."
+    },
+    {
+      "id": "ro_membrane",
+      "title": "Replace the RO membrane of the {name}",
+      "group_title": null,
+      "applies_to": {
+        "appliance_kinds": [
+          "water_purifier"
+        ]
+      },
+      "interval_days": 730,
+      "interval": "About every 24 months (varies by model)",
+      "source": "Coway Malaysia, Ferry RO model; check your unit",
+      "basis": "Coway Malaysia (Ferry RO model): RO membrane every 24 months under standard use",
+      "url": "https://www.coway.com.my/products/water-purifier/ferry",
+      "confidence": "secondary",
+      "conflict": "A Korean Coway model lists 18 months for the membrane."
+    },
+    {
+      "id": "wiring_inspection",
+      "title": "Have the home's wiring inspected by an ST-registered electrical contractor",
+      "group_title": null,
+      "applies_to": {
+        "element_ids": [
+          "db_main"
+        ]
+      },
+      "interval_days": 3650,
+      "interval": "Every 10 to 15 years",
+      "source": "Bomba Director-General, via RTM",
+      "basis": "Bomba Director-General (Bernama, via RTM): have house wiring inspected every 10 to 15 years. The Energy Commission's 2017 plan for a mandatory 10-year inspection was announced but not confirmed as law.",
+      "url": "https://berita.rtm.gov.my/nasional/senarai-berita-nasional/senarai-artikel/60-kes-kebakaran-rumah-berpunca-daripada-peralatan-elektrik/",
+      "confidence": "secondary",
+      "conflict": null
+    }
+  ]
+}

@@ -10,6 +10,7 @@ dependencies = [
     "penjaga-sim",
     "penjaga-detect",
     "penjaga-eval",
+    "penjaga-api",
 ]
 
 [tool.uv]
@@ -22,6 +23,7 @@ members = [
     "services/sim",
     "services/detect",
     "ml",
+    "services/api",
 ]
 
 [tool.uv.sources]
@@ -30,6 +32,7 @@ penjaga-stream = { workspace = true }
 penjaga-sim = { workspace = true }
 penjaga-detect = { workspace = true }
 penjaga-eval = { workspace = true }
+penjaga-api = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -60,7 +63,14 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["penjaga_contract", "penjaga_sim", "penjaga_stream", "penjaga_detect", "penjaga_eval"]
+known-first-party = [
+    "penjaga_contract",
+    "penjaga_sim",
+    "penjaga_stream",
+    "penjaga_detect",
+    "penjaga_eval",
+    "penjaga_api",
+]
 
 [tool.ruff.lint.pylint]
 # Validators are checklists: one branch per rule reads better than artificial splitting.
@@ -105,6 +115,7 @@ testpaths = [
     "services/sim/tests",
     "services/detect/tests",
     "ml/tests",
+    "services/api/tests",
 ]
 filterwarnings = ["error"]
 
@@ -115,6 +126,7 @@ root_packages = [
     "penjaga_sim",
     "penjaga_detect",
     "penjaga_eval",
+    "penjaga_api",
 ]
 include_external_packages = false
 
@@ -154,5 +166,18 @@ forbidden_modules = [
     "penjaga_contract.generated.lab",
     "penjaga_sim",
     "penjaga_stream",
+    "penjaga_eval",
+]
+
+[[tool.importlinter.contracts]]
+name = "The Core API never sees ground truth or the data/ML internals (it talks to them over HTTP)"
+type = "forbidden"
+source_modules = ["penjaga_api"]
+forbidden_modules = [
+    "penjaga_contract.lab",
+    "penjaga_contract.generated.lab",
+    "penjaga_sim",
+    "penjaga_stream",
+    "penjaga_detect",
     "penjaga_eval",
 ]

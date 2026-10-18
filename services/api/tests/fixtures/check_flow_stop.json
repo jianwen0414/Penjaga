@@ -1,0 +1,36 @@
+{
+ "check_id": "chk_33fc925014b7",
+ "measurements": [
+  {
+   "name": "flow_before",
+   "unit": "L/min",
+   "value": 0.709
+  },
+  {
+   "name": "flow_after",
+   "threshold": 0.02,
+   "unit": "L/min",
+   "value": 0.944
+  },
+  {
+   "name": "flow_change",
+   "unit": "L/min",
+   "value": 0.235
+  },
+  {
+   "name": "flow_change_se",
+   "unit": "L/min",
+   "value": 0.0448
+  }
+ ],
+ "ready_at": "2026-10-25T15:38:51.600000+08:00",
+ "request": {
+  "expect_below_lpm": 0.02,
+  "kind": "flow_stop",
+  "settle_s": 120.0,
+  "since": "2026-10-25T15:26:51.600000+08:00",
+  "window_s": 600.0
+ },
+ "status": "complete",
+ "verdict": "unchanged"
+}

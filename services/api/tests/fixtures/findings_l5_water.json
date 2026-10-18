@@ -1,0 +1,53 @@
+[
+ {
+  "candidates": [],
+  "candidates_other_p": 0.0,
+  "confidence": 1.0,
+  "confidence_kind": "deterministic_rule",
+  "evidence": [
+   {
+    "name": "mean_inlet_pressure_10min",
+    "unit": "bar",
+    "value": 0.477
+   },
+   {
+    "name": "threshold",
+    "unit": "bar",
+    "value": 0.5
+   },
+   {
+    "name": "tank_water",
+    "unit": "L",
+    "value": 1344.0
+   }
+  ],
+  "first_seen": "2025-11-29T00:14:40+08:00",
+  "house_id": "elmina_g6_demo",
+  "id": "fnd_c06e54231fd7b0f6a722",
+  "key": "L5:water_supply_interruption:meter_water_main",
+  "last_seen": "2025-11-29T00:14:40+08:00",
+  "layer": "L5",
+  "object_ids": [
+   "meter_water_main"
+  ],
+  "quantities": {
+   "tank_water_l": {
+    "unit": "L",
+    "value": 1344.0
+   }
+  },
+  "revision": 1,
+  "schema_version": "1.0",
+  "series_refs": [],
+  "severity": "heads_up",
+  "severity_floor": false,
+  "source": {
+   "detector": "l5_supply",
+   "kind": "rule",
+   "version": "1.0.0"
+  },
+  "status": "active",
+  "type": "water_supply_interruption",
+  "updated_at": "2025-11-29T00:14:40+08:00"
+ }
+]

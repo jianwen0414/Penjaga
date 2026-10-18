@@ -1,0 +1,146 @@
+[
+ {
+  "candidates": [],
+  "candidates_other_p": 0.0,
+  "confidence": 1.0,
+  "confidence_kind": "deterministic_rule",
+  "evidence": [
+   {
+    "name": "device_kind",
+    "value": "mcb"
+   },
+   {
+    "name": "trips_in_24h",
+    "value": 2.0
+   }
+  ],
+  "first_seen": "2025-11-28T22:13:18+08:00",
+  "house_id": "elmina_g6_demo",
+  "id": "fnd_654fea0cebb716ecb54a",
+  "key": "L2:repeated_trips:mcb_sockets_bed4",
+  "last_seen": "2025-11-28T22:13:18+08:00",
+  "layer": "L2",
+  "object_ids": [
+   "mcb_sockets_bed4"
+  ],
+  "quantities": {},
+  "revision": 1,
+  "safety_guidance_key": "sg_repeated_trips",
+  "schema_version": "1.0",
+  "series_refs": [],
+  "severity": "urgent",
+  "severity_floor": true,
+  "source": {
+   "detector": "l2_safety_floor",
+   "kind": "rule",
+   "version": "1.0.0"
+  },
+  "status": "active",
+  "type": "repeated_trips",
+  "updated_at": "2025-11-28T22:13:18+08:00"
+ },
+ {
+  "candidates": [],
+  "candidates_other_p": 0.0,
+  "confidence": 1.0,
+  "confidence_kind": "deterministic_rule",
+  "evidence": [
+   {
+    "name": "device_kind",
+    "value": "mcb"
+   },
+   {
+    "name": "trips_in_24h",
+    "value": 1.0
+   }
+  ],
+  "first_seen": "2025-11-28T21:59:46+08:00",
+  "house_id": "elmina_g6_demo",
+  "id": "fnd_969165cffa544edc98dd",
+  "key": "L2:protective_device_trip:mcb_sockets_bed4",
+  "last_seen": "2025-11-28T21:59:46+08:00",
+  "layer": "L2",
+  "object_ids": [
+   "mcb_sockets_bed4"
+  ],
+  "quantities": {},
+  "revision": 1,
+  "schema_version": "1.0",
+  "series_refs": [],
+  "severity": "act_soon",
+  "severity_floor": true,
+  "source": {
+   "detector": "l2_safety_floor",
+   "kind": "rule",
+   "version": "1.0.0"
+  },
+  "status": "active",
+  "type": "protective_device_trip",
+  "updated_at": "2025-11-28T21:59:46+08:00"
+ },
+ {
+  "candidates": [],
+  "candidates_other_p": 0.0,
+  "confidence": 1.0,
+  "confidence_kind": "deterministic_rule",
+  "evidence": [
+   {
+    "name": "mean_current_15min",
+    "unit": "A",
+    "value": 1.96
+   },
+   {
+    "name": "mean_current_1min",
+    "unit": "A",
+    "value": 29.1
+   },
+   {
+    "name": "rated_current",
+    "unit": "A",
+    "value": 20.0
+   },
+   {
+    "name": "multiple_of_rating",
+    "value": 1.455
+   },
+   {
+    "name": "rule",
+    "value": "above_1_45_in"
+   }
+  ],
+  "first_seen": "2025-11-28T21:41:50+08:00",
+  "house_id": "elmina_g6_demo",
+  "id": "fnd_65eae2a3fa5d4cc51ed4",
+  "key": "L2:circuit_overload:circ_sockets_bed4",
+  "last_seen": "2025-11-28T21:41:50+08:00",
+  "layer": "L2",
+  "object_ids": [
+   "circ_sockets_bed4",
+   "mcb_sockets_bed4"
+  ],
+  "quantities": {},
+  "revision": 1,
+  "safety_guidance_key": "sg_circuit_overload",
+  "schema_version": "1.0",
+  "series_refs": [
+   {
+    "bucket_s": 60.0,
+    "stream": "elec.circuit.circ_sockets_bed4.current_a",
+    "window": {
+     "from": "2025-11-28T20:41:50+08:00",
+     "to": "2025-11-28T21:41:50.000001+08:00"
+    }
+   }
+  ],
+  "severity": "urgent",
+  "severity_floor": true,
+  "source": {
+   "detector": "l2_safety_floor",
+   "kind": "rule",
+   "version": "1.0.0"
+  },
+  "status": "active",
+  "type": "circuit_overload",
+  "updated_at": "2025-11-28T21:41:50+08:00"
+ }
+]
