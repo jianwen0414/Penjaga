@@ -230,9 +230,25 @@ export function markMaintenanceDone(itemId: string): void {
 
 /** Starts a guided check; the step's result arrives with the view once the meter has been watched. */
 export function runGuidedCheck(caseId: string, fixtureId: string): void {
+  const valve = view.cases.find((c) => c.id === caseId)?.guided?.steps.find((s) => s.fixture_id === fixtureId)?.valve_id;
   confirmed(caseId, 'check', { fixture_id: fixtureId }, 'checks')
+    .then(() => (valve ? closeValveInSimulator(valve) : undefined))
     .catch((err) => console.warn('[penjaga] check not started', err))
     .finally(loadSoon);
+}
+
+// Demo bridge (dev server only): there is no real owner to turn the valve, so when the owner confirms a check
+// the simulated house does it, through the Lab's operator route (POST /sim/v1/actions via the dev proxy). It lasts
+// longer than the check (2 min settle + 10 min watch, house time). The Core API itself never calls the simulator;
+// in a real home the owner closes the valve by hand.
+const VALVE_CLOSED_S = 20 * 60;
+async function closeValveInSimulator(valveId: string): Promise<void> {
+  const r = await fetch('/lab/sim/v1/actions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ close_valves: [valveId], duration_s: VALVE_CLOSED_S }),
+  });
+  if (!r.ok) console.warn('[penjaga] the simulator did not close the valve', r.status, await r.text());
 }
 
 // ---------------- "Ask Penjaga" (step 6) ----------------

@@ -39,6 +39,7 @@ export interface Action {
 export interface GuidedStep {
   fixture_id: string;
   fixture_label: string;
+  valve_id?: string; // the valve the owner closes (set by the Core API)
   instruction: string;
   result?: 'stopped' | 'continued';
   flow_before?: number;
