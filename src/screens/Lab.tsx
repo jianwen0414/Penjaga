@@ -108,10 +108,15 @@ function RealLab() {
     }
   }, []);
   useEffect(() => { void refresh(); const t = setInterval(() => void refresh(), 3000); return () => clearInterval(t); }, [refresh]);
+  // work may return a sentence to show instead of "done" (e.g. when there was nothing to do)
   const run = (label: string, work: () => Promise<unknown>) => () => {
     setNote(`${label}…`);
-    work().then(() => { setNote(`${label}: done`); void refresh(); }).catch((e) => setNote(`${label} failed: ${e instanceof Error ? e.message : e}`));
+    work().then((r) => { setNote(typeof r === 'string' ? r : `${label}: done`); void refresh(); }).catch((e) => setNote(`${label} failed: ${e instanceof Error ? e.message : e}`));
   };
+  const job = (trade: string, layer: 'L1' | 'L2' | 'L3') => run(`${trade} completes the job`, async () => {
+    const n = await lab.completeJobs(layer);
+    return n ? `${trade} completed ${n} job${n > 1 ? 's' : ''}. The case shows the visit as done.` : `No open ${trade.toLowerCase()} booking. Book one on the case in the homeowner app first.`;
+  });
   const liveOf = (type: string) => faults.find((f) => f.spec.fault_type === type);
   return (
     <div className="ops">
@@ -159,9 +164,9 @@ function RealLab() {
           <b>Vendor jobs</b>
           <div className="small muted">After the owner books a vendor in the app, finish the job here.</div>
           <div className="row" style={{ flexWrap: 'wrap' }}>
-            <button className="btn" onClick={run('Plumber completes the job', () => lab.completeJobs('L1'))}>Plumber completes job</button>
-            <button className="btn" onClick={run('Electrician completes the job', () => lab.completeJobs('L2'))}>Electrician completes job</button>
-            <button className="btn" onClick={run('Aircon service completes the job', () => lab.completeJobs('L3'))}>Aircon service completes job</button>
+            <button className="btn" onClick={job('Plumber', 'L1')}>Plumber completes job</button>
+            <button className="btn" onClick={job('Electrician', 'L2')}>Electrician completes job</button>
+            <button className="btn" onClick={job('Aircon service', 'L3')}>Aircon service completes job</button>
           </div>
         </div>
 
