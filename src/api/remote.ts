@@ -6,6 +6,7 @@
 // its own), and kept on screen while the backend is unreachable, with a notice saying so.
 import type { ChatMessage, Notice, Vendor, VendorCategory } from './types';
 import type { View } from '../standin/agent';
+import { toSpecFocus } from './spec-ids';
 
 const BASE = '/api/v1';
 const REFRESH_MS = 30_000;
@@ -61,7 +62,13 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
 function adapt(v: View): View {
   const t = v.home.today as unknown as Record<string, unknown>;
   const today = { ...v.home.today, water_typical_l: Number(t.water_typical_l ?? 0), elec_typical_kwh: Number(t.elec_typical_kwh ?? 0) };
-  return { ...v, home: { ...v.home, today } };
+  // 3D focus: the house record's IDs become the 3D model's (src/api/spec-ids.ts).
+  const cases = v.cases.map((c) => ({
+    ...c,
+    focus: toSpecFocus(c.focus),
+    actions: c.actions.map((a) => (a.focus ? { ...a, focus: toSpecFocus(a.focus) } : a)),
+  }));
+  return { ...v, cases, home: { ...v.home, today } };
 }
 
 async function load(): Promise<void> {
@@ -227,7 +234,8 @@ export async function ask(text: string, ctx: { caseId?: string } = {}): Promise<
     if (!data) return fallback("I couldn't answer that just now. Try again in a moment.");
     const reply = JSON.parse(data) as { conversation_id: string; message: ChatMessage };
     conversationId = reply.conversation_id;
-    return reply.message;
+    const chips = reply.message.chips?.map((c) => (c.focus ? { ...c, focus: toSpecFocus(c.focus) } : c));
+    return { ...reply.message, chips };
   } catch {
     return fallback("I can't reach your home's service right now. Your cases are still shown; try again in a moment.");
   }
