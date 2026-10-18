@@ -16,7 +16,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field, ValidationError
 
-from penjaga_api.agent.guardrails import check_text
+from penjaga_api.agent.guardrails import check_text, plain
 from penjaga_api.agent.openrouter import LLM, LLMUnavailableError
 from penjaga_api.agent.tools import case_facts
 from penjaga_contract.house import HouseIndex
@@ -169,12 +169,12 @@ async def explain(
 def merge(case: dict[str, Any], explained: dict[str, Any]) -> dict[str, Any]:
     """The rendered case with an explanation in place of the template's wording."""
     out = dict(case)
-    out["summary"] = f"{explained['summary']} {explained['watching']}".strip()
-    out["confidence_note"] = explained["confidence_note"]
+    out["summary"] = plain(f"{explained['summary']} {explained['watching']}")
+    out["confidence_note"] = plain(explained["confidence_note"])
     out["explanation"] = {
         "source": "ai",
         "model": explained.get("model"),
-        "what_to_do_now": explained["what_to_do_now"],
-        "watching": explained["watching"],
+        "what_to_do_now": [plain(s) for s in explained["what_to_do_now"]],
+        "watching": plain(explained["watching"]),
     }
     return out

@@ -12,7 +12,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from penjaga_api.agent.guardrails import check_text
+from penjaga_api.agent.guardrails import check_text, plain
 from penjaga_api.agent.openrouter import LLMUnavailableError
 from penjaga_api.api import create_app
 from penjaga_api.service import CONSENT_TEXTS, ApiService, AppLayer, Role
@@ -426,3 +426,23 @@ def test_a_reply_that_only_points_at_buttons_is_rewritten(make: Any) -> None:
     _, done = h.chat("What's wrong?")
     assert done["message"]["text"].startswith("Water is flowing nonstop")
     assert "only points at buttons" in llm.calls[1]["messages"][-1]["content"]
+
+
+def test_a_repeated_tool_call_gives_each_button_once(make: Any) -> None:
+    show = call(
+        "c1", "focus_3d", object_ids=["valve_main_stop"], layer="water", label="the stop valve"
+    )
+    again = {**show, "id": "c2"}
+    answer = reply("It is by the meter at the front.")
+    llm = FakeLLM([reply(None, show), reply(None, again), answer])
+    h = make(llm)
+    h.follow()
+    _, done = h.chat("Where is the stop valve?")
+    assert [c["label"] for c in done["message"]["chips"]] == ["Show me: the stop valve"]
+
+
+def test_ai_text_drops_em_dashes_but_keeps_ranges() -> None:
+    em = "\u2014"
+    got = plain(f"About RM73 a month {em} 696 litres a day.")
+    assert got == "About RM73 a month, 696 litres a day."
+    assert plain("Typically RM150\u2013250.") == "Typically RM150\u2013250."

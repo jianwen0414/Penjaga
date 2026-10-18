@@ -47,6 +47,14 @@ class Check:
         return not self.problems
 
 
+EM_DASH = re.compile(r"\s*\u2014\s*")
+
+
+def plain(text: str) -> str:
+    """AI text as Penjaga writes it: an em dash becomes a comma (ranges keep their en dash)."""
+    return EM_DASH.sub(", ", text).strip()
+
+
 def numbers_in(text: str) -> list[tuple[float, int]]:
     """(value, decimal places) of every number written in ``text``."""
     out = []
