@@ -147,6 +147,7 @@ def _booking(extras: CaseExtras, now: str) -> dict[str, Any] | None:
     else:
         status = "requested"
     return {
+        "id": b["id"],
         "vendor_id": b["vendor_id"],
         "vendor_name": b["vendor_name"],
         "slot": b["slot"],
