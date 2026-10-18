@@ -23,6 +23,7 @@ from typing import Annotated, Any
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from pydantic import BaseModel, ConfigDict, Field
 
 from penjaga_contract import schema_registry
 from penjaga_contract.core import ClockMode
@@ -72,6 +73,25 @@ def document(
         if problems:
             raise ContractViolationError(f"{definition or schema}: {'; '.join(problems)}")
     return JSONResponse(doc, status_code=code)
+
+
+class ActionRequest(BaseModel):
+    """POST /sim/v1/actions (not in the lab contract yet; a candidate for sim_api.schema.json)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    close_valves: list[str] = Field(default_factory=list, max_length=12)
+    switch_off_circuits: list[str] = Field(default_factory=list, max_length=24)
+    hold_water_use: bool = True
+    duration_s: float = Field(gt=0, le=86400)
+
+
+class ActionApplied(BaseModel):
+    start: str
+    end: str
+    close_valves: list[str]
+    switch_off_circuits: list[str]
+    hold_water_use: bool
 
 
 def create_app(service: SimService, *, operator_token: str, autostart: bool = True) -> FastAPI:
@@ -163,6 +183,19 @@ def create_app(service: SimService, *, operator_token: str, autostart: bool = Tr
     @app.delete(f"{PREFIX}/faults/{{fault_id}}", dependencies=auth, response_model=FaultView)
     async def delete_fault(fault_id: str) -> JSONResponse:
         return view(await service.clear(fault_id))
+
+    @app.post(f"{PREFIX}/actions", dependencies=auth, status_code=201, response_model=ActionApplied)
+    async def post_action(body: ActionRequest) -> ActionApplied:
+        """A household action during a live guided check: close valves (and hold water use) or
+        switch circuits off, from now for ``duration_s``. The Lab sends it when the owner
+        confirms a check, so the simulated house does what the owner was asked to do."""
+        applied = await service.act(
+            close_valves=tuple(body.close_valves),
+            switch_off_circuits=tuple(body.switch_off_circuits),
+            hold_water_use=body.hold_water_use,
+            duration_s=body.duration_s,
+        )
+        return ActionApplied(**applied)
 
     @app.post(
         f"{PREFIX}/anomalies", dependencies=auth, status_code=201, response_model=AnomalyCreated

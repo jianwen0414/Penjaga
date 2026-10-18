@@ -210,8 +210,40 @@ def test_truth_only_covers_published_time(h: Harness, location: Any) -> None:
 
 def test_openapi_documents_the_control_plane(h: Harness) -> None:
     paths = h.client.get("/sim/v1/openapi.json").json()["paths"]
-    for path in ("/sim/v1/faults", "/sim/v1/faults/random", "/sim/v1/world/reset", "/sim/v1/truth"):
+    for path in (
+        "/sim/v1/faults", "/sim/v1/faults/random", "/sim/v1/world/reset", "/sim/v1/truth",
+        "/sim/v1/actions",
+    ):  # fmt: skip
         assert path in paths
+
+
+# ---------------------------------------------------------------------------- household actions
+
+
+def test_a_live_check_can_close_a_valve(h: Harness) -> None:
+    h.step()
+    r = h.post("/actions", {"close_valves": ["valve_bath2_wc_angle"], "duration_s": 900})
+    assert r.status_code == 201, r.text
+    doc = r.json()
+    assert doc["close_valves"] == ["valve_bath2_wc_angle"]
+    assert doc["hold_water_use"] is True
+    start, end = datetime.fromisoformat(doc["start"]), datetime.fromisoformat(doc["end"])
+    assert (end - start).total_seconds() == 900
+    world = h.service.require_world()
+    assert world.published_until_us < round(
+        start.timestamp() * 1_000_000
+    )  # only the future changes
+
+
+def test_actions_refuse_valves_that_cannot_be_closed(h: Harness) -> None:
+    h.step()
+    unknown = h.post("/actions", {"close_valves": ["valve_nowhere"], "duration_s": 600})
+    assert unknown.status_code == 422
+    float_valve = h.post("/actions", {"close_valves": ["valve_roof_tank_float"], "duration_s": 600})
+    assert float_valve.status_code == 422
+    assert "float valve" in float_valve.text
+    no_time = h.post("/actions", {"close_valves": ["valve_bath2_wc_angle"], "duration_s": 0})
+    assert no_time.status_code == 422
 
 
 # ---------------------------------------------------------------------------- scenario presets

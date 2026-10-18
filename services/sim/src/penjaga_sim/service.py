@@ -38,6 +38,7 @@ from penjaga_contract.core import ClockMode, ClockState, ResetCommand
 from penjaga_contract.lab import AnomalySpec, FaultSpec
 from penjaga_contract.validate import load_context
 from penjaga_sim import scenarios
+from penjaga_sim.actions import CheckAction
 from penjaga_sim.calibration import load_calibration
 from penjaga_sim.export import SeqCounters, ingest_messages
 from penjaga_sim.faults import ActiveFault, random_spec, spec_document
@@ -222,6 +223,40 @@ class SimService:
             fault = world.inject(spec, now_us=self._now_us(world))
             self._write_truth()
             return fault
+
+    async def act(
+        self,
+        *,
+        close_valves: tuple[str, ...],
+        switch_off_circuits: tuple[str, ...],
+        hold_water_use: bool,
+        duration_s: float,
+    ) -> dict[str, Any]:
+        """A household action during a live guided check (the owner closes a valve or switches a
+        circuit off), from the earliest unpublished second for ``duration_s``. The same
+        ``World.act`` the evaluation harness uses; validated there (known, hand-operable valves)."""
+        async with self.lock:
+            world = self.require_world()
+            start = self._now_us(world)
+            action = CheckAction(
+                start_us=start,
+                end_us=start + round(duration_s * US),
+                close_valves=close_valves,
+                hold_water_use=hold_water_use,
+                switch_off_circuits=switch_off_circuits,
+            )
+            world.act(action)
+
+            def iso(us: int) -> str:
+                return datetime.fromtimestamp(us / US, tz=world.zone).isoformat()
+
+            return {
+                "start": iso(action.start_us),
+                "end": iso(action.end_us),
+                "close_valves": list(close_valves),
+                "switch_off_circuits": list(switch_off_circuits),
+                "hold_water_use": hold_water_use,
+            }
 
     async def inject_random(self, fault_type: str, start: datetime | None) -> ActiveFault:
         """'Surprise me': a plausible fault of this type, drawn reproducibly per episode."""
