@@ -262,6 +262,7 @@ def test_a_guided_check_runs_on_live_readings_and_updates_the_case(h: Harness) -
     case = h.case()
     steps = case["guided"]["steps"]
     assert steps[0]["fixture_label"] == "Bathroom 4 toilet cistern"  # ground floor first
+    assert steps[0]["valve_id"] == "valve_bath4_wc_angle"  # the valve the owner closes
     assert "WC angle valve" in steps[0]["instruction"]
 
     first = steps[0]["fixture_id"]
