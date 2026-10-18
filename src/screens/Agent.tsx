@@ -175,7 +175,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
       if (e.text === 'Sent to management') { items.push({ key: `${c.id}:${e.t}:${i}:you`, t: e.t, who: 'you', text: 'Send this to management.' }); items.push({ key: `${c.id}:${e.t}:${i}`, t: e.t + 1, who: 'penjaga', tone: 'calm', text: "Sent. I'll show you their reply here." }); continue; }
     }
     if (c.status === 'resolved') {
-      items.push({ key: `${c.id}:resolved`, t: c.resolved_at ?? houseNow(), who: 'penjaga', tone: 'ok', kicker: 'Fixed', text: <><b className="a-lead">{c.title}.</b> {c.layer === 'L1' ? 'Your water meter is still again at night. ' : c.layer === 'L2' ? 'Earth leakage is back to normal. ' : ''}{c.outcome}. I've added it to your Home Passport.</> });
+      items.push({ key: `${c.id}:resolved`, t: c.resolved_at ?? houseNow(), who: 'penjaga', tone: 'ok', kicker: 'Fixed', text: <><b className="a-lead">{c.title}.</b> {c.layer === 'L1' ? 'Your water meter is still again at night. ' : c.layer === 'L2' && /leakage/i.test(c.title) ? 'Earth leakage is back to normal. ' : ''}{c.outcome}. I've added it to your Home Passport.</> });
     }
     if (open[`ev:${c.id}`]) {
       items.push({ key: `${c.id}:evidence`, t: houseNow() + 1, who: 'penjaga', tone: 'calm', kicker: 'Why I think so', text: c.evidence.explanation, card: <div className="a-card"><div className="label" style={{ marginBottom: 6 }}>{c.evidence.title}</div><Chart s={c.evidence.series} title={c.evidence.title} height={150} /><div className="a-stats">{c.evidence.stats.map((s) => <div key={s.label}><span className="tiny muted">{s.label}</span><b>{s.value}</b></div>)}</div></div> });
