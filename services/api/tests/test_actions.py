@@ -220,6 +220,7 @@ def test_booking_an_illustrative_vendor_end_to_end(h: Harness) -> None:
     assert r.status_code == 201, r.text
     booked = h.case()
     assert booked["booking"]["status"] == "requested"
+    assert booked["booking"]["id"] == r.json()["id"]  # the Lab completes jobs by it
     assert booked["status"] == "action_pending"
     assert all(a["kind"] != "book_vendor" for a in booked["actions"])
     assert any(t.startswith(f"Booked {vendor['name']} for ") for t in texts(booked))
