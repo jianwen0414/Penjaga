@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import spec from '../../house.spec.json';
-import { useView, api, useLive } from '../api/client';
+import { useView, api, useLive, houseNow } from '../api/client';
 import { ViewerSlot, useEngine, type Engine } from '../app/engine';
 import { Icon, Chart, Sheet, SEV_LABEL, fmtDay, fmtTime } from '../components/ui';
 import type { Case, ChatMessage, FocusCommand, Severity, Vendor } from '../api/types';
@@ -53,7 +53,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
   const [text, setText] = useState('');
   const threadEnd = useRef<HTMLDivElement>(null);
   const caseById = (id: string) => v.cases.find((c) => c.id === id);
-  const say = (it: Omit<Item, 'key' | 't'> & { t?: number }) => setSession((s) => [...s, { key: `s${Date.now()}${Math.random()}`, t: Date.now(), ...it }]);
+  const say = (it: Omit<Item, 'key' | 't'> & { t?: number }) => setSession((s) => [...s, { key: `s${Date.now()}${Math.random()}`, t: houseNow(), ...it }]);
   const show = (f?: FocusCommand) => { if (f && engine) engine.focus(f); };
 
   // ---------- the house talking back: taps and "Can I drill here?" ----------
@@ -174,10 +174,10 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
       if (e.text === 'Sent to management') { items.push({ key: `${c.id}:${e.t}:you`, t: e.t, who: 'you', text: 'Send this to management.' }); items.push({ key: `${c.id}:${e.t}`, t: e.t + 1, who: 'penjaga', tone: 'calm', text: "Sent. I'll show you their reply here." }); continue; }
     }
     if (c.status === 'resolved') {
-      items.push({ key: `${c.id}:resolved`, t: c.resolved_at ?? Date.now(), who: 'penjaga', tone: 'ok', kicker: 'Fixed', text: <><b className="a-lead">{c.title}.</b> {c.layer === 'L1' ? 'Your water meter is still again at night. ' : 'Earth leakage is back to normal. '}{c.outcome}. I've added it to your Home Passport.</> });
+      items.push({ key: `${c.id}:resolved`, t: c.resolved_at ?? houseNow(), who: 'penjaga', tone: 'ok', kicker: 'Fixed', text: <><b className="a-lead">{c.title}.</b> {c.layer === 'L1' ? 'Your water meter is still again at night. ' : 'Earth leakage is back to normal. '}{c.outcome}. I've added it to your Home Passport.</> });
     }
     if (open[`ev:${c.id}`]) {
-      items.push({ key: `${c.id}:evidence`, t: Date.now() + 1, who: 'penjaga', tone: 'calm', kicker: 'Why I think so', text: c.evidence.explanation, card: <div className="a-card"><div className="label" style={{ marginBottom: 6 }}>{c.evidence.title}</div><Chart s={c.evidence.series} title={c.evidence.title} height={150} /><div className="a-stats">{c.evidence.stats.map((s) => <div key={s.label}><span className="tiny muted">{s.label}</span><b>{s.value}</b></div>)}</div></div> });
+      items.push({ key: `${c.id}:evidence`, t: houseNow() + 1, who: 'penjaga', tone: 'calm', kicker: 'Why I think so', text: c.evidence.explanation, card: <div className="a-card"><div className="label" style={{ marginBottom: 6 }}>{c.evidence.title}</div><Chart s={c.evidence.series} title={c.evidence.title} height={150} /><div className="a-stats">{c.evidence.stats.map((s) => <div key={s.label}><span className="tiny muted">{s.label}</span><b>{s.value}</b></div>)}</div></div> });
     }
     const last = [...items].reverse().find((i) => i.who === 'penjaga');
     if (last) last.chips = caseChips(c);
@@ -195,7 +195,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
       if (!step) return [];
       const first = !c.guided.steps.some((s) => s.result);
       return [{
-        key: `flow:check:${step.fixture_id}`, t: Date.now() + 5, who: 'penjaga', tone: 'calm',
+        key: `flow:check:${step.fixture_id}`, t: houseNow() + 5, who: 'penjaga', tone: 'calm',
         kicker: 'Finding it together',
         text: <>{first ? "Let's find it together. I'll watch the water meter while you close one toilet valve at a time. When the flow stops, we've found it. " : ''}<b>{first ? 'Start downstairs:' : 'Next:'}</b> close the small valve on the pipe under the <b>{step.fixture_label.toLowerCase()}</b> (clockwise until it stops).</>,
         card: <CheckMeter key={step.fixture_id} onDone={() => api.runGuidedCheck(c.id, step.fixture_id)} />,
@@ -206,7 +206,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
     if (flow.type === 'book') {
       const cat = c.actions.find((a) => a.kind === 'book_vendor')?.vendor_category ?? 'plumber';
       const out: Item[] = [{
-        key: 'flow:book:vendors', t: Date.now() + 5, who: 'penjaga', tone: 'calm', kicker: cat === 'plumber' ? 'Plumbers near you' : 'Licensed electricians near you',
+        key: 'flow:book:vendors', t: houseNow() + 5, who: 'penjaga', tone: 'calm', kicker: cat === 'plumber' ? 'Plumbers near you' : 'Licensed electricians near you',
         text: `These are vetted and nearby (illustrative vendors for this prototype). Who would you like?`,
         card: (
           <div className="a-options">
@@ -220,16 +220,16 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
         chips: [{ label: 'Not now', onClick: () => setFlow(null) }],
       }];
       if (flow.vendor) {
-        out.push({ key: 'flow:book:you1', t: Date.now() + 6, who: 'you', text: flow.vendor.name });
+        out.push({ key: 'flow:book:you1', t: houseNow() + 6, who: 'you', text: flow.vendor.name });
         out.push({
-          key: 'flow:book:slot', t: Date.now() + 7, who: 'penjaga', tone: 'calm', text: 'When suits you?',
+          key: 'flow:book:slot', t: houseNow() + 7, who: 'penjaga', tone: 'calm', text: 'When suits you?',
           chips: flow.vendor.next_slots.map((s) => ({ label: `${fmtDay(s)} · ${fmtTime(s)}`, primary: flow.slot === s, onClick: () => setFlow({ ...flow, slot: s }) })),
         });
       }
       if (flow.vendor && flow.slot) {
-        out.push({ key: 'flow:book:you2', t: Date.now() + 8, who: 'you', text: `${fmtDay(flow.slot)}, ${fmtTime(flow.slot)}` });
+        out.push({ key: 'flow:book:you2', t: houseNow() + 8, who: 'you', text: `${fmtDay(flow.slot)}, ${fmtTime(flow.slot)}` });
         out.push({
-          key: 'flow:book:confirm', t: Date.now() + 9, who: 'penjaga', tone: 'calm', text: `Before I book ${flow.vendor.name}, here's exactly what I'll share with them:`,
+          key: 'flow:book:confirm', t: houseNow() + 9, who: 'penjaga', tone: 'calm', text: `Before I book ${flow.vendor.name}, here's exactly what I'll share with them:`,
           card: <div className="a-card small"><ul style={{ margin: 0, paddingLeft: 18 }}><li>The problem and where it is ({c.location})</li><li>A picture of that spot in your home</li><li>Your name and phone number for the visit</li></ul><div className="tiny muted" style={{ marginTop: 8 }}>Never shared: meter readings, usage history, or anything about who is home.</div></div>,
           chips: [
             { label: 'Confirm booking', icon: 'check', primary: true, onClick: () => { api.book(c.id, flow.vendor!.id, flow.slot!); setFlow(null); } },
@@ -241,7 +241,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
     }
     if (flow.type === 'mgmt') {
       return [{
-        key: 'flow:mgmt', t: Date.now() + 5, who: 'penjaga', tone: 'calm', kicker: 'To management',
+        key: 'flow:mgmt', t: houseNow() + 5, who: 'penjaga', tone: 'calm', kicker: 'To management',
         text: "Here's a draft. Edit anything, then send. Only the summary and location go with it.",
         card: <MgmtDraft c={c} onSend={(note) => { api.sendToManagement(c.id, note); setFlow(null); }} />,
         chips: [{ label: 'Cancel', onClick: () => setFlow(null) }],
@@ -256,7 +256,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
   const status = v.home.status;
   const briefing: Item = {
     key: 'brief', t: 0, who: 'penjaga', tone: status === 'all_quiet' ? 'ok' : status === 'urgent' ? 'urgent' : 'act_soon',
-    kicker: `${fmtTime(Date.now())} · Today`,
+    kicker: `${fmtTime(houseNow())} · Today`,
     text: (
       <>
         <span className="a-hello">{greeting()}, Aiman.</span>{' '}
@@ -277,7 +277,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
   if (v.wellbeing) {
     const w = v.wellbeing;
     others.push({
-      key: `wb:${w.id}`, t: Date.now() - 60e3, who: 'penjaga', tone: 'info', kicker: 'Family check',
+      key: `wb:${w.id}`, t: houseNow() - 60e3, who: 'penjaga', tone: 'info', kicker: 'Family check',
       text: <><b className="a-lead">{w.title}.</b> {w.body} I only look at water and power use, never cameras or microphones.</>,
       focus: { layer: 'structure', object_ids: ['floor_GF_guest', 'floor_GF_guestbath'], severity: 'info', label: "Mak's suite" },
       chips: [
@@ -287,9 +287,9 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
       ],
     });
   }
-  for (const n of v.notices.filter((n) => n.ends_at > Date.now() - 6 * 3600e3)) {
+  for (const n of v.notices.filter((n) => n.ends_at > houseNow() - 6 * 3600e3)) {
     others.push({
-      key: `notice:${n.id}`, t: n.impact ? Date.now() - 30e3 : n.starts_at, who: 'penjaga', tone: n.impact ? 'ok' : 'info', kicker: `From management · ${n.issuer}`,
+      key: `notice:${n.id}`, t: n.impact ? houseNow() - 30e3 : n.starts_at, who: 'penjaga', tone: n.impact ? 'ok' : 'info', kicker: `From management · ${n.issuer}`,
       text: <><b className="a-lead">{n.title}</b>, {fmtTime(n.starts_at)}–{fmtTime(n.ends_at)}, {n.area}. {n.impact ? <><br /><span className="a-insight">{n.impact}</span></> : 'I\'ll keep an eye on your supply while it\'s on.'}</>,
       focus: n.impact ? { layer: 'water', object_ids: ['tank_roof_main', 'meter_water_main'], severity: 'info', label: 'Roof tank' } : undefined,
       chips: [{ label: 'Show my water tank', icon: 'water', onClick: () => show({ layer: 'water', object_ids: ['tank_roof_main', 'valve_roof_tank_float'], severity: 'info', label: 'Roof tank · 1,000 L' }) }],
@@ -298,7 +298,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
   // A case enters the conversation when it reaches the owner, not at its detection time in the past.
   const arrivals = useRef<Map<string, number> | null>(null);
   if (!arrivals.current) arrivals.current = new Map(v.cases.map((c) => [c.id, c.opened_at]));
-  for (const c of v.cases) if (!arrivals.current.has(c.id)) arrivals.current.set(c.id, Date.now());
+  for (const c of v.cases) if (!arrivals.current.has(c.id)) arrivals.current.set(c.id, houseNow());
   const stories = v.cases.flatMap((c) => {
     const at = arrivals.current!.get(c.id)!;
     return caseStory(c).map((it, k) => ({ ...it, t: Math.max(it.t, at + k) }));
@@ -335,7 +335,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
     // The real agent answers in a few seconds: show that Penjaga is working on it until the reply lands.
     if (a instanceof Promise) {
       const key = `think${Date.now()}`;
-      setSession((s) => [...s, { key, t: Date.now(), who: 'penjaga', tone: 'calm', text: <span className="muted">Penjaga is looking into it…</span> }]);
+      setSession((s) => [...s, { key, t: houseNow(), who: 'penjaga', tone: 'calm', text: <span className="muted">Penjaga is looking into it…</span> }]);
       void a.then((m) => { setSession((s) => s.filter((it) => it.key !== key)); reply(m); });
     } else setTimeout(() => reply(a), 500);
   };

@@ -68,6 +68,7 @@ async function load(): Promise<void> {
   clearTimeout(refreshTimer);
   try {
     const next = adapt(await call<View>('GET', '/view'));
+    if (next.home.checked_at) houseMs = Math.max(houseMs ?? 0, next.home.checked_at);
     if (next.toured) rememberTour(true);
     view = next;
     failures = 0;
@@ -165,8 +166,16 @@ export const contractName = (id: string): string | undefined => names.get(id);
 export const cachedVendors = (category: VendorCategory): Vendor[] | undefined => vendorCache.get(category);
 
 export async function live(): Promise<{ water_lpm: number | null; power_kw: number | null }> {
-  return call('GET', '/live');
+  const r = await call<{ at: number; water_lpm: number | null; power_kw: number | null }>('GET', '/live');
+  if (r.at) houseMs = r.at;
+  return r;
 }
+
+// The house's own clock (the simulator's house time in the demo), as last heard from the Core API: the view's
+// checked_at and the live line's reading time (polled every few seconds). Screens use it instead of the computer's
+// clock, so "today", "ended" and the order of messages follow the house.
+let houseMs: number | undefined;
+export const houseNow = (): number => houseMs ?? Date.now();
 
 // ---------------- confirmed actions (step 7) ----------------
 // The screens show the owner exactly what goes out before they tap (the management draft, the booking summary,

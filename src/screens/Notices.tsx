@@ -1,9 +1,9 @@
-import { useView } from '../api/client';
+import { useView, houseNow } from '../api/client';
 import { Icon, fmtDay, fmtTime } from '../components/ui';
 
 export default function Notices({ embedded = false }: { embedded?: boolean }) {
   const v = useView();
-  const now = Date.now();
+  const now = houseNow();
   return (
     <div className={embedded ? '' : 'page'}>
       {!embedded && <h1 className="serif" style={{ fontSize: 34 }}>Notices</h1>}

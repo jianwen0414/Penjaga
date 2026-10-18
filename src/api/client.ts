@@ -45,9 +45,12 @@ export const api = {
     (real && id ? remote.contractName(id) ?? remote.contractName(`room_${id}`) : undefined) ?? agent.roomName(id),
 };
 
+/** Now, on the house's clock: the simulator's house time with the real backend, the computer's clock otherwise. */
+export const houseNow = (): number => (real ? remote.houseNow() : Date.now());
+
 export function useNow(ms = 30000) {
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => { const t = setInterval(() => setNow(Date.now()), ms); return () => clearInterval(t); }, [ms]);
+  const [now, setNow] = useState(houseNow());
+  useEffect(() => { const t = setInterval(() => setNow(houseNow()), ms); return () => clearInterval(t); }, [ms]);
   return now;
 }
 
