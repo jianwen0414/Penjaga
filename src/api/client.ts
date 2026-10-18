@@ -35,6 +35,8 @@ export const api = {
   dismiss: real ? remote.dismiss : agent.dismiss,
   ackWellbeing: agent.ackWellbeing, // the Core API has no wellbeing check (view.wellbeing is always null)
   setConsent: real ? remote.setConsent : agent.setConsent,
+  // Marking a reminder done needs the Core API (the stand-in's reminders are fixed examples).
+  markMaintenanceDone: real ? remote.markMaintenanceDone : undefined,
   markToured: real ? remote.markToured : agent.markToured,
   vendors: (category: VendorCategory) => (real ? remote.cachedVendors(category) : undefined) ?? standinVendors(category),
   // The real chat answers in a few seconds (a promise); the stand-in answers at once. Agent.tsx handles both.

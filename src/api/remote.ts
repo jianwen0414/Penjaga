@@ -205,6 +205,13 @@ export function book(caseId: string, vendorId: string, slot: number): void {
     .finally(loadSoon);
 }
 
+/** The owner did a maintenance task: it moves to its next date and goes into the Home Passport. */
+export function markMaintenanceDone(itemId: string): void {
+  call('POST', `/maintenance/${encodeURIComponent(itemId)}/done`)
+    .catch((err) => console.warn('[penjaga] reminder not marked done', err))
+    .finally(loadSoon);
+}
+
 /** Starts a guided check; the step's result arrives with the view once the meter has been watched. */
 export function runGuidedCheck(caseId: string, fixtureId: string): void {
   confirmed(caseId, 'check', { fixture_id: fixtureId }, 'checks')

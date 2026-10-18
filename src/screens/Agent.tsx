@@ -156,22 +156,23 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
       focus: c.focus,
     });
     // what happened since, as a dialogue
-    for (const e of c.timeline.slice(2)) {
+    // keys carry the entry's position: two entries can share a millisecond of house time
+    for (const [i, e] of c.timeline.slice(2).entries()) {
       const m = e.text.match(/^Checked (.+): flow (stopped|continued)$/);
       if (m) {
-        items.push({ key: `${c.id}:${e.t}:you`, t: e.t, who: 'you', text: `I closed the valve under the ${m[1]}.` });
+        items.push({ key: `${c.id}:${e.t}:${i}:you`, t: e.t, who: 'you', text: `I closed the valve under the ${m[1]}.` });
         items.push(m[2] === 'stopped'
-          ? { key: `${c.id}:${e.t}`, t: e.t + 1, who: 'penjaga', tone: 'ok', kicker: 'Found it', text: <><b className="a-lead">That's it: the {m[1]}.</b> The flow stopped the moment you closed its valve, so it's a worn flush valve inside the tank, not a pipe in the wall. Small part, small repair. Open the valve again so the toilet works until then.</>, card: <CaseFacts c={c} showHow={!!open[`cost:${c.id}`]} />, focus: c.focus }
-          : { key: `${c.id}:${e.t}`, t: e.t + 1, who: 'penjaga', tone: 'calm', text: `Still flowing, so it's not that one. You can open it again.` });
+          ? { key: `${c.id}:${e.t}:${i}`, t: e.t + 1, who: 'penjaga', tone: 'ok', kicker: 'Found it', text: <><b className="a-lead">That's it: the {m[1]}.</b> The flow stopped the moment you closed its valve, so it's a worn flush valve inside the tank, not a pipe in the wall. Small part, small repair. Open the valve again so the toilet works until then.</>, card: <CaseFacts c={c} showHow={!!open[`cost:${c.id}`]} />, focus: c.focus }
+          : { key: `${c.id}:${e.t}:${i}`, t: e.t + 1, who: 'penjaga', tone: 'calm', text: `Still flowing, so it's not that one. You can open it again.` });
         continue;
       }
       const b = e.text.match(/^Booked (.+) for (.+)$/);
-      if (b) { items.push({ key: `${c.id}:${e.t}:you`, t: e.t, who: 'you', text: `Book ${b[1]} for ${b[2]}.` }); items.push({ key: `${c.id}:${e.t}`, t: e.t + 1, who: 'penjaga', tone: 'calm', text: `Done. I've sent ${b[1]} the problem and where it is, and nothing else. I'll tell you when they confirm.` }); continue; }
-      if (e.text.startsWith('Booked ')) { items.push({ key: `${c.id}:${e.t}:you`, t: e.t, who: 'you', text: e.text.replace('Booked', 'Book') + '.' }); items.push({ key: `${c.id}:${e.t}`, t: e.t + 1, who: 'penjaga', tone: 'calm', text: "Done. They have the problem and the location, nothing else. I'll tell you when they confirm." }); continue; }
-      if (e.actor === 'vendor' && /confirmed/.test(e.text)) { items.push({ key: `${c.id}:${e.t}`, t: e.t, who: 'penjaga', tone: 'calm', kicker: 'Booking', text: `${e.text}${c.booking ? ` for ${fmtDay(c.booking.slot)}, ${fmtTime(c.booking.slot)}` : ''}.` }); continue; }
-      if (e.actor === 'vendor' && /complete/.test(e.text)) { items.push({ key: `${c.id}:${e.t}`, t: e.t, who: 'penjaga', tone: 'calm', text: `${c.booking?.vendor_name ?? 'The vendor'} says the job is done. I'll check the readings to make sure.` }); continue; }
+      if (b) { items.push({ key: `${c.id}:${e.t}:${i}:you`, t: e.t, who: 'you', text: `Book ${b[1]} for ${b[2]}.` }); items.push({ key: `${c.id}:${e.t}:${i}`, t: e.t + 1, who: 'penjaga', tone: 'calm', text: `Done. I've sent ${b[1]} the problem and where it is, and nothing else. I'll tell you when they confirm.` }); continue; }
+      if (e.text.startsWith('Booked ')) { items.push({ key: `${c.id}:${e.t}:${i}:you`, t: e.t, who: 'you', text: e.text.replace('Booked', 'Book') + '.' }); items.push({ key: `${c.id}:${e.t}:${i}`, t: e.t + 1, who: 'penjaga', tone: 'calm', text: "Done. They have the problem and the location, nothing else. I'll tell you when they confirm." }); continue; }
+      if (e.actor === 'vendor' && /confirmed/.test(e.text)) { items.push({ key: `${c.id}:${e.t}:${i}`, t: e.t, who: 'penjaga', tone: 'calm', kicker: 'Booking', text: `${e.text}${c.booking ? ` for ${fmtDay(c.booking.slot)}, ${fmtTime(c.booking.slot)}` : ''}.` }); continue; }
+      if (e.actor === 'vendor' && /complete/.test(e.text)) { items.push({ key: `${c.id}:${e.t}:${i}`, t: e.t, who: 'penjaga', tone: 'calm', text: `${c.booking?.vendor_name ?? 'The vendor'} says the job is done. I'll check the readings to make sure.` }); continue; }
       if (/^Verified/.test(e.text) || (c.status === 'resolved' && e.actor === 'penjaga')) continue;
-      if (e.text === 'Sent to management') { items.push({ key: `${c.id}:${e.t}:you`, t: e.t, who: 'you', text: 'Send this to management.' }); items.push({ key: `${c.id}:${e.t}`, t: e.t + 1, who: 'penjaga', tone: 'calm', text: "Sent. I'll show you their reply here." }); continue; }
+      if (e.text === 'Sent to management') { items.push({ key: `${c.id}:${e.t}:${i}:you`, t: e.t, who: 'you', text: 'Send this to management.' }); items.push({ key: `${c.id}:${e.t}:${i}`, t: e.t + 1, who: 'penjaga', tone: 'calm', text: "Sent. I'll show you their reply here." }); continue; }
     }
     if (c.status === 'resolved') {
       items.push({ key: `${c.id}:resolved`, t: c.resolved_at ?? houseNow(), who: 'penjaga', tone: 'ok', kicker: 'Fixed', text: <><b className="a-lead">{c.title}.</b> {c.layer === 'L1' ? 'Your water meter is still again at night. ' : c.layer === 'L2' ? 'Earth leakage is back to normal. ' : ''}{c.outcome}. I've added it to your Home Passport.</> });
@@ -433,7 +434,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
           {v.passport.map((p) => <div className="svc" key={p.t + p.title}><i style={{ background: 'var(--ok)' }} /><div><b style={{ fontSize: 14 }}>{p.title}</b><div className="tiny muted">{fmtDay(p.t)} · {p.detail}</div></div></div>)}
           <div className="divider" />
           <div className="label">Coming up</div>
-          {v.maintenance.map((m) => <div className="svc" key={m.id}><i style={{ background: 'var(--heads)' }} /><div><b style={{ fontSize: 14 }}>{m.title}</b><div className="tiny muted">Due {fmtDay(m.due)} · {m.interval} · {m.source}</div></div></div>)}
+          {v.maintenance.map((m) => <div className="svc" key={m.id}><i style={{ background: 'var(--heads)' }} /><div style={{ flex: 1 }}><b style={{ fontSize: 14 }}>{m.title}</b><div className="tiny muted">Due {fmtDay(m.due)} · {m.interval} · {m.source}</div></div>{api.markMaintenanceDone && <button className="btn" onClick={() => api.markMaintenanceDone?.(m.id)}>Done</button>}</div>)}
         </Sheet>
       )}
       {panel === 'notices' && <Sheet title="Notices" onClose={() => setPanel(null)}><NoticesPanel embedded /></Sheet>}
