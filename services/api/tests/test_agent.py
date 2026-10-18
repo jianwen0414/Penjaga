@@ -446,3 +446,14 @@ def test_ai_text_drops_em_dashes_but_keeps_ranges() -> None:
     got = plain(f"About RM73 a month {em} 696 litres a day.")
     assert got == "About RM73 a month, 696 litres a day."
     assert plain("Typically RM150\u2013250.") == "Typically RM150\u2013250."
+
+
+def test_a_chat_reply_cut_off_by_reasoning_gets_more_room(make: Any) -> None:
+    answer = reply("Your home is all quiet right now.")
+    llm = FakeLLM([LLMUnavailableError("length", "cut off"), answer])
+    h = make(llm)
+    h.follow()
+    _, done = h.chat("Is everything all right?")
+    assert done["source"] == "ai"
+    assert done["message"]["text"] == "Your home is all quiet right now."
+    assert len(llm.calls) == 2
