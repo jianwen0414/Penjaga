@@ -34,6 +34,13 @@ function same(id: string): string | undefined {
   return undefined;
 }
 
+// The 3D engine frames a room through its floor piece (floor_<GF|FF>_<room>), not the room's own ID.
+const roomFloor = new Map<string, string>();
+for (const r of (spec as unknown as { rooms: { id: string; floor: string }[] }).rooms) {
+  for (const candidate of [`floor_${r.floor}_${r.id}`]) if (ids.has(candidate)) roomFloor.set(r.id, candidate);
+}
+const focusable = (id: string): string | undefined => roomFloor.get(id) ?? id;
+
 const ELECTRICAL = /^(mcb|rcd|circ|db|sock)_/;
 const WATER_MAINS = /^(pipe_(supply|rising)|valve_main|meter)_?/;
 
@@ -41,7 +48,8 @@ const WATER_MAINS = /^(pipe_(supply|rising)|valve_main|meter)_?/;
 export function toSpecIds(objectIds: string[]): string[] {
   const out: string[] = [];
   for (const id of objectIds) {
-    const found = same(id) ?? (ELECTRICAL.test(id) ? 'db_main' : WATER_MAINS.test(id) ? 'meter_water_main' : undefined);
+    const hit = same(id);
+    const found = hit ? focusable(hit) : ELECTRICAL.test(id) ? 'db_main' : WATER_MAINS.test(id) ? 'meter_water_main' : undefined;
     if (found && ids.has(found) && !out.includes(found)) out.push(found);
   }
   return out;
