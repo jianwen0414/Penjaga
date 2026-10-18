@@ -3035,6 +3035,167 @@
     }
    },
    {
+    "id": "valve_main_stop",
+    "type": "valve",
+    "layer": "water",
+    "floor": "GF",
+    "room": "porch",
+    "at": [
+     0.3,
+     -4.95,
+     0.05
+    ],
+    "face": "-Y",
+    "links": [
+     "meter_water_main",
+     "pipe_supply_main"
+    ]
+   },
+   {
+    "id": "valve_downfeed_main",
+    "type": "valve",
+    "layer": "water",
+    "floor": "FF",
+    "room": "roof",
+    "at": [
+     3.0,
+     12.9,
+     6.3
+    ],
+    "links": [
+     "tank_roof_main",
+     "pipe_downfeed_main"
+    ]
+   },
+   {
+    "id": "valve_bath_master_branch",
+    "type": "valve",
+    "layer": "water",
+    "floor": "FF",
+    "room": "bath_master",
+    "at": [
+     5.88,
+     1.27,
+     4.3
+    ],
+    "face": "-X",
+    "links": [
+     "pipe_bath_master_cold_supply"
+    ]
+   },
+   {
+    "id": "valve_bath2_branch",
+    "type": "valve",
+    "layer": "water",
+    "floor": "FF",
+    "room": "bath2",
+    "at": [
+     3.2,
+     12.3,
+     4.3
+    ],
+    "face": "+X",
+    "links": [
+     "pipe_bath2_cold_supply"
+    ]
+   },
+   {
+    "id": "valve_bath3_branch",
+    "type": "valve",
+    "layer": "water",
+    "floor": "FF",
+    "room": "bath3",
+    "at": [
+     2.8,
+     12.3,
+     4.3
+    ],
+    "face": "-X",
+    "links": [
+     "pipe_bath3_cold_supply"
+    ]
+   },
+   {
+    "id": "valve_bath4_branch",
+    "type": "valve",
+    "layer": "water",
+    "floor": "GF",
+    "room": "bath4",
+    "at": [
+     3.22,
+     13.56,
+     1.2
+    ],
+    "face": "-Y",
+    "links": [
+     "pipe_bath4_cold_supply"
+    ]
+   },
+   {
+    "id": "valve_bath_master_wc_angle",
+    "type": "valve",
+    "layer": "water",
+    "floor": "FF",
+    "room": "bath_master",
+    "at": [
+     5.8,
+     1.27,
+     3.5
+    ],
+    "face": "-X",
+    "links": [
+     "fix_bath_master_wc_cistern"
+    ]
+   },
+   {
+    "id": "valve_bath2_wc_angle",
+    "type": "valve",
+    "layer": "water",
+    "floor": "FF",
+    "room": "bath2",
+    "at": [
+     3.3,
+     11.7,
+     3.75
+    ],
+    "face": "+X",
+    "links": [
+     "fix_bath2_wc_cistern"
+    ]
+   },
+   {
+    "id": "valve_bath3_wc_angle",
+    "type": "valve",
+    "layer": "water",
+    "floor": "FF",
+    "room": "bath3",
+    "at": [
+     2.7,
+     11.7,
+     3.75
+    ],
+    "face": "-X",
+    "links": [
+     "fix_bath3_wc_cistern"
+    ]
+   },
+   {
+    "id": "valve_bath4_wc_angle",
+    "type": "valve",
+    "layer": "water",
+    "floor": "GF",
+    "room": "bath4",
+    "at": [
+     3.3,
+     13.5,
+     0.2
+    ],
+    "face": "-Y",
+    "links": [
+     "fix_bath4_wc_cistern"
+    ]
+   },
+   {
     "id": "fix_bath3_wc_cistern",
     "type": "valve",
     "layer": "water",
