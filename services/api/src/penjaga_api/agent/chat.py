@@ -15,7 +15,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from penjaga_api.agent.guardrails import check_text
+from penjaga_api.agent.guardrails import check_text, plain
 from penjaga_api.agent.openrouter import LLM, LLMUnavailableError
 from penjaga_api.agent.tools import TOOLS, ToolBox
 
@@ -77,9 +77,19 @@ def only_buttons(text: str) -> bool:
 
 
 def _chips(toolbox: ToolBox) -> list[dict[str, Any]]:
-    """The model's chips; if it made none but looked a case up, a button to open that case."""
-    if toolbox.chips or not toolbox.viewed:
-        return toolbox.chips
+    """The model's chips, each once (a repaired answer can call the same tool again); if it made
+    none but looked a case up, a button to open that case."""
+    if toolbox.chips:
+        seen: set[str] = set()
+        unique = []
+        for chip in toolbox.chips:
+            key = json.dumps(chip, sort_keys=True)
+            if key not in seen:
+                seen.add(key)
+                unique.append(chip)
+        return unique
+    if not toolbox.viewed:
+        return []
     case = next(c for c in toolbox.cases if c["id"] == toolbox.viewed[0])
     return [{"label": f"Open: {case['title']}", "to": f"/cases/{case['id']}"}]
 
@@ -139,7 +149,7 @@ async def answer(
                 "it only points at buttons: answer the question in words first, then the buttons"
             )
         if text and check.ok:
-            return Answer(text, _chips(toolbox), "ai", completion.model, round_)
+            return Answer(plain(text), _chips(toolbox), "ai", completion.model, round_)
         if repairs == 0:
             return Answer(UNRELIABLE, [], "unreliable", completion.model, round_)
         repairs -= 1
