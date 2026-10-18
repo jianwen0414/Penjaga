@@ -90,9 +90,9 @@
    ]
   },
   {
-   "id": "guest",
+   "id": "bed4",
    "floor": "GF",
-   "name": "Guest Room",
+   "name": "Flexi-Suite bedroom",
    "center": [
     4.55,
     9.05,
@@ -100,9 +100,9 @@
    ]
   },
   {
-   "id": "guestbath",
+   "id": "bath4",
    "floor": "GF",
-   "name": "Guest Bath",
+   "name": "Flexi-Suite bathroom",
    "center": [
     3.45,
     12.18,
@@ -122,7 +122,7 @@
   {
    "id": "master",
    "floor": "FF",
-   "name": "Master Bedroom",
+   "name": "Master bedroom",
    "center": [
     2.0,
     2.25,
@@ -130,9 +130,9 @@
    ]
   },
   {
-   "id": "master_bath",
+   "id": "bath_master",
    "floor": "FF",
-   "name": "Master Bath",
+   "name": "Master bathroom",
    "center": [
     5.05,
     1.45,
@@ -170,9 +170,9 @@
    ]
   },
   {
-   "id": "bed1",
+   "id": "bed3",
    "floor": "FF",
-   "name": "Bedroom 1",
+   "name": "Bedroom 3",
    "center": [
     1.525,
     9.2,
@@ -190,9 +190,9 @@
    ]
   },
   {
-   "id": "bath1",
+   "id": "bath3",
    "floor": "FF",
-   "name": "Bath 1",
+   "name": "Bathroom 3",
    "center": [
     2.075,
     12.28,
@@ -202,7 +202,7 @@
   {
    "id": "bath2",
    "floor": "FF",
-   "name": "Bath 2",
+   "name": "Bathroom 2",
    "center": [
     3.925,
     12.28,
@@ -212,9 +212,9 @@
  ],
  "walls": [
   {
-   "id": "wall_FF_bath1_E",
+   "id": "wall_FF_bath3_E",
    "floor": "FF",
-   "room": "bath1",
+   "room": "bath3",
    "a": [
     2.8,
     11.0
@@ -229,9 +229,9 @@
    "openings": []
   },
   {
-   "id": "wall_FF_bath1_N",
+   "id": "wall_FF_bath3_N",
    "floor": "FF",
-   "room": "bath1",
+   "room": "bath3",
    "a": [
     1.35,
     13.56
@@ -245,7 +245,7 @@
    "h": 3.0,
    "openings": [
     {
-     "id": "window_FF_bath1_N_1",
+     "id": "window_FF_bath3_N_1",
      "kind": "window",
      "from": 1.75,
      "to": 2.6,
@@ -255,9 +255,9 @@
    ]
   },
   {
-   "id": "wall_FF_bath1_S",
+   "id": "wall_FF_bath3_S",
    "floor": "FF",
-   "room": "bath1",
+   "room": "bath3",
    "a": [
     1.35,
     11.0
@@ -271,7 +271,7 @@
    "h": 3.0,
    "openings": [
     {
-     "id": "door_FF_bath1_S_1",
+     "id": "door_FF_bath3_S_1",
      "kind": "door",
      "from": 1.6,
      "to": 2.4,
@@ -283,9 +283,9 @@
    ]
   },
   {
-   "id": "wall_FF_bath1_W",
+   "id": "wall_FF_bath3_W",
    "floor": "FF",
-   "room": "bath1",
+   "room": "bath3",
    "a": [
     1.35,
     11.0
@@ -388,9 +388,9 @@
    "openings": []
   },
   {
-   "id": "wall_FF_bed1_E",
+   "id": "wall_FF_bed3_E",
    "floor": "FF",
-   "room": "bed1",
+   "room": "bed3",
    "a": [
     3.05,
     7.4
@@ -405,9 +405,9 @@
    "openings": []
   },
   {
-   "id": "wall_FF_bed1_N",
+   "id": "wall_FF_bed3_N",
    "floor": "FF",
-   "room": "bed1",
+   "room": "bed3",
    "a": [
     0.0,
     12.2
@@ -421,7 +421,7 @@
    "h": 3.0,
    "openings": [
     {
-     "id": "window_FF_bed1_N_1",
+     "id": "window_FF_bed3_N_1",
      "kind": "window",
      "from": 0.15,
      "to": 1.2,
@@ -432,9 +432,9 @@
    ]
   },
   {
-   "id": "wall_FF_bed1_S",
+   "id": "wall_FF_bed3_S",
    "floor": "FF",
-   "room": "bed1",
+   "room": "bed3",
    "a": [
     0.0,
     7.4
@@ -448,7 +448,7 @@
    "h": 3.0,
    "openings": [
     {
-     "id": "door_FF_bed1_S_1",
+     "id": "door_FF_bed3_S_1",
      "kind": "door",
      "from": 2.1,
      "to": 2.9,
@@ -460,9 +460,9 @@
    ]
   },
   {
-   "id": "wall_FF_bed1_W",
+   "id": "wall_FF_bed3_W",
    "floor": "FF",
-   "room": "bed1",
+   "room": "bed3",
    "a": [
     0.0,
     7.4
@@ -690,7 +690,7 @@
   {
    "id": "wall_FF_mbath_E",
    "floor": "FF",
-   "room": "master_bath",
+   "room": "bath_master",
    "a": [
     6.1,
     0.0
@@ -707,7 +707,7 @@
   {
    "id": "wall_FF_mbath_N",
    "floor": "FF",
-   "room": "master_bath",
+   "room": "bath_master",
    "a": [
     4.0,
     2.9
@@ -724,7 +724,7 @@
   {
    "id": "wall_FF_mbath_S",
    "floor": "FF",
-   "room": "master_bath",
+   "room": "bath_master",
    "a": [
     4.0,
     0.0
@@ -750,7 +750,7 @@
   {
    "id": "wall_FF_mbath_W",
    "floor": "FF",
-   "room": "master_bath",
+   "room": "bath_master",
    "a": [
     4.0,
     0.0
@@ -873,9 +873,9 @@
    ]
   },
   {
-   "id": "wall_GF_guest_E",
+   "id": "wall_GF_bed4_E",
    "floor": "GF",
-   "room": "guest",
+   "room": "bed4",
    "a": [
     6.1,
     7.3
@@ -890,9 +890,9 @@
    "openings": []
   },
   {
-   "id": "wall_GF_guest_N",
+   "id": "wall_GF_bed4_N",
    "floor": "GF",
-   "room": "guest",
+   "room": "bed4",
    "a": [
     4.8,
     12.2
@@ -906,7 +906,7 @@
    "h": 3.15,
    "openings": [
     {
-     "id": "window_GF_guest_N_1",
+     "id": "window_GF_bed4_N_1",
      "kind": "window",
      "from": 4.9,
      "to": 5.95,
@@ -917,9 +917,9 @@
    ]
   },
   {
-   "id": "wall_GF_guest_S",
+   "id": "wall_GF_bed4_S",
    "floor": "GF",
-   "room": "guest",
+   "room": "bed4",
    "a": [
     3.0,
     7.3
@@ -934,9 +934,9 @@
    "openings": []
   },
   {
-   "id": "wall_GF_guest_W",
+   "id": "wall_GF_bed4_W",
    "floor": "GF",
-   "room": "guest",
+   "room": "bed4",
    "a": [
     3.0,
     7.3
@@ -950,7 +950,7 @@
    "h": 3.15,
    "openings": [
     {
-     "id": "door_GF_guest_W_1",
+     "id": "door_GF_bed4_W_1",
      "kind": "door",
      "from": 7.45,
      "to": 8.25,
@@ -962,9 +962,9 @@
    ]
   },
   {
-   "id": "wall_GF_guestbath_E",
+   "id": "wall_GF_bath4_E",
    "floor": "GF",
-   "room": "guestbath",
+   "room": "bath4",
    "a": [
     4.8,
     10.8
@@ -979,9 +979,9 @@
    "openings": []
   },
   {
-   "id": "wall_GF_guestbath_N",
+   "id": "wall_GF_bath4_N",
    "floor": "GF",
-   "room": "guestbath",
+   "room": "bath4",
    "a": [
     2.1,
     13.56
@@ -995,7 +995,7 @@
    "h": 3.15,
    "openings": [
     {
-     "id": "window_GF_guestbath_N_1",
+     "id": "window_GF_bath4_N_1",
      "kind": "window",
      "from": 3.15,
      "to": 4.0,
@@ -1005,9 +1005,9 @@
    ]
   },
   {
-   "id": "wall_GF_guestbath_S",
+   "id": "wall_GF_bath4_S",
    "floor": "GF",
-   "room": "guestbath",
+   "room": "bath4",
    "a": [
     2.1,
     10.8
@@ -1021,7 +1021,7 @@
    "h": 3.15,
    "openings": [
     {
-     "id": "door_GF_guestbath_S_1",
+     "id": "door_GF_bath4_S_1",
      "kind": "door",
      "from": 3.6,
      "to": 4.4,
@@ -1033,9 +1033,9 @@
    ]
   },
   {
-   "id": "wall_GF_guestbath_W",
+   "id": "wall_GF_bath4_W",
    "floor": "GF",
-   "room": "guestbath",
+   "room": "bath4",
    "a": [
     2.1,
     10.8
@@ -1049,7 +1049,7 @@
    "h": 3.15,
    "openings": [
     {
-     "id": "door_GF_guestbath_W_1",
+     "id": "door_GF_bath4_W_1",
      "kind": "door",
      "from": 11.2,
      "to": 11.95,
@@ -1272,9 +1272,9 @@
  ],
  "floorFinishes": [
   {
-   "id": "floor_FF_bath1",
+   "id": "floor_FF_bath3",
    "floor": "FF",
-   "room": "bath1",
+   "room": "bath3",
    "rect": [
     1.35,
     2.8,
@@ -1298,9 +1298,9 @@
    "finish": "bathtile"
   },
   {
-   "id": "floor_FF_bed1",
+   "id": "floor_FF_bed3",
    "floor": "FF",
-   "room": "bed1",
+   "room": "bed3",
    "rect": [
     0.0,
     3.05,
@@ -1311,9 +1311,9 @@
    "finish": "oakfloor"
   },
   {
-   "id": "floor_FF_bed1_rear",
+   "id": "floor_FF_bed3_rear",
    "floor": "FF",
-   "room": "bed1",
+   "room": "bed3",
    "rect": [
     0.0,
     1.35,
@@ -1402,9 +1402,9 @@
    "finish": "oakfloor"
   },
   {
-   "id": "floor_FF_master_bath",
+   "id": "floor_FF_bath_master",
    "floor": "FF",
-   "room": "master_bath",
+   "room": "bath_master",
    "rect": [
     4.0,
     6.1,
@@ -1441,9 +1441,9 @@
    "finish": "tile"
   },
   {
-   "id": "floor_GF_guest",
+   "id": "floor_GF_bed4",
    "floor": "GF",
-   "room": "guest",
+   "room": "bed4",
    "rect": [
     3.0,
     6.1,
@@ -1454,9 +1454,9 @@
    "finish": "oakfloor"
   },
   {
-   "id": "floor_GF_guest_rear",
+   "id": "floor_GF_bed4_rear",
    "floor": "GF",
-   "room": "guest",
+   "room": "bed4",
    "rect": [
     4.8,
     6.1,
@@ -1467,9 +1467,9 @@
    "finish": "oakfloor"
   },
   {
-   "id": "floor_GF_guestbath",
+   "id": "floor_GF_bath4",
    "floor": "GF",
-   "room": "guestbath",
+   "room": "bath4",
    "rect": [
     2.1,
     4.8,
@@ -1886,7 +1886,7 @@
   {
    "id": "ledge_FF_mbath",
    "floor": "FF",
-   "room": "master_bath",
+   "room": "bath_master",
    "kind": "ledge",
    "mat": "bathtile",
    "boxes": [
@@ -2189,10 +2189,10 @@
    }
   },
   {
-   "id": "furn_GF_guest_bed",
+   "id": "furn_GF_bed4_bed",
    "type": "bed",
    "floor": "GF",
-   "room": "guest",
+   "room": "bed4",
    "at": [
     5.05,
     9.38
@@ -2205,10 +2205,10 @@
    ]
   },
   {
-   "id": "furn_GF_guest_nightstand",
+   "id": "furn_GF_bed4_nightstand",
    "type": "nightstand",
    "floor": "GF",
-   "room": "guest",
+   "room": "bed4",
    "at": [
     5.8,
     10.5
@@ -2216,10 +2216,10 @@
    "rot": -90
   },
   {
-   "id": "furn_GF_guest_rug",
+   "id": "furn_GF_bed4_rug",
    "type": "rug",
    "floor": "GF",
-   "room": "guest",
+   "room": "bed4",
    "at": [
     4.75,
     9.38
@@ -2231,10 +2231,10 @@
    ]
   },
   {
-   "id": "furn_GF_guest_wardrobe",
+   "id": "furn_GF_bed4_wardrobe",
    "type": "wardrobe",
    "floor": "GF",
-   "room": "guest",
+   "room": "bed4",
    "at": [
     5.12,
     7.66
@@ -2247,10 +2247,10 @@
    ]
   },
   {
-   "id": "furn_GF_guest_desk",
+   "id": "furn_GF_bed4_desk",
    "type": "desk",
    "floor": "GF",
-   "room": "guest",
+   "room": "bed4",
    "at": [
     5.45,
     11.85
@@ -2263,10 +2263,10 @@
    ]
   },
   {
-   "id": "furn_GF_guest_deskchair",
+   "id": "furn_GF_bed4_deskchair",
    "type": "deskChair",
    "floor": "GF",
-   "room": "guest",
+   "room": "bed4",
    "at": [
     5.45,
     11.42
@@ -2274,10 +2274,10 @@
    "rot": 180
   },
   {
-   "id": "furn_GF_guestbath_toilet",
+   "id": "furn_GF_bath4_toilet",
    "type": "toilet",
    "floor": "GF",
-   "room": "guestbath",
+   "room": "bath4",
    "at": [
     3.55,
     13.13
@@ -2285,10 +2285,10 @@
    "rot": 0
   },
   {
-   "id": "furn_GF_guestbath_vanity",
+   "id": "furn_GF_bath4_vanity",
    "type": "vanity",
    "floor": "GF",
-   "room": "guestbath",
+   "room": "bath4",
    "at": [
     4.25,
     13.22
@@ -2301,10 +2301,10 @@
    ]
   },
   {
-   "id": "furn_GF_guestbath_shower",
+   "id": "furn_GF_bath4_shower",
    "type": "shower",
    "floor": "GF",
-   "room": "guestbath",
+   "room": "bath4",
    "at": null,
    "rot": 0,
    "opts": {
@@ -2572,10 +2572,10 @@
    }
   },
   {
-   "id": "furn_FF_bed1_rug",
+   "id": "furn_FF_bed3_rug",
    "type": "rug",
    "floor": "FF",
-   "room": "bed1",
+   "room": "bed3",
    "at": [
     1.05,
     9.38
@@ -2587,10 +2587,10 @@
    ]
   },
   {
-   "id": "furn_FF_bed1_bed",
+   "id": "furn_FF_bed3_bed",
    "type": "bed",
    "floor": "FF",
-   "room": "bed1",
+   "room": "bed3",
    "at": [
     1.05,
     9.38
@@ -2603,10 +2603,10 @@
    ]
   },
   {
-   "id": "furn_FF_bed1_nightstand",
+   "id": "furn_FF_bed3_nightstand",
    "type": "nightstand",
    "floor": "FF",
-   "room": "bed1",
+   "room": "bed3",
    "at": [
     0.32,
     10.48
@@ -2614,10 +2614,10 @@
    "rot": 90
   },
   {
-   "id": "furn_FF_bed1_wardrobe",
+   "id": "furn_FF_bed3_wardrobe",
    "type": "wardrobe",
    "floor": "FF",
-   "room": "bed1",
+   "room": "bed3",
    "at": [
     0.98,
     7.75
@@ -2630,10 +2630,10 @@
    ]
   },
   {
-   "id": "furn_FF_bed1_desk",
+   "id": "furn_FF_bed3_desk",
    "type": "desk",
    "floor": "FF",
-   "room": "bed1",
+   "room": "bed3",
    "at": [
     0.72,
     11.85
@@ -2646,10 +2646,10 @@
    ]
   },
   {
-   "id": "furn_FF_bed1_deskchair",
+   "id": "furn_FF_bed3_deskchair",
    "type": "deskChair",
    "floor": "FF",
-   "room": "bed1",
+   "room": "bed3",
    "at": [
     0.68,
     11.42
@@ -2742,10 +2742,10 @@
    "rot": 180
   },
   {
-   "id": "furn_FF_bath1_toilet",
+   "id": "furn_FF_bath3_toilet",
    "type": "toilet",
    "floor": "FF",
-   "room": "bath1",
+   "room": "bath3",
    "at": [
     2.41,
     12.22
@@ -2753,10 +2753,10 @@
    "rot": -90
   },
   {
-   "id": "furn_FF_bath1_vanity",
+   "id": "furn_FF_bath3_vanity",
    "type": "vanity",
    "floor": "FF",
-   "room": "bath1",
+   "room": "bath3",
    "at": [
     2.51,
     11.53
@@ -2769,10 +2769,10 @@
    ]
   },
   {
-   "id": "furn_FF_bath1_shower",
+   "id": "furn_FF_bath3_shower",
    "type": "shower",
    "floor": "FF",
-   "room": "bath1",
+   "room": "bath3",
    "at": null,
    "rot": 0,
    "opts": {
@@ -2846,10 +2846,10 @@
    }
   },
   {
-   "id": "furn_FF_master_bath_toilet",
+   "id": "furn_FF_bath_master_toilet",
    "type": "toilet",
    "floor": "FF",
-   "room": "master_bath",
+   "room": "bath_master",
    "at": [
     5.42,
     1.52
@@ -2857,10 +2857,10 @@
    "rot": -90
   },
   {
-   "id": "furn_FF_master_bath_vanity",
+   "id": "furn_FF_bath_master_vanity",
    "type": "vanity",
    "floor": "FF",
-   "room": "master_bath",
+   "room": "bath_master",
    "at": [
     5.52,
     0.62
@@ -2873,10 +2873,10 @@
    ]
   },
   {
-   "id": "furn_FF_master_bath_shower",
+   "id": "furn_FF_bath_master_shower",
    "type": "shower",
    "floor": "FF",
-   "room": "master_bath",
+   "room": "bath_master",
    "at": null,
    "rot": 0,
    "opts": {
@@ -3035,11 +3035,11 @@
     }
    },
    {
-    "id": "fix_bath1_wc_cistern",
+    "id": "fix_bath3_wc_cistern",
     "type": "valve",
     "layer": "water",
     "floor": "FF",
-    "room": "bath1",
+    "room": "bath3",
     "at": [
      2.7,
      11.98,
@@ -3047,15 +3047,15 @@
     ],
     "face": "-X",
     "links": [
-     "furn_FF_bath1_toilet"
+     "furn_FF_bath3_toilet"
     ]
    },
    {
-    "id": "fix_bath1_basin_tap",
+    "id": "fix_bath3_basin_tap",
     "type": "valve",
     "layer": "water",
     "floor": "FF",
-    "room": "bath1",
+    "room": "bath3",
     "at": [
      2.7,
      11.53,
@@ -3063,15 +3063,15 @@
     ],
     "face": "-X",
     "links": [
-     "furn_FF_bath1_vanity"
+     "furn_FF_bath3_vanity"
     ]
    },
    {
-    "id": "fix_bath1_shower",
+    "id": "fix_bath3_shower",
     "type": "mixer",
     "layer": "water",
     "floor": "FF",
-    "room": "bath1",
+    "room": "bath3",
     "at": [
      2.66,
      13.06,
@@ -3079,15 +3079,15 @@
     ],
     "face": "-X",
     "links": [
-     "furn_FF_bath1_shower"
+     "furn_FF_bath3_shower"
     ]
    },
    {
-    "id": "app_wh_bath1",
+    "id": "app_wh_bath3",
     "type": "waterHeater",
     "layer": "electrical",
     "floor": "FF",
-    "room": "bath1",
+    "room": "bath3",
     "at": [
      2.66,
      13.27,
@@ -3169,7 +3169,7 @@
     "type": "valve",
     "layer": "water",
     "floor": "FF",
-    "room": "master_bath",
+    "room": "bath_master",
     "at": [
      5.73,
      1.27,
@@ -3177,7 +3177,7 @@
     ],
     "face": "-X",
     "links": [
-     "furn_FF_master_bath_toilet"
+     "furn_FF_bath_master_toilet"
     ]
    },
    {
@@ -3185,7 +3185,7 @@
     "type": "valve",
     "layer": "water",
     "floor": "FF",
-    "room": "master_bath",
+    "room": "bath_master",
     "at": [
      5.73,
      0.62,
@@ -3193,7 +3193,7 @@
     ],
     "face": "-X",
     "links": [
-     "furn_FF_master_bath_vanity"
+     "furn_FF_bath_master_vanity"
     ]
    },
    {
@@ -3201,7 +3201,7 @@
     "type": "mixer",
     "layer": "water",
     "floor": "FF",
-    "room": "master_bath",
+    "room": "bath_master",
     "at": [
      4.9,
      2.82,
@@ -3209,7 +3209,7 @@
     ],
     "face": "-Y",
     "links": [
-     "furn_FF_master_bath_shower"
+     "furn_FF_bath_master_shower"
     ]
    },
    {
@@ -3217,7 +3217,7 @@
     "type": "waterHeater",
     "layer": "electrical",
     "floor": "FF",
-    "room": "master_bath",
+    "room": "bath_master",
     "at": [
      5.35,
      2.82,
@@ -3230,11 +3230,11 @@
     }
    },
    {
-    "id": "fix_bath_guest_wc_cistern",
+    "id": "fix_bath4_wc_cistern",
     "type": "valve",
     "layer": "water",
     "floor": "GF",
-    "room": "guestbath",
+    "room": "bath4",
     "at": [
      3.3,
      13.44,
@@ -3242,15 +3242,15 @@
     ],
     "face": "-Y",
     "links": [
-     "furn_GF_guestbath_toilet"
+     "furn_GF_bath4_toilet"
     ]
    },
    {
-    "id": "fix_bath_guest_basin_tap",
+    "id": "fix_bath4_basin_tap",
     "type": "valve",
     "layer": "water",
     "floor": "GF",
-    "room": "guestbath",
+    "room": "bath4",
     "at": [
      4.25,
      13.44,
@@ -3258,15 +3258,15 @@
     ],
     "face": "-Y",
     "links": [
-     "furn_GF_guestbath_vanity"
+     "furn_GF_bath4_vanity"
     ]
    },
    {
-    "id": "fix_bath_guest_shower",
+    "id": "fix_bath4_shower",
     "type": "mixer",
     "layer": "water",
     "floor": "GF",
-    "room": "guestbath",
+    "room": "bath4",
     "at": [
      2.18,
      12.98,
@@ -3274,15 +3274,15 @@
     ],
     "face": "+X",
     "links": [
-     "furn_GF_guestbath_shower"
+     "furn_GF_bath4_shower"
     ]
    },
    {
-    "id": "app_wh_bath_guest",
+    "id": "app_wh_bath4",
     "type": "waterHeater",
     "layer": "electrical",
     "floor": "GF",
-    "room": "guestbath",
+    "room": "bath4",
     "at": [
      2.18,
      13.25,
@@ -3347,11 +3347,11 @@
     }
    },
    {
-    "id": "app_fan_guest",
+    "id": "app_fan_bed4",
     "type": "ceilingFan",
     "layer": "electrical",
     "floor": "GF",
-    "room": "guest",
+    "room": "bed4",
     "at": [
      4.6,
      9.2,
@@ -3379,11 +3379,11 @@
     }
    },
    {
-    "id": "app_fan_bed1",
+    "id": "app_fan_bed3",
     "type": "ceilingFan",
     "layer": "electrical",
     "floor": "FF",
-    "room": "bed1",
+    "room": "bed3",
     "at": [
      1.5,
      9.3,
@@ -3444,11 +3444,11 @@
     }
    },
    {
-    "id": "app_ac_guest",
+    "id": "app_ac_bed4",
     "type": "acIndoor",
     "layer": "electrical",
     "floor": "GF",
-    "room": "guest",
+    "room": "bed4",
     "at": [
      3.06,
      9.4,
@@ -3478,11 +3478,11 @@
     }
    },
    {
-    "id": "app_ac_bed1",
+    "id": "app_ac_bed3",
     "type": "acIndoor",
     "layer": "electrical",
     "floor": "FF",
-    "room": "bed1",
+    "room": "bed3",
     "at": [
      0.1,
      9.4,
@@ -3527,9 +3527,9 @@
      "units": [
       "app_ac_living",
       "app_ac_master",
-      "app_ac_bed1",
+      "app_ac_bed3",
       "app_ac_bed2",
-      "app_ac_guest"
+      "app_ac_bed4"
      ],
      "note": "twin outdoor unit (multi-split) serving all indoor units"
     }
@@ -3663,11 +3663,11 @@
     }
    },
    {
-    "id": "sock_guest_1",
+    "id": "sock_bed4_1",
     "type": "socket13A",
     "layer": "electrical",
     "floor": "GF",
-    "room": "guest",
+    "room": "bed4",
     "at": [
      6.0,
      10.45,
@@ -3679,11 +3679,11 @@
     }
    },
    {
-    "id": "sock_guest_desk",
+    "id": "sock_bed4_desk",
     "type": "socket13A",
     "layer": "electrical",
     "floor": "GF",
-    "room": "guest",
+    "room": "bed4",
     "at": [
      5.2,
      12.1,
@@ -3775,11 +3775,11 @@
     }
    },
    {
-    "id": "sock_bed1_1",
+    "id": "sock_bed3_1",
     "type": "socket13A",
     "layer": "electrical",
     "floor": "FF",
-    "room": "bed1",
+    "room": "bed3",
     "at": [
      0.1,
      10.6,
@@ -3791,11 +3791,11 @@
     }
    },
    {
-    "id": "sock_bed1_desk",
+    "id": "sock_bed3_desk",
     "type": "socket13A",
     "layer": "electrical",
     "floor": "FF",
-    "room": "bed1",
+    "room": "bed3",
     "at": [
      1.0,
      12.1,
@@ -3968,11 +3968,11 @@
     }
    },
    {
-    "id": "light_bath_guest_1",
+    "id": "light_bath4_1",
     "type": "downlight",
     "layer": "electrical",
     "floor": "GF",
-    "room": "guestbath",
+    "room": "bath4",
     "at": [
      3.6,
      12.0,
@@ -4036,11 +4036,11 @@
     }
    },
    {
-    "id": "light_bath1_1",
+    "id": "light_bath3_1",
     "type": "downlight",
     "layer": "electrical",
     "floor": "FF",
-    "room": "bath1",
+    "room": "bath3",
     "at": [
      2.07,
      11.8,
@@ -4074,7 +4074,7 @@
     "type": "downlight",
     "layer": "electrical",
     "floor": "FF",
-    "room": "master_bath",
+    "room": "bath_master",
     "at": [
      5.0,
      1.2,
@@ -4106,7 +4106,7 @@
   ],
   "pipes": [
    {
-    "id": "pipe_main_supply",
+    "id": "pipe_supply_main",
     "layer": "water",
     "kind": "pipe",
     "system": "main",
@@ -4134,7 +4134,7 @@
     ]
    },
    {
-    "id": "pipe_porch_outdoor_tap",
+    "id": "pipe_porch_tap",
     "layer": "water",
     "kind": "pipe",
     "system": "main",
@@ -4172,7 +4172,7 @@
     ]
    },
    {
-    "id": "pipe_kitchen_cold_main",
+    "id": "pipe_kitchen_direct",
     "layer": "water",
     "kind": "pipe",
     "system": "main",
@@ -4275,13 +4275,13 @@
     ]
    },
    {
-    "id": "pipe_rising_main_gf",
+    "id": "pipe_rising_main",
     "layer": "water",
     "kind": "pipe",
     "system": "main",
     "d": 0.025,
     "floor": "GF",
-    "room": "guestbath",
+    "room": "bath4",
     "paths": [
      [
       [
@@ -4407,13 +4407,13 @@
     ]
    },
    {
-    "id": "pipe_downfeed_gf",
+    "id": "pipe_gf_downfeed",
     "layer": "water",
     "kind": "pipe",
     "system": "cold",
     "d": 0.025,
     "floor": "GF",
-    "room": "guestbath",
+    "room": "bath4",
     "paths": [
      [
       [
@@ -4430,13 +4430,13 @@
     ]
    },
    {
-    "id": "pipe_bath1_cold_supply",
+    "id": "pipe_bath3_cold_supply",
     "layer": "water",
     "kind": "pipe",
     "system": "cold",
     "d": 0.02,
     "floor": "FF",
-    "room": "bath1",
+    "room": "bath3",
     "paths": [
      [
       [
@@ -4502,13 +4502,13 @@
     ]
    },
    {
-    "id": "pipe_bath1_hot_supply",
+    "id": "pipe_bath3_hot_supply",
     "layer": "water",
     "kind": "pipe",
     "system": "hot",
     "d": 0.015,
     "floor": "FF",
-    "room": "bath1",
+    "room": "bath3",
     "paths": [
      [
       [
@@ -4646,7 +4646,7 @@
     "system": "cold",
     "d": 0.02,
     "floor": "FF",
-    "room": "master_bath",
+    "room": "bath_master",
     "paths": [
      [
       [
@@ -4723,7 +4723,7 @@
     "system": "hot",
     "d": 0.015,
     "floor": "FF",
-    "room": "master_bath",
+    "room": "bath_master",
     "paths": [
      [
       [
@@ -4750,13 +4750,13 @@
     ]
    },
    {
-    "id": "pipe_bath_guest_cold_supply",
+    "id": "pipe_bath4_cold_supply",
     "layer": "water",
     "kind": "pipe",
     "system": "cold",
     "d": 0.02,
     "floor": "GF",
-    "room": "guestbath",
+    "room": "bath4",
     "paths": [
      [
       [
@@ -4827,13 +4827,13 @@
     ]
    },
    {
-    "id": "pipe_bath_guest_hot_supply",
+    "id": "pipe_bath4_hot_supply",
     "layer": "water",
     "kind": "pipe",
     "system": "hot",
     "d": 0.015,
     "floor": "GF",
-    "room": "guestbath",
+    "room": "bath4",
     "paths": [
      [
       [
@@ -4860,13 +4860,13 @@
     ]
    },
    {
-    "id": "pipe_bath1_waste",
+    "id": "pipe_bath3_waste",
     "layer": "water",
     "kind": "pipe",
     "system": "waste",
     "d": 0.05,
     "floor": "FF",
-    "room": "bath1",
+    "room": "bath3",
     "paths": [
      [
       [
@@ -5015,7 +5015,7 @@
     "system": "waste",
     "d": 0.1,
     "floor": "GF",
-    "room": "guestbath",
+    "room": "bath4",
     "paths": [
      [
       [
@@ -5037,13 +5037,13 @@
     ]
    },
    {
-    "id": "pipe_bath_guest_waste",
+    "id": "pipe_bath4_waste",
     "layer": "water",
     "kind": "pipe",
     "system": "waste",
     "d": 0.05,
     "floor": "GF",
-    "room": "guestbath",
+    "room": "bath4",
     "paths": [
      [
       [
@@ -5095,7 +5095,7 @@
     "system": "waste",
     "d": 0.05,
     "floor": "FF",
-    "room": "master_bath",
+    "room": "bath_master",
     "paths": [
      [
       [
@@ -5147,7 +5147,7 @@
     "system": "waste",
     "d": 0.1,
     "floor": "FF",
-    "room": "master_bath",
+    "room": "bath_master",
     "paths": [
      [
       [
@@ -5234,7 +5234,7 @@
   ],
   "circuits": [
    {
-    "id": "circ_lighting_gf",
+    "id": "circ_lights_gf",
     "layer": "electrical",
     "kind": "lighting",
     "rating_a": 10,
@@ -5242,14 +5242,14 @@
     "from": "db_main",
     "ends": [
      "app_fan_living",
-     "app_fan_guest",
+     "app_fan_bed4",
      "light_living_1",
      "light_dining_1",
      "light_kitchen_1",
      "light_kitchen_2",
      "light_foyer_1",
      "light_stair_1",
-     "light_bath_guest_1",
+     "light_bath4_1",
      "light_yard_1"
     ],
     "label": "Lighting & fans \u00b7 ground floor"
@@ -5290,8 +5290,8 @@
     "floor": "GF",
     "from": "db_main",
     "ends": [
-     "sock_guest_1",
-     "sock_guest_desk",
+     "sock_bed4_1",
+     "sock_bed4_desk",
      "sock_yard_washer"
     ],
     "label": "Sockets \u00b7 guest room & yard"
@@ -5321,31 +5321,31 @@
     "label": "Aircon \u00b7 living"
    },
    {
-    "id": "circ_ac_guest",
+    "id": "circ_ac_bed4",
     "layer": "electrical",
     "kind": "dedicated",
     "rating_a": 20,
     "floor": "GF",
     "from": "db_main",
     "ends": [
-     "app_ac_guest"
+     "app_ac_bed4"
     ],
     "label": "Aircon \u00b7 guest room"
    },
    {
-    "id": "circ_wh_bath_guest",
+    "id": "circ_wh_bath4",
     "layer": "electrical",
     "kind": "dedicated",
     "rating_a": 20,
     "floor": "GF",
     "from": "db_main",
     "ends": [
-     "app_wh_bath_guest"
+     "app_wh_bath4"
     ],
     "label": "Water heater \u00b7 guest bath"
    },
    {
-    "id": "circ_lighting_ff",
+    "id": "circ_lights_1f",
     "layer": "electrical",
     "kind": "lighting",
     "rating_a": 10,
@@ -5353,12 +5353,12 @@
     "from": "riser_db_ff",
     "ends": [
      "app_fan_master",
-     "app_fan_bed1",
+     "app_fan_bed3",
      "app_fan_bed2",
      "app_fan_family",
      "light_corridor_1",
      "light_landing_1",
-     "light_bath1_1",
+     "light_bath3_1",
      "light_bath2_1",
      "light_bath_master_1",
      "light_master_1"
@@ -5366,7 +5366,7 @@
     "label": "Lighting & fans \u00b7 first floor"
    },
    {
-    "id": "circ_sockets_ff",
+    "id": "circ_sockets_1f",
     "layer": "electrical",
     "kind": "sockets",
     "rating_a": 20,
@@ -5378,8 +5378,8 @@
      "sock_master_tv",
      "sock_master_desk",
      "sock_family_desk",
-     "sock_bed1_1",
-     "sock_bed1_desk",
+     "sock_bed3_1",
+     "sock_bed3_desk",
      "sock_bed2_1",
      "sock_bed2_desk"
     ],
@@ -5398,14 +5398,14 @@
     "label": "Aircon \u00b7 master bedroom"
    },
    {
-    "id": "circ_ac_bed1",
+    "id": "circ_ac_bed3",
     "layer": "electrical",
     "kind": "dedicated",
     "rating_a": 20,
     "floor": "FF",
     "from": "riser_db_ff",
     "ends": [
-     "app_ac_bed1"
+     "app_ac_bed3"
     ],
     "label": "Aircon \u00b7 bedroom 1"
    },
@@ -5422,14 +5422,14 @@
     "label": "Aircon \u00b7 bedroom 2"
    },
    {
-    "id": "circ_wh_bath1",
+    "id": "circ_wh_bath3",
     "layer": "electrical",
     "kind": "dedicated",
     "rating_a": 20,
     "floor": "FF",
     "from": "riser_db_ff",
     "ends": [
-     "app_wh_bath1"
+     "app_wh_bath3"
     ],
     "label": "Water heater \u00b7 bath 1"
    },

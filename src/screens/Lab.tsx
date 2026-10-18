@@ -9,7 +9,7 @@ import { completeBookings } from '../standin/agent';
 import { detect } from '../standin/detect';
 import { nightMinFlow, residualDaily, pressureNow, BASELINE_M3_PER_MONTH, TIME } from '../standin/sim';
 
-const CISTERNS = [['fix_bath2_wc_cistern', 'Bathroom 2'], ['fix_bath1_wc_cistern', 'Bathroom 1'], ['fix_bath_master_wc_cistern', 'Master bath'], ['fix_bath_guest_wc_cistern', 'Suite bath']];
+const CISTERNS = [['fix_bath2_wc_cistern', 'Bathroom 2'], ['fix_bath3_wc_cistern', 'Bathroom 3'], ['fix_bath_master_wc_cistern', 'Master bath'], ['fix_bath4_wc_cistern', 'Flexi-Suite bath']];
 
 export default function Lab() {
   return BACKEND === 'api' ? <RealLab /> : <StandinLab />;

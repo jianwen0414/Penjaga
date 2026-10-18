@@ -10,9 +10,9 @@ import { marginalWaterCost } from './tariff';
 
 const ROOM_NAMES: Record<string, string> = {
   living: 'Living room', dining: 'Dining area', kitchen: 'Kitchen', foyer: 'Foyer', stair: 'Staircase', yard: 'Yard',
-  terrace: 'Terrace', porch: 'Car porch', guest: 'Ground-floor suite', guestbath: 'Suite bathroom',
-  master: 'Master bedroom', master_bath: 'Master bathroom', family: 'Family area', corridor: 'Corridor', landing: 'Landing',
-  bed1: 'Bedroom 1', bed2: 'Bedroom 2', bath1: 'Bathroom 1', bath2: 'Bathroom 2', roof: 'Roof space', porch_roof: 'Porch roof',
+  terrace: 'Terrace', porch: 'Car porch', bed4: 'Flexi-Suite bedroom', bath4: 'Flexi-Suite bathroom',
+  master: 'Master bedroom', bath_master: 'Master bathroom', family: 'Family area', corridor: 'Corridor', landing: 'Landing',
+  bed3: 'Bedroom 3', bed2: 'Bedroom 2', bath3: 'Bathroom 3', bath2: 'Bathroom 2', roof: 'Roof space', porch_roof: 'Porch roof',
 };
 export const roomName = (id?: string | null) => (id ? ROOM_NAMES[id] ?? id : '');
 
@@ -73,7 +73,7 @@ function leakCase(f: Finding, w: World, now: number): Case {
   const cost = marginalWaterCost(BASELINE_M3_PER_MONTH, extraM3);
   const checks = w.checks.filter((c) => c.case_key === key);
   const located = checks.find((c) => c.flow_after < 0.02 && c.flow_before >= 0.05);
-  const order = ['fix_bath_guest_wc_cistern', 'fix_bath2_wc_cistern', 'fix_bath1_wc_cistern', 'fix_bath_master_wc_cistern'];
+  const order = ['fix_bath4_wc_cistern', 'fix_bath2_wc_cistern', 'fix_bath3_wc_cistern', 'fix_bath_master_wc_cistern'];
   const steps: GuidedStep[] = order.map((id) => {
     const c = checks.find((x) => x.fixture_id === id);
     return {
@@ -235,7 +235,7 @@ function noNoticeCase(f: Finding, now: number): Case {
     actions: [{ id: 'mgmt', kind: 'send_management', label: 'Ask management', primary: true, detail: 'They can check with Air Selangor' }],
     evidence: { title: 'Supply pressure', series: { unit: 'bar', points: [{ t: now - 3 * TIME.HOUR, v: 1.8 }, { t: now - 3600e3, v: 1.8 }, { t: now - 1800e3, v: 0.1 }, { t: now, v: 0.1 }] }, stats: [{ label: 'Pressure now', value: `${f.evidence.pressure_bar} bar` }, { label: 'Normal', value: '≈1.8 bar' }], explanation: 'A sudden drop to zero at the inlet means water is not reaching your house.' },
     timeline: [{ t: now, actor: 'penjaga', text: 'Supply pressure dropped' }],
-    focus: { layer: 'water', object_ids: ['meter_water_main', 'pipe_main_supply'], severity: 'heads_up', label: 'Water meter' },
+    focus: { layer: 'water', object_ids: ['meter_water_main', 'pipe_supply_main'], severity: 'heads_up', label: 'Water meter' },
     opened_at: now,
   };
 }
@@ -351,8 +351,8 @@ export function completeBookings(category: 'plumber' | 'electrician') {
 // Answers from the house record and live cases; replaced by the LLM agent. Out-of-scope requests get a redirect.
 const APPLIANCE_WORDS: [RegExp, string][] = [[/heater/, 'app_wh_'], [/air ?con|aircond|\bac\b/, 'app_ac_'], [/fan/, 'app_fan_'], [/socket|plug|power point/, 'sock_']];
 const ROOM_WORDS: [RegExp, string][] = [
-  [/master (bath|bathroom|toilet)/, 'master_bath'], [/master/, 'master'], [/suite (bath|bathroom|toilet)|guest bath/, 'guestbath'], [/suite|guest|mak/, 'guest'],
-  [/bathroom 2|bath 2/, 'bath2'], [/bathroom 1|bath 1/, 'bath1'], [/bedroom 2/, 'bed2'], [/bedroom 1/, 'bed1'],
+  [/master (bath|bathroom|toilet)/, 'bath_master'], [/master/, 'master'], [/suite (bath|bathroom|toilet)|guest bath|bathroom 4|bath 4/, 'bath4'], [/suite|guest|mak|bedroom 4/, 'bed4'],
+  [/bathroom 2|bath 2/, 'bath2'], [/bathroom 3|bath 3/, 'bath3'], [/bedroom 2/, 'bed2'], [/bedroom 3/, 'bed3'],
   [/living/, 'living'], [/kitchen/, 'kitchen'], [/yard|laundry|washer/, 'yard'], [/family/, 'family'], [/terrace|outdoor|outside/, 'terrace'],
 ];
 let msgId = 0;

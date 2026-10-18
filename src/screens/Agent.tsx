@@ -280,7 +280,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
     others.push({
       key: `wb:${w.id}`, t: houseNow() - 60e3, who: 'penjaga', tone: 'info', kicker: 'Family check',
       text: <><b className="a-lead">{w.title}.</b> {w.body} I only look at water and power use, never cameras or microphones.</>,
-      focus: { layer: 'structure', object_ids: ['floor_GF_guest', 'floor_GF_guestbath'], severity: 'info', label: "Mak's suite" },
+      focus: { layer: 'structure', object_ids: ['floor_GF_bed4', 'floor_GF_bath4'], severity: 'info', label: "Mak's suite" },
       chips: [
         { label: 'Call Mak', icon: 'phone', primary: true, onClick: () => { api.ackWellbeing(w.id, 'called'); location.href = 'tel:+60123456789'; } },
         { label: 'Let Mei Ling know', onClick: () => { api.ackWellbeing(w.id, 'family notified'); say({ who: 'penjaga', tone: 'calm', text: "I've let Mei Ling know." }); } },

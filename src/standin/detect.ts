@@ -13,7 +13,7 @@ export interface Finding {
   candidates?: { object_id: string; p: number }[];
 }
 
-const CISTERNS = ['fix_bath_guest_wc_cistern', 'fix_bath2_wc_cistern', 'fix_bath1_wc_cistern', 'fix_bath_master_wc_cistern'];
+const CISTERNS = ['fix_bath4_wc_cistern', 'fix_bath2_wc_cistern', 'fix_bath3_wc_cistern', 'fix_bath_master_wc_cistern'];
 
 export function detect(now = Date.now()): Finding[] {
   const out: Finding[] = [];
@@ -46,7 +46,7 @@ export function detect(now = Date.now()): Finding[] {
       confidence: 0.8, first_seen: days.find((d) => d.v > first + 1.5)?.t ?? days[0].t,
       evidence: { residual_ma: last, residual_ma_week_start: first, rcd_rating_ma: 30, rain_avg_ma: +avg(rain).toFixed(1), dry_avg_ma: +avg(dry).toFixed(1) },
       // Leakage that rises with rain points at circuits exposed to weather.
-      candidates: [{ object_id: 'circ_sockets_outdoor', p: 0.7 }, { object_id: 'circ_wh_bath_guest', p: 0.12 }, { object_id: 'circ_sockets_gf_rear', p: 0.08 }],
+      candidates: [{ object_id: 'circ_sockets_outdoor', p: 0.7 }, { object_id: 'circ_wh_bath4', p: 0.12 }, { object_id: 'circ_sockets_gf_rear', p: 0.08 }],
     });
   }
 
