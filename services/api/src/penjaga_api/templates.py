@@ -116,6 +116,7 @@ def _guided(ctx: Ctx, extras: CaseExtras) -> tuple[dict[str, Any], tuple[str, st
         step: dict[str, Any] = {
             "fixture_id": fixture,
             "fixture_label": ctx.names.of(fixture),
+            "valve_id": valve,  # the valve the owner closes (the Lab mirrors it in the simulator)
             "instruction": (
                 f"Close the {ctx.names.of(valve)} (clockwise until it stops), wait a moment, "
                 "then tap Check."
