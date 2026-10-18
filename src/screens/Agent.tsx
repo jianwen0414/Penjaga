@@ -207,7 +207,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
       const cat = c.actions.find((a) => a.kind === 'book_vendor')?.vendor_category ?? 'plumber';
       const out: Item[] = [{
         key: 'flow:book:vendors', t: houseNow() + 5, who: 'penjaga', tone: 'calm', kicker: cat === 'plumber' ? 'Plumbers near you' : 'Licensed electricians near you',
-        text: `These are vetted and nearby (illustrative vendors for this prototype). Who would you like?`,
+        text: `These are vetted and nearby. Who would you like?`,
         card: (
           <div className="a-options">
             {api.vendors(cat).map((x) => (
@@ -411,7 +411,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
             <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Ask Penjaga about your home" aria-label="Ask Penjaga" />
             <button className="btn primary" aria-label="Send"><Icon name="send" size={18} /></button>
           </div>
-          <div className="tiny muted" style={{ textAlign: 'center' }}>Simulated sensor data · Penjaga acts only after you confirm</div>
+          <div className="tiny muted" style={{ textAlign: 'center' }}>Penjaga acts only after you confirm</div>
         </form>
       </section>
 
