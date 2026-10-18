@@ -8,7 +8,7 @@ import spec from '../../house.spec.json';
 import { useView, api, useLive } from '../api/client';
 import { ViewerSlot, useEngine, type Engine } from '../app/engine';
 import { Icon, Chart, Sheet, SEV_LABEL, fmtDay, fmtTime } from '../components/ui';
-import type { Case, FocusCommand, Severity, Vendor } from '../api/types';
+import type { Case, ChatMessage, FocusCommand, Severity, Vendor } from '../api/types';
 import type { ElementInfo, DrillResult } from '../viewer/engine';
 import NoticesPanel from './Notices';
 import SettingsPanel from './Settings';
@@ -332,13 +332,21 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
     setText('');
     const ctxCase = openCases[0]?.id;
     const a = api.ask(q, { caseId: ctxCase });
-    setTimeout(() => say({
+    // The real agent answers in a few seconds: show that Penjaga is working on it until the reply lands.
+    if (a instanceof Promise) {
+      const key = `think${Date.now()}`;
+      setSession((s) => [...s, { key, t: Date.now(), who: 'penjaga', tone: 'calm', text: <span className="muted">Penjaga is looking into it…</span> }]);
+      void a.then((m) => { setSession((s) => s.filter((it) => it.key !== key)); reply(m); });
+    } else setTimeout(() => reply(a), 500);
+  };
+  const reply = (a: ChatMessage) => {
+    say({
       who: 'penjaga', tone: 'calm', text: a.text, focus: a.chips?.find((c) => c.focus)?.focus,
       chips: a.chips?.map((c) => ({
         label: c.label, icon: c.focus ? 'pin' : undefined,
         onClick: () => { if (c.focus) show(c.focus); else if (c.drill) engine?.setDrill(true); else if (c.to?.startsWith('/cases/')) { const id = c.to.split('/').pop()!; const cc = caseById(id); if (cc) { show(cc.focus); document.getElementById(`${id}:open`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }); } } },
       })),
-    }), 500);
+    });
   };
   const suggestions = openCases.length
     ? ['What happens if I wait?', 'How much is this costing me?', "What's wrong at home?"]

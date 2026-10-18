@@ -4,7 +4,7 @@
 // The view is a small store for useSyncExternalStore: loaded from GET /api/v1/view, refreshed when the Core API
 // publishes a change on its event stream (GET /api/v1/events, SSE) and every REFRESH_MS (today's usage moves on
 // its own), and kept on screen while the backend is unreachable, with a notice saying so.
-import type { Notice, Vendor, VendorCategory } from './types';
+import type { ChatMessage, Notice, Vendor, VendorCategory } from './types';
 import type { View } from '../standin/agent';
 
 const BASE = '/api/v1';
@@ -161,7 +161,7 @@ export function markToured(): void {
 /** The contract's name for an element, or undefined if the ID isn't a contract ID (the 3D spec uses its own). */
 export const contractName = (id: string): string | undefined => names.get(id);
 
-/** Vendors from the Core API's illustrative directory (prefetched; undefined until loaded). */
+/** Vendors from the Core API's directory (prefetched; undefined until loaded). */
 export const cachedVendors = (category: VendorCategory): Vendor[] | undefined => vendorCache.get(category);
 
 export async function live(): Promise<{ water_lpm: number | null; power_kw: number | null }> {
@@ -194,4 +194,32 @@ export function runGuidedCheck(caseId: string, fixtureId: string): void {
   confirmed(caseId, 'check', { fixture_id: fixtureId }, 'checks')
     .catch((err) => console.warn('[penjaga] check not started', err))
     .finally(loadSoon);
+}
+
+// ---------------- "Ask Penjaga" (step 6) ----------------
+// POST /api/v1/chat answers over SSE: a "thinking" comment, `delta` events with the text, then `done` with the whole
+// message (buttons included). The screen shows a thinking line until it resolves; it never rejects, so a lost
+// connection reads as a plain sentence instead of an error.
+
+let conversationId: string | undefined;
+
+export async function ask(text: string, ctx: { caseId?: string } = {}): Promise<ChatMessage> {
+  const fallback = (t: string): ChatMessage => ({ id: `m${Date.now()}`, role: 'penjaga', text: t, t: Date.now() });
+  try {
+    const r = await fetch(`${BASE}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text, conversation_id: conversationId, case_id: ctx.caseId }),
+    });
+    if (!r.ok) return fallback("I couldn't answer that just now. Try again in a moment.");
+    const raw = await r.text();
+    const done = raw.split('\n\n').find((block) => block.startsWith('event: done'));
+    const data = done?.split('\n').find((line) => line.startsWith('data: '))?.slice(6);
+    if (!data) return fallback("I couldn't answer that just now. Try again in a moment.");
+    const reply = JSON.parse(data) as { conversation_id: string; message: ChatMessage };
+    conversationId = reply.conversation_id;
+    return reply.message;
+  } catch {
+    return fallback("I can't reach your home's service right now. Your cases are still shown; try again in a moment.");
+  }
 }

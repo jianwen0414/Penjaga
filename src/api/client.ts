@@ -1,14 +1,13 @@
 // The app's single door to the backend. Screens never import the stand-in or the network directly.
 //   VITE_BACKEND=standin (default): the local stand-in (src/standin), so the whole journey works with no backend.
 //   VITE_BACKEND=api: the real Core API (src/api/remote.ts) with the same shapes (src/api/types.ts).
-// In api mode, wellbeing and chat still use the stand-in: the Core API has no wellbeing check, and async chat needs
-// an agreed change to Agent.tsx.
+// In api mode, wellbeing still uses the stand-in: the Core API has no wellbeing check.
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { subscribe, getWorld } from '../standin/world';
 import * as agent from '../standin/agent';
 import { flowNow, elecAt } from '../standin/sim';
 import * as remote from './remote';
-import type { VendorCategory } from './types';
+import type { ChatMessage, VendorCategory } from './types';
 
 export type { View } from '../standin/agent';
 
@@ -38,7 +37,8 @@ export const api = {
   setConsent: real ? remote.setConsent : agent.setConsent,
   markToured: real ? remote.markToured : agent.markToured,
   vendors: (category: VendorCategory) => (real ? remote.cachedVendors(category) : undefined) ?? standinVendors(category),
-  ask: agent.ask, // TODO(step 6): POST /api/v1/chat (async, streamed) once Agent.tsx is agreed with Brayden
+  // The real chat answers in a few seconds (a promise); the stand-in answers at once. Agent.tsx handles both.
+  ask: (real ? remote.ask : agent.ask) as (q: string, ctx?: { caseId?: string }) => ChatMessage | Promise<ChatMessage>,
   // Contract IDs get the house record's names; IDs from the 3D spec fall back to the stand-in's naming.
   objectName: (id: string) => (real ? remote.contractName(id) : undefined) ?? agent.objectName(id),
   roomName: (id?: string | null) =>
