@@ -270,15 +270,37 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
     return true;
   }
   function focusId(id, opts) { const o = house.byId.get(id); return o ? focusObject(o, opts) : false; }
+  // Several objects (e.g. "the bathrooms"): frame them all together; on both floors, show both floors.
+  function focusObjects(objs) {
+    const floors = [...new Set(objs.map((o) => o.userData.floor).filter(Boolean))];
+    let settle = 0;
+    if (floors.length > 1 && state.view !== 'split') { setView('split', { reframe: false }); settle = 0.95; }
+    else if (floors.length === 1) showFloorOf(floors[0]);
+    select(null, { silent: true });
+    state.focus = { objs };
+    const fly = () => {
+      scene.updateMatrixWorld(true);
+      const box = new THREE.Box3();
+      objs.forEach((o) => box.expandByObject(o));
+      const sphere = box.getBoundingSphere(new THREE.Sphere());
+      const vfov = THREE.MathUtils.degToRad(camera.fov);
+      const hfov = 2 * Math.atan(Math.tan(vfov / 2) * camera.aspect);
+      const dist = Math.max(9, (sphere.radius / Math.sin(Math.min(vfov, hfov) / 2)) * 1.15);
+      flyTo(sphere.center.clone().add(new THREE.Vector3(0, Math.sin(ELEV), Math.cos(ELEV)).multiplyScalar(dist)), sphere.center, 1.3);
+    };
+    // the first floor slides into place when the view changes: frame once it has arrived
+    if (settle && !reduceMotion) gsap.delayedCall(settle, fly); else fly();
+    return true;
+  }
 
   // ---------- flagged objects (Focus command) ----------
-  let flagged = [], flagLabel = null, revealTl = null;
+  let flagged = [], flagLabels = [], revealTl = null;
   function clearFlags() {
     revealTl?.kill();
     flagged.forEach((o) => { delete o.userData.flagColor; setHighlight(o, null); });
     flagged = [];
-    flagLabel?.removeFromParent();
-    flagLabel = null;
+    flagLabels.forEach((l) => l.removeFromParent());
+    flagLabels = [];
     invalidate();
   }
   function clearFocus({ reframe = true } = {}) {
@@ -293,14 +315,19 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
     objs.forEach((o) => { o.userData.flagColor = color; setHighlight(o, color); });
     flagged = [...new Set([...flagged, ...objs])];
     if (label && objs[0]) {
-      flagLabel?.removeFromParent();
-      const el = document.createElement('div');
-      el.className = `focus-label sev-${severity}`;
-      el.innerHTML = `<b>${SEVERITY_LABEL[severity] ?? ''}</b> ${label}`;
-      flagLabel = new CSS2DObject(el);
-      const b = new THREE.Box3().setFromObject(objs[0]);
-      objs[0].worldToLocal(flagLabel.position.set((b.min.x + b.max.x) / 2, b.max.y + 0.15, (b.min.z + b.max.z) / 2));
-      objs[0].add(flagLabel);
+      flagLabels.forEach((l) => l.removeFromParent());
+      // One object: the command's label. Several: each gets its own name (a room's name for its floor piece).
+      const own = (o) => o.userData.label ?? house.rooms.get(`${o.userData.floor}:${o.userData.room}`)?.name ?? label;
+      flagLabels = objs.map((o, i) => {
+        const el = document.createElement('div');
+        el.className = `focus-label sev-${severity}`;
+        el.innerHTML = `<b>${i === 0 ? SEVERITY_LABEL[severity] ?? '' : ''}</b> ${objs.length > 1 ? own(o) : label}`;
+        const tag = new CSS2DObject(el);
+        const b = new THREE.Box3().setFromObject(o);
+        o.worldToLocal(tag.position.set((b.min.x + b.max.x) / 2, b.max.y + 0.15, (b.min.z + b.max.z) / 2));
+        o.add(tag);
+        return tag;
+      });
     }
     invalidate();
   }
@@ -315,7 +342,8 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
     if (!objs.length) return false;
     const services = layer === 'water' || layer === 'electrical';
     if (services && !reduceMotion) setLayer(layer, false); // start from the finished house, then reveal
-    focusObject(objs[0], { autoLayer: false, silent: true });
+    if (objs.length > 1) focusObjects(objs);
+    else focusObject(objs[0], { autoLayer: false, silent: true });
     state.focus.reveal = { o: 1 };
     const finish = () => {
       if (services) setLayer(layer, true);
@@ -380,6 +408,7 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
   function focusPoints() {
     const f = state.focus;
     if (f.room) return [house.floors[f.room.floor].localToWorld(new THREE.Vector3(...f.room.center)).add(new THREE.Vector3(0, 0.6, 0))];
+    if (f.objs) return f.objs.map((o) => _b.setFromObject(o).getCenter(new THREE.Vector3())); // several: each centre
     _b.setFromObject(f.obj);
     const c = _b.getCenter(new THREE.Vector3()), pts = [c];
     for (const y of [_b.max.y, Math.min(_b.min.y + 0.25, c.y)]) {
