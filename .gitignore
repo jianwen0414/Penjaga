@@ -41,3 +41,7 @@ desktop.ini
 
 # Project documents (PRD, decisions, designs, reports) are kept local, never committed.
 docs/
+
+# OS and log files (the homeowner app)
+.DS_Store
+*.log

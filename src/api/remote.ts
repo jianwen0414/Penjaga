@@ -1,0 +1,197 @@
+// The real backend (VITE_BACKEND=api): the Core API's /api/v1, reached through the Vite dev proxy, which adds the
+// homeowner token server-side so the browser never holds one. Same shapes as the stand-in (src/api/types.ts).
+//
+// The view is a small store for useSyncExternalStore: loaded from GET /api/v1/view, refreshed when the Core API
+// publishes a change on its event stream (GET /api/v1/events, SSE) and every REFRESH_MS (today's usage moves on
+// its own), and kept on screen while the backend is unreachable, with a notice saying so.
+import type { Notice, Vendor, VendorCategory } from './types';
+import type { View } from '../standin/agent';
+
+const BASE = '/api/v1';
+const REFRESH_MS = 30_000;
+const RETRY_MS = [1_000, 2_000, 5_000, 10_000, 30_000];
+const TOURED_KEY = 'penjaga.toured'; // remembered per browser, so the first render already knows it
+const CATEGORIES: VendorCategory[] = ['plumber', 'electrician', 'aircon_service'];
+
+const rememberedTour = (): boolean => {
+  try { return localStorage.getItem(TOURED_KEY) === '1'; } catch { return false; }
+};
+const rememberTour = (on: boolean) => {
+  try { if (on) localStorage.setItem(TOURED_KEY, '1'); } catch { /* storage unavailable */ }
+};
+
+function statusNotice(id: string, title: string, body: string): Notice {
+  const now = Date.now();
+  return { id, type: 'general', title, issuer: 'Penjaga', area: 'This home', starts_at: now, ends_at: now + 3600e3, body };
+}
+const CONNECTING = statusNotice('penjaga-connecting', 'Connecting to your Penjaga hub', 'Penjaga is loading your home. This takes a moment.');
+const OFFLINE = statusNotice('penjaga-offline', "Can't reach your Penjaga hub", "Showing what Penjaga last knew. It reconnects on its own; nothing is lost while it's away.");
+
+let view: View = {
+  cases: [],
+  notices: [CONNECTING],
+  wellbeing: null,
+  home: { status: 'all_quiet', checked_at: 0, today: { water_l: 0, water_typical_l: 0, water_series: [], elec_kwh: 0, elec_typical_kwh: 0, elec_series: [] } },
+  maintenance: [],
+  passport: [],
+  consent: { L1: true, L2: true, L3: true, L4: true, L5: true },
+  toured: rememberedTour(),
+};
+const listeners = new Set<() => void>();
+const emit = () => listeners.forEach((fn) => fn());
+
+let names = new Map<string, string>(); // contract ID → name, from GET /api/v1/house
+let consentVersions: Record<string, string> = {};
+const vendorCache = new Map<VendorCategory, Vendor[]>();
+let started = false;
+let failures = 0;
+let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+
+async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const r = await fetch(`${BASE}${path}`, {
+    method,
+    headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(`${method} ${path}: ${r.status} ${await r.text()}`);
+  return (r.status === 204 ? undefined : await r.json()) as T;
+}
+
+// The Core API has no "typical" until the house has a day of history (null). The screens treat 0 as "no comparison".
+function adapt(v: View): View {
+  const t = v.home.today as unknown as Record<string, unknown>;
+  const today = { ...v.home.today, water_typical_l: Number(t.water_typical_l ?? 0), elec_typical_kwh: Number(t.elec_typical_kwh ?? 0) };
+  return { ...v, home: { ...v.home, today } };
+}
+
+async function load(): Promise<void> {
+  clearTimeout(refreshTimer);
+  try {
+    const next = adapt(await call<View>('GET', '/view'));
+    if (next.toured) rememberTour(true);
+    view = next;
+    failures = 0;
+    emit();
+    refreshTimer = setTimeout(load, REFRESH_MS);
+  } catch (err) {
+    console.warn('[penjaga] view unavailable', err);
+    view = { ...view, notices: [OFFLINE, ...view.notices.filter((n) => n.id !== OFFLINE.id && n.id !== CONNECTING.id)] };
+    emit();
+    refreshTimer = setTimeout(load, RETRY_MS[Math.min(failures++, RETRY_MS.length - 1)]);
+  }
+}
+
+let soon: ReturnType<typeof setTimeout> | undefined;
+const loadSoon = () => { clearTimeout(soon); soon = setTimeout(load, 250); };
+
+async function loadReference(): Promise<void> {
+  try {
+    const house = await call<Record<string, unknown>>('GET', '/house');
+    const found = new Map<string, string>();
+    const walk = (node: unknown) => {
+      if (Array.isArray(node)) node.forEach(walk);
+      else if (node && typeof node === 'object') {
+        const o = node as Record<string, unknown>;
+        if (typeof o.id === 'string' && typeof o.name === 'string') found.set(o.id, o.name);
+        Object.values(o).forEach(walk);
+      }
+    };
+    walk(house);
+    names = found;
+    const consent = await call<{ layer: string; text_version: string }[]>('GET', '/consent');
+    consentVersions = Object.fromEntries(consent.map((c) => [c.layer, c.text_version]));
+    for (const category of CATEGORIES) {
+      const doc = await call<{ vendors: Vendor[] }>('GET', `/vendors?category=${category}`);
+      vendorCache.set(category, doc.vendors);
+    }
+    emit();
+  } catch (err) {
+    console.warn('[penjaga] reference data unavailable; retrying', err);
+    setTimeout(loadReference, 10_000);
+  }
+}
+
+function start(): void {
+  if (started || typeof window === 'undefined') return;
+  started = true;
+  void load();
+  void loadReference();
+  // EventSource reconnects by itself and resumes with Last-Event-ID. Any change (a case, consent, a new run)
+  // just reloads the view, which is the single source of truth.
+  const events = new EventSource(`${BASE}/events`);
+  for (const kind of ['case', 'consent', 'episode']) events.addEventListener(kind, loadSoon);
+  events.onopen = loadSoon;
+}
+
+export function subscribe(fn: () => void): () => void {
+  start();
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+export const snapshot = (): View => view;
+
+// ---------------- actions ----------------
+
+export function dismiss(caseId: string, reason: string): void {
+  call('POST', `/cases/${encodeURIComponent(caseId)}/dismiss`, { reason })
+    .catch((err) => console.warn('[penjaga] dismiss refused', err)) // urgent and safety cases can't be dismissed
+    .finally(loadSoon);
+}
+
+export function setConsent(layer: string, on: boolean): void {
+  const before = view.consent;
+  view = { ...view, consent: { ...view.consent, [layer]: on } };
+  emit();
+  const decide = async () => {
+    if (!consentVersions[layer]) await loadReference();
+    await call('PUT', `/consent/${layer}`, { enabled: on, text_version: consentVersions[layer] ?? 'v1' });
+  };
+  decide()
+    .catch((err) => { console.warn('[penjaga] consent not saved', err); view = { ...view, consent: before }; emit(); })
+    .finally(loadSoon);
+}
+
+export function markToured(): void {
+  rememberTour(true);
+  view = { ...view, toured: true };
+  emit();
+  call('POST', '/toured').catch((err) => console.warn('[penjaga] tour flag not saved', err));
+}
+
+/** The contract's name for an element, or undefined if the ID isn't a contract ID (the 3D spec uses its own). */
+export const contractName = (id: string): string | undefined => names.get(id);
+
+/** Vendors from the Core API's illustrative directory (prefetched; undefined until loaded). */
+export const cachedVendors = (category: VendorCategory): Vendor[] | undefined => vendorCache.get(category);
+
+export async function live(): Promise<{ water_lpm: number | null; power_kw: number | null }> {
+  return call('GET', '/live');
+}
+
+// ---------------- confirmed actions (step 7) ----------------
+// The screens show the owner exactly what goes out before they tap (the management draft, the booking summary,
+// the valve to close), so a tap is the confirmation: preview, then confirm with the single-use token.
+
+async function confirmed(caseId: string, kind: 'ticket' | 'booking' | 'check', params: Record<string, unknown>, path: string) {
+  const { confirmation } = await call<{ confirmation: string }>('POST', `/cases/${encodeURIComponent(caseId)}/actions/${kind}/preview`, { params });
+  return call('POST', `/cases/${encodeURIComponent(caseId)}/${path}`, { ...params, confirmation });
+}
+
+export function sendToManagement(caseId: string, note: string): void {
+  confirmed(caseId, 'ticket', { note, contact: 'in_app' }, 'tickets')
+    .catch((err) => console.warn('[penjaga] report not sent', err))
+    .finally(loadSoon);
+}
+
+export function book(caseId: string, vendorId: string, slot: number): void {
+  confirmed(caseId, 'booking', { vendor_id: vendorId, slot }, 'bookings')
+    .catch((err) => console.warn('[penjaga] booking not made', err))
+    .finally(loadSoon);
+}
+
+/** Starts a guided check; the step's result arrives with the view once the meter has been watched. */
+export function runGuidedCheck(caseId: string, fixtureId: string): void {
+  confirmed(caseId, 'check', { fixture_id: fixtureId }, 'checks')
+    .catch((err) => console.warn('[penjaga] check not started', err))
+    .finally(loadSoon);
+}
