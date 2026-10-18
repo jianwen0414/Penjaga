@@ -21,6 +21,7 @@ from penjaga_api.agent.tools import TOOLS, ToolBox
 
 MAX_ROUNDS = 6
 MAX_REPAIRS = 1
+RETRY_MAX_TOKENS = 2400  # twice the default budget, for a reply cut off by reasoning
 SEVERITY_RANK = {"info": 0, "heads_up": 1, "act_soon": 2, "urgent": 3}
 
 SYSTEM = """You are Penjaga, a calm, competent, warm home guardian for a family in an SDP Elmina \
@@ -129,7 +130,15 @@ async def answer(
     ]
     repairs = MAX_REPAIRS
     for round_ in range(1, MAX_ROUNDS + 1):
-        completion = await llm.complete(messages, tools=TOOLS, session_id=session_id)
+        try:
+            completion = await llm.complete(messages, tools=TOOLS, session_id=session_id)
+        except LLMUnavailableError as exc:
+            if exc.kind != "length":
+                raise
+            # the model's reasoning used the whole budget: one more try with twice the room
+            completion = await llm.complete(
+                messages, tools=TOOLS, session_id=session_id, max_tokens=RETRY_MAX_TOKENS
+            )
         if completion.tool_calls:
             messages.append(completion.assistant_message())
             for call in completion.tool_calls:
