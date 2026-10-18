@@ -457,3 +457,15 @@ def test_a_chat_reply_cut_off_by_reasoning_gets_more_room(make: Any) -> None:
     assert done["source"] == "ai"
     assert done["message"]["text"] == "Your home is all quiet right now."
     assert len(llm.calls) == 2
+
+
+def test_a_promised_show_me_button_must_exist(make: Any) -> None:
+    promise = reply("It is outside by the meter. Tap Show me to see it in the 3D view.")
+    show = call("c1", "focus_3d", object_ids=["valve_main_stop"], layer="water", label="stop valve")
+    fixed = reply("It is outside by the meter, next to the car porch.")
+    llm = FakeLLM([promise, reply(None, show), fixed])
+    h = make(llm)
+    h.follow()
+    _, done = h.chat("Where is my main stop valve?")
+    assert done["message"]["chips"][0]["label"] == "Show me: stop valve"
+    assert "none was made" in llm.calls[1]["messages"][-1]["content"]

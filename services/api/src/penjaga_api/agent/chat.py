@@ -71,6 +71,10 @@ class Answer:
 BUTTON_TALK = re.compile(r"\b(tap|button|show me|open (?:the|this)|I can'?t (?:book|switch))", re.I)
 
 
+# a promised 3D button must exist; the case card's own "Show me where" button doesn't count
+SHOW_ME_TALK = re.compile(r"\bshow me\b(?! where)", re.I)
+
+
 def only_buttons(text: str) -> bool:
     """True when every sentence just points at buttons or says what chat can't do."""
     sentences = [s for s in re.split(r"(?<=[.!?])\s+", text.strip()) if s]
@@ -156,6 +160,11 @@ async def answer(
         if text and only_buttons(text):
             check.problems.append(
                 "it only points at buttons: answer the question in words first, then the buttons"
+            )
+        if text and SHOW_ME_TALK.search(text) and not any(c.get("focus") for c in toolbox.chips):
+            check.problems.append(
+                "it mentions a 'Show me' button but none was made: call focus_3d with the element "
+                "IDs, or leave the button out"
             )
         if text and check.ok:
             return Answer(plain(text), _chips(toolbox), "ai", completion.model, round_)
