@@ -84,6 +84,7 @@ export interface Vendor {
 }
 
 export interface Booking {
+  id?: string; // set by the Core API (the Lab completes jobs by it)
   vendor_id: string;
   vendor_name: string;
   slot: number;
