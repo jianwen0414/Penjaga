@@ -174,7 +174,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
       if (e.text === 'Sent to management') { items.push({ key: `${c.id}:${e.t}:you`, t: e.t, who: 'you', text: 'Send this to management.' }); items.push({ key: `${c.id}:${e.t}`, t: e.t + 1, who: 'penjaga', tone: 'calm', text: "Sent. I'll show you their reply here." }); continue; }
     }
     if (c.status === 'resolved') {
-      items.push({ key: `${c.id}:resolved`, t: c.resolved_at ?? houseNow(), who: 'penjaga', tone: 'ok', kicker: 'Fixed', text: <><b className="a-lead">{c.title}.</b> {c.layer === 'L1' ? 'Your water meter is still again at night. ' : 'Earth leakage is back to normal. '}{c.outcome}. I've added it to your Home Passport.</> });
+      items.push({ key: `${c.id}:resolved`, t: c.resolved_at ?? houseNow(), who: 'penjaga', tone: 'ok', kicker: 'Fixed', text: <><b className="a-lead">{c.title}.</b> {c.layer === 'L1' ? 'Your water meter is still again at night. ' : c.layer === 'L2' ? 'Earth leakage is back to normal. ' : ''}{c.outcome}. I've added it to your Home Passport.</> });
     }
     if (open[`ev:${c.id}`]) {
       items.push({ key: `${c.id}:evidence`, t: houseNow() + 1, who: 'penjaga', tone: 'calm', kicker: 'Why I think so', text: c.evidence.explanation, card: <div className="a-card"><div className="label" style={{ marginBottom: 6 }}>{c.evidence.title}</div><Chart s={c.evidence.series} title={c.evidence.title} height={150} /><div className="a-stats">{c.evidence.stats.map((s) => <div key={s.label}><span className="tiny muted">{s.label}</span><b>{s.value}</b></div>)}</div></div> });
@@ -303,7 +303,8 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
     const at = arrivals.current!.get(c.id)!;
     return caseStory(c).map((it, k) => ({ ...it, t: Math.max(it.t, at + k) }));
   });
-  const thread = [briefing, ...[...others, ...stories, ...session].sort((a, b) => a.t - b.t), ...flowItems()];
+  // What the owner is asking right now stays at the bottom, in the order it was said, below the case stories.
+  const thread = [briefing, ...[...others, ...stories].sort((a, b) => a.t - b.t), ...session, ...flowItems()];
 
   // ---------- keep the stage in step with the conversation ----------
   const latest = [...thread].reverse().find((i) => i.focus || i.frame);
@@ -315,7 +316,9 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
     if (latest.focus) engine.focus(latest.focus);
     else { engine.clearFocus(); openCases.forEach((c) => engine.flag(c.focus.object_ids.slice(0, 1), c.severity)); }
   }, [engine, latestKey]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { threadEnd.current?.scrollIntoView({ behavior: engine?.reduceMotion ? 'auto' : 'smooth', block: 'end' }); }, [thread.length, flow]);
+  // Follow the newest message, including a reply that replaces the "looking into it" line (same length).
+  const lastKey = thread[thread.length - 1]?.key;
+  useEffect(() => { threadEnd.current?.scrollIntoView({ behavior: engine?.reduceMotion ? 'auto' : 'smooth', block: 'end' }); }, [thread.length, lastKey, flow]);
   useEffect(() => { // notification deep link: bring that case forward
     const c = routeCase ? caseById(routeCase) : null;
     if (c && engine) { engine.focus(c.focus); document.getElementById(`${c.id}:open`)?.scrollIntoView({ block: 'center' }); }
