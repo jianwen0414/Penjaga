@@ -54,7 +54,14 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
   const threadEnd = useRef<HTMLDivElement>(null);
   const caseById = (id: string) => v.cases.find((c) => c.id === id);
   const say = (it: Omit<Item, 'key' | 't'> & { t?: number }) => setSession((s) => [...s, { key: `s${Date.now()}${Math.random()}`, t: houseNow(), ...it }]);
-  const show = (f?: FocusCommand) => { if (f && engine) engine.focus(f); };
+  // A part the 3D model doesn't have yet: clear the old highlight (it would look like the answer) and say so.
+  const show = (f?: FocusCommand) => {
+    if (!f || !engine) return;
+    if (!engine.focus(f)) {
+      engine.clearFocus();
+      say({ who: 'penjaga', tone: 'calm', text: `${f.label ? `${f.label}: ` : ''}that part isn't in the 3D model of your home yet, so I can't point to it.` });
+    }
+  };
 
   // ---------- the house talking back: taps and "Can I drill here?" ----------
   useEffect(() => {

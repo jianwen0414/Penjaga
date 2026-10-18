@@ -15,6 +15,8 @@ export function EngineProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     shared ??= createEngine(spec, { onProgress: setProgress, lite: new URLSearchParams(location.search).has('lite') });
     shared.then(setEngine).catch((e) => { console.error(e); setFailed(true); });
+    // Dev server only: lets the 3D focus check (services/api/tools) drive the engine. Not in production builds.
+    if (import.meta.env.DEV) void shared.then((e) => { (window as unknown as { __penjagaEngine?: Engine }).__penjagaEngine = e; });
   }, []);
   return <Ctx.Provider value={{ engine, progress, failed }}>{children}</Ctx.Provider>;
 }
