@@ -79,6 +79,7 @@ async function load(): Promise<void> {
     if (next.toured) rememberTour(true);
     view = next;
     failures = 0;
+    void loadVendors().catch(() => { /* keep the last slots */ });
     emit();
     refreshTimer = setTimeout(load, REFRESH_MS);
   } catch (err) {
@@ -91,6 +92,15 @@ async function load(): Promise<void> {
 
 let soon: ReturnType<typeof setTimeout> | undefined;
 const loadSoon = () => { clearTimeout(soon); soon = setTimeout(load, 250); };
+
+// Vendors' visit slots are relative to house time, which runs fast in the demo: they are refreshed with every
+// view load so the times on screen are still on offer when the owner picks one.
+async function loadVendors(): Promise<void> {
+  for (const category of CATEGORIES) {
+    const doc = await call<{ vendors: Vendor[] }>('GET', `/vendors?category=${category}`);
+    vendorCache.set(category, doc.vendors);
+  }
+}
 
 async function loadReference(): Promise<void> {
   try {
@@ -108,10 +118,7 @@ async function loadReference(): Promise<void> {
     names = found;
     const consent = await call<{ layer: string; text_version: string }[]>('GET', '/consent');
     consentVersions = Object.fromEntries(consent.map((c) => [c.layer, c.text_version]));
-    for (const category of CATEGORIES) {
-      const doc = await call<{ vendors: Vendor[] }>('GET', `/vendors?category=${category}`);
-      vendorCache.set(category, doc.vendors);
-    }
+    await loadVendors();
     emit();
   } catch (err) {
     console.warn('[penjaga] reference data unavailable; retrying', err);
@@ -201,6 +208,15 @@ export function sendToManagement(caseId: string, note: string): void {
 
 export function book(caseId: string, vendorId: string, slot: number): void {
   confirmed(caseId, 'booking', { vendor_id: vendorId, slot }, 'bookings')
+    .catch(async (err) => {
+      // The slot can pass in house time between showing it and the tap: take the vendor's nearest slot from then on.
+      if (!String(err).includes('offered slots')) throw err;
+      await loadVendors();
+      const vendor = [...vendorCache.values()].flat().find((v) => v.id === vendorId);
+      const next = vendor?.next_slots.find((t) => t >= slot) ?? vendor?.next_slots[0];
+      if (next === undefined) throw err;
+      return confirmed(caseId, 'booking', { vendor_id: vendorId, slot: next }, 'bookings');
+    })
     .catch((err) => console.warn('[penjaga] booking not made', err))
     .finally(loadSoon);
 }
