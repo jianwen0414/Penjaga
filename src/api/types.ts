@@ -37,13 +37,18 @@ export interface Action {
 }
 
 export interface GuidedStep {
-  fixture_id: string;
+  kind?: 'valve' | 'breaker'; // close a valve (water) or switch off a breaker (earth leakage)
+  fixture_id: string; // what is tested: a fixture, or a circuit
   fixture_label: string;
   valve_id?: string; // the valve the owner closes (set by the Core API)
+  circuit_id?: string; // the circuit the owner switches off, and its breaker
+  breaker_id?: string;
   instruction: string;
-  result?: 'stopped' | 'continued';
+  result?: 'stopped' | 'continued'; // stopped: the flow or the leakage went with it (found it)
   flow_before?: number;
   flow_after?: number;
+  residual_before?: number;
+  residual_after?: number;
 }
 
 export interface Case {
