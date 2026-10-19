@@ -132,12 +132,18 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
     if (inspecting.current !== run) return;
     setTimeout(() => { if (inspecting.current === run) setHud(null); }, 1400);
     if (!r) { setHud(null); return; } // put away before it finished
+    // "the fridge", but "the Bathroom 2 toilet cistern"; no ", in the bathroom 2" when the name already says so
+    const name = (label?: string) => {
+      const l = (label || 'spot').replace(/^the /i, '');
+      return /^[A-Z][a-z]+ \d/.test(l) || l.startsWith('"') ? l : l.replace(/^./, (ch) => ch.toLowerCase());
+    };
+    const inRoom = r.room && !(focus.label ?? '').toLowerCase().includes(r.room.toLowerCase()) ? `, in the ${r.room.toLowerCase()}` : '';
     const shot: Shot = { image: r.image, video: r.video ? URL.createObjectURL(r.video) : undefined, title: c.title, where: r.room ?? c.location };
     say({
       who: 'penjaga', tone: 'calm', kicker: '3D inspection',
       text: focus !== c.focus
-        ? <><b className="a-lead">Here's the {(focus.label || 'spot').replace(/^the /i, '').replace(/^./, (ch) => ch.toLowerCase())}{r.room ? `, in the ${r.room.toLowerCase()}` : ''}.</b> Seen at eye level, as you would stand there.</>
-        : <><b className="a-lead">Here it is{r.room ? `, in the ${r.room.toLowerCase()}` : ''}.</b> I stood where you would, at eye level, and looked through the wall. What's wrong is marked in red.</>,
+        ? <><b className="a-lead">Here's the {name(focus.label)}{inRoom}.</b></>
+        : <><b className="a-lead">Here it is: the {name(focus.label)}{inRoom}.</b> It's marked in red.</>,
       card: <ShotCard shot={shot} onOpen={() => setViewer(shot)} />,
       chips: [{ label: 'Open full view', icon: 'eye', primary: true, onClick: () => setViewer(shot) }],
     });
@@ -644,11 +650,11 @@ type Shot = { image: string; video?: string; title: string; where: string };
 // The inspection's camera overlay: corner brackets, REC, and a line saying what the view is doing.
 function InspectHud({ hud }: { hud: Hud }) {
   const line: Record<InspectPhase, string> = {
-    walk: `Going to ${hud.room ? `the ${hud.room.toLowerCase()}` : 'the spot'}, at eye level`,
-    look: 'This is what you would see',
-    xray: 'X-ray: looking inside the wall',
+    walk: hud.room ? `Going to the ${hud.room.toLowerCase()}` : 'Going there',
+    look: hud.room ? `In the ${hud.room.toLowerCase()}` : 'Here',
+    xray: "Showing what's inside the wall",
     found: `Found: ${hud.title}`,
-    done: 'Captured. The picture is in the chat',
+    done: 'Picture saved in the chat',
   };
   return (
     <div className={`inspect-hud ph-${hud.phase}`} aria-live="polite">
