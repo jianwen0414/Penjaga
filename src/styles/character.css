@@ -1,0 +1,52 @@
+/* Penjaga's character (src/components/Character.tsx). Still by default; `.live` brings it to life with one small
+   motion per mood. Transforms are in the SVG's 512-unit space; parts scale about their own centre (fill-box). */
+.pc { display: block; flex: none; overflow: visible; }
+.pc .pc-eyes, .pc .pc-brows, .pc .pc-look, .pc .pc-halo, .pc .pc-lamp, .pc .pc-spark,
+.pc .pc-b1, .pc .pc-b2, .pc .pc-z1, .pc .pc-z2 { transform-box: fill-box; transform-origin: center; }
+.pc .pc-house { transform-box: view-box; transform-origin: 50% 78%; }
+
+/* every awake face blinks now and then, and the lamp breathes */
+.pc.live .pc-eyes { animation: pc-blink 4.6s infinite; }
+.pc.live .pc-lamp { animation: pc-lamp 3.2s ease-in-out infinite; }
+
+/* calm: a slow float */
+.pc.live.calm .pc-house { animation: pc-bob 4s ease-in-out infinite; }
+
+/* alert: the lamp pulses amber, the brows lift */
+.pc.live.alert .pc-halo { animation: pc-halo 1.8s ease-in-out infinite; }
+.pc.live.alert .pc-brows { animation: pc-brows 3s ease-in-out infinite; }
+
+/* concerned: a quicker red pulse and a small worried shiver */
+.pc.live.concerned .pc-halo { animation: pc-halo 1s ease-in-out infinite; }
+.pc.live.concerned .pc-house { animation: pc-shiver 2.6s ease-in-out infinite; }
+
+/* thinking: eyes drift to the thought, bubbles rise one after the other */
+.pc.live.thinking .pc-look { animation: pc-look 3s ease-in-out infinite; }
+.pc.live.thinking .pc-b1 { animation: pc-rise 1.8s ease-out infinite; }
+.pc.live.thinking .pc-b2 { animation: pc-rise 1.8s ease-out 0.45s infinite; }
+.pc.live.thinking .pc-lamp { animation: pc-lamp 1.2s ease-in-out infinite; }
+
+/* happy: a little hop, the sparkle twinkles */
+.pc.live.happy .pc-house { animation: pc-hop 2.4s ease-in-out infinite; }
+.pc.live.happy .pc-spark { animation: pc-twinkle 1.6s ease-in-out infinite; }
+
+/* sleeping: slow breathing, z's drift up */
+.pc.live.sleeping .pc-house { animation: pc-breathe 4.4s ease-in-out infinite; }
+.pc.live.sleeping .pc-lamp { animation: none; }
+.pc.live.sleeping .pc-z1 { animation: pc-z 3.2s ease-in-out infinite; }
+.pc.live.sleeping .pc-z2 { animation: pc-z 3.2s ease-in-out 1.6s infinite; }
+
+@keyframes pc-blink { 0%, 93%, 100% { transform: scaleY(1); } 96% { transform: scaleY(0.12); } }
+@keyframes pc-lamp { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+@keyframes pc-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+@keyframes pc-halo { 0%, 100% { opacity: 0.12; transform: scale(0.8); } 50% { opacity: 0.6; transform: scale(1.35); } }
+@keyframes pc-brows { 0%, 70%, 100% { transform: translateY(0); } 80%, 90% { transform: translateY(-8px); } }
+@keyframes pc-shiver { 0%, 80%, 100% { transform: rotate(0); } 84% { transform: rotate(-2.5deg); } 88% { transform: rotate(2.5deg); } 92% { transform: rotate(-1.5deg); } 96% { transform: rotate(1deg); } }
+@keyframes pc-look { 0%, 35%, 100% { transform: translate(0, 0); } 45%, 80% { transform: translate(8px, -5px); } }
+@keyframes pc-rise { 0% { opacity: 0; transform: translate(-8px, 14px) scale(0.6); } 35% { opacity: 1; } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(6px, -16px) scale(1.05); } }
+@keyframes pc-hop { 0%, 60%, 100% { transform: translateY(0) scale(1, 1); } 70% { transform: translateY(0) scale(1.04, 0.95); } 80% { transform: translateY(-18px) scale(0.98, 1.03); } 90% { transform: translateY(0) scale(1.02, 0.98); } }
+@keyframes pc-twinkle { 0%, 100% { opacity: 0.55; transform: scale(0.65) rotate(0); } 50% { opacity: 1; transform: scale(1.15) rotate(25deg); } }
+@keyframes pc-breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.015, 0.975); } }
+@keyframes pc-z { 0% { opacity: 0; transform: translate(-6px, 10px); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(10px, -26px); } }
+
+@media (prefers-reduced-motion: reduce) { .pc.live * { animation: none !important; } }

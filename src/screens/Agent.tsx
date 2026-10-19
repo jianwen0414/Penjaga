@@ -2,12 +2,15 @@
 // what it's talking about in the house. The owner acts by replying (or typing), never by hunting through pages.
 // The conversation is rebuilt from case data on every render (so it survives reloads); only the owner's
 // free-form questions and taps on the house are session-only.
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import spec from '../../house.spec.json';
 import { useView, api, useLive, houseNow } from '../api/client';
 import { ViewerSlot, useEngine, type Engine } from '../app/engine';
 import { Icon, Chart, Sheet, SEV_LABEL, fmtDay, fmtTime } from '../components/ui';
+import ThinkingOrb, { type ThinkingOrbHandle } from '../components/ThinkingOrb';
+import Character, { moodFor, type Mood } from '../components/Character';
+import Lamp from '../components/Lamp';
 import type { Case, ChatMessage, FocusCommand, Severity, Vendor } from '../api/types';
 import type { ElementInfo, DrillResult } from '../viewer/engine';
 import NoticesPanel from './Notices';
@@ -28,6 +31,10 @@ type Flow =
 
 const circuits = (spec as unknown as { services: { circuits: { id: string; label: string; rating_a: number; ends: string[] }[] } }).services.circuits;
 const LAYER_NAME: Record<string, string> = { L1: 'Water', L2: 'Electrical safety', L5: 'Water supply' };
+const FOLD_KEY = 'penjaga.chat.collapsed';
+const SEEN_KEY = 'penjaga.notifications.seen';
+/** Something that happened at home, for the lamp and its list. */
+type Note = { id: string; t: number; tone: Severity | 'ok' | 'calm'; title: string; detail: string; open: () => void };
 
 function greeting() {
   const h = new Date().getHours();
@@ -48,9 +55,28 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
   const [session, setSession] = useState<Item[]>([]);
   const [flow, setFlow] = useState<Flow>(null);
   const [open, setOpen] = useState<Record<string, boolean>>({});
-  const [panel, setPanel] = useState<null | 'menu' | 'notices' | 'settings' | 'record'>(routePanel ?? null);
+  const [panel, setPanel] = useState<null | 'notices' | 'settings' | 'record'>(routePanel ?? null);
   const [stage, setStage] = useState({ view: 'split', water: false, electrical: false, xray: false, drill: false });
-  const [text, setText] = useState('');
+  // The panel can fold down to its header and the latest message; the choice is remembered on this device.
+  const [collapsed, setCollapsedState] = useState(() => { try { return localStorage.getItem(FOLD_KEY) === '1'; } catch { return false; } });
+  const setCollapsed = (c: boolean) => { setCollapsedState(c); try { localStorage.setItem(FOLD_KEY, c ? '1' : '0'); } catch { /* ignore */ } };
+  const [thinking, setThinking] = useState(false);
+  const [drawer, setDrawer] = useState(false);
+  const [seen, setSeen] = useState<Set<string>>(() => { try { return new Set(JSON.parse(localStorage.getItem(SEEN_KEY) ?? '[]') as string[]); } catch { return new Set(); } });
+  const markSeen = (ids: string[]) => setSeen((s) => {
+    const n = new Set(s);
+    ids.forEach((i) => n.add(i));
+    try { localStorage.setItem(SEEN_KEY, JSON.stringify([...n].slice(-500))); } catch { /* ignore */ }
+    return n;
+  });
+  useEffect(() => {
+    if (!drawer) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setDrawer(false); } };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [drawer]);
+  const orb = useRef<ThinkingOrbHandle>(null);
+  const pillSlot = useRef<HTMLDivElement>(null);
   const threadEnd = useRef<HTMLDivElement>(null);
   const caseById = (id: string) => v.cases.find((c) => c.id === id);
   const say = (it: Omit<Item, 'key' | 't'> & { t?: number }) => setSession((s) => [...s, { key: `s${Date.now()}${Math.random()}`, t: houseNow(), ...it }]);
@@ -340,29 +366,26 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
   }, [engine, latestKey]); // eslint-disable-line react-hooks/exhaustive-deps
   // Follow the newest message, including a reply that replaces the "looking into it" line (same length).
   const lastKey = thread[thread.length - 1]?.key;
-  useEffect(() => { threadEnd.current?.scrollIntoView({ behavior: engine?.reduceMotion ? 'auto' : 'smooth', block: 'end' }); }, [thread.length, lastKey, flow]);
-  useEffect(() => { // notification deep link: bring that case forward
+  useEffect(() => { threadEnd.current?.scrollIntoView({ behavior: engine?.reduceMotion ? 'auto' : 'smooth', block: 'end' }); }, [thread.length, lastKey, flow, collapsed]);
+  useEffect(() => { // notification deep link: open the panel and bring that case forward
     const c = routeCase ? caseById(routeCase) : null;
-    if (c && engine) { focusOn(c.focus); document.getElementById(`${c.id}:open`)?.scrollIntoView({ block: 'center' }); }
+    if (!c || !engine) return;
+    setCollapsed(false);
+    focusOn(c.focus);
+    requestAnimationFrame(() => document.getElementById(`${c.id}:open`)?.scrollIntoView({ block: 'center' }));
   }, [routeCase, engine]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setPanel(routePanel ?? null); }, [routePanel]);
   const flowCase = flow ? caseById(flow.caseId) : null;
   useEffect(() => { if (flow?.type === 'check' && flowCase?.guided?.done) setFlow(null); }, [flow, flowCase?.guided?.done]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const onReady = (e: Engine) => { e.setInteractive(true); e.setAutoRotate(false); e.setInsets({ left: 470 }); lastShown.current = ''; return () => e.setInsets({ left: 0 }); };
+  const onReady = (e: Engine) => { e.setInteractive(true); e.setAutoRotate(false); e.setInsets({ left: 430 }); lastShown.current = ''; return () => e.setInsets({ left: 0 }); };
 
-  const ask = (q: string) => {
-    if (!q.trim()) return;
+  // The orb shows Penjaga working on it; the reply enters the thread when the orb resolves.
+  const ask = async (q: string) => {
     say({ who: 'you', text: q });
-    setText('');
-    const ctxCase = openCases[0]?.id;
-    const a = api.ask(q, { caseId: ctxCase });
-    // The real agent answers in a few seconds: show that Penjaga is working on it until the reply lands.
-    if (a instanceof Promise) {
-      const key = `think${Date.now()}`;
-      setSession((s) => [...s, { key, t: houseNow(), who: 'penjaga', tone: 'calm', text: <span className="muted">Penjaga is looking into it…</span> }]);
-      void a.then((m) => { setSession((s) => s.filter((it) => it.key !== key)); reply(m); });
-    } else setTimeout(() => reply(a), 500);
+    setThinking(true);
+    const m = await api.ask(q, { caseId: openCases[0]?.id });
+    return () => { setThinking(false); reply(m); };
   };
   const reply = (a: ChatMessage) => {
     say({
@@ -373,12 +396,52 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
       })),
     });
   };
+  const preview = [...thread].reverse().find((i) => i.who === 'penjaga' && i.text);
+  // Penjaga's face in the header: thinking while it answers, else how the house is (asleep in quiet night hours,
+  // pleased just after a fix).
+  const hour = new Date(houseNow()).getHours();
+  const justFixed = !openCases.length && v.cases.some((c) => c.status === 'resolved' && houseNow() - (c.resolved_at ?? 0) < 3600e3);
+  const headMood: Mood = thinking ? 'thinking'
+    : status === 'urgent' ? 'concerned'
+      : status === 'attention' ? 'alert'
+        : justFixed ? 'happy'
+          : hour >= 23 || hour < 6 ? 'sleeping' : 'calm';
   const suggestions = openCases.length
     ? ['What happens if I wait?', 'How much is this costing me?', "What's wrong at home?"]
     : ['Where does the master bathroom heater get its power?', 'Where are the pipes in Bathroom 2?', 'Where is my water tank?'];
 
+  // ---------- notifications: the lamp comes down for anything new and stays until the owner looks ----------
+  const lookAt = (elId: string, focus?: FocusCommand) => {
+    setCollapsed(false);
+    show(focus);
+    setTimeout(() => document.getElementById(elId)?.scrollIntoView({ block: 'center', behavior: engine?.reduceMotion ? 'auto' : 'smooth' }), 80);
+  };
+  const notes: Note[] = [];
+  for (const c of v.cases) {
+    const look = () => lookAt(`${c.id}:open`, c.focus);
+    notes.push({ id: `case:${c.id}`, t: c.opened_at, tone: c.severity, title: c.title, detail: c.location, open: look });
+    c.timeline.forEach((e, k) => {
+      if (e.actor === 'vendor' || e.actor === 'management') notes.push({ id: `case:${c.id}:${k}`, t: e.t, tone: 'calm', title: e.text, detail: c.title, open: look });
+    });
+    if (c.status === 'resolved') notes.push({ id: `case:${c.id}:fixed`, t: c.resolved_at ?? c.opened_at, tone: 'ok', title: `Fixed: ${c.title}`, detail: c.outcome ?? c.location, open: () => lookAt(`${c.id}:resolved`) });
+  }
+  for (const n of v.notices) {
+    notes.push({ id: `notice:${n.id}`, t: Math.min(n.starts_at, houseNow()), tone: 'info', title: n.title, detail: `${n.issuer} · ${fmtDay(n.starts_at)}, ${fmtTime(n.starts_at)}–${fmtTime(n.ends_at)}`, open: () => setPanel('notices') });
+  }
+  if (v.wellbeing) {
+    const w = v.wellbeing;
+    notes.push({ id: `wb:${w.id}`, t: w.since, tone: 'info', title: w.title, detail: 'Family check', open: () => lookAt(`wb:${w.id}`, { layer: 'structure', object_ids: ['floor_GF_bed4', 'floor_GF_bath4'], severity: 'info', label: "Mak's suite" }) });
+  }
+  notes.sort((a, b) => b.t - a.t);
+  const fresh = notes.filter((n) => !seen.has(n.id) && n.t >= houseNow() - 3 * 86400e3);
+  const earlier = notes.filter((n) => !fresh.includes(n));
+  const lampTone = fresh.some((n) => n.tone === 'urgent') ? 'urgent' : fresh.some((n) => n.tone === 'act_soon' || n.tone === 'heads_up') ? 'act' : 'calm';
+  const lookNewest = () => { const n = fresh[0]; if (n) { markSeen([n.id]); n.open(); } };
+  const closeDrawer = () => { setDrawer(false); markSeen(notes.map((n) => n.id)); };
+  const when = (t: number) => (new Date(t).toDateString() === new Date(houseNow()).toDateString() ? fmtTime(t) : fmtDay(t));
+
   return (
-    <div className="agent">
+    <div className={`agent ${collapsed ? 'is-collapsed' : ''}`}>
       <div className="agent-stage">
         <ViewerSlot label="Your home in 3D. Tap anything and Penjaga will tell you about it." onReady={onReady} />
         <div className="stage-tools-r">
@@ -401,59 +464,102 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
             <button onClick={() => unfocus()}><Icon name="close" size={14} /><span className="long">Back to whole house</span><span className="short">Whole house</span></button>
           </div>
         )}
+        <Lamp count={fresh.length} tone={lampTone} onLook={lookNewest} onPull={() => setDrawer(true)} />
       </div>
 
-      <section className="agent-col" aria-label="Penjaga">
+      <section className={`agent-col ${collapsed ? 'collapsed' : ''}`} aria-label="Penjaga">
         <header className="agent-head">
-          <span className="agent-mark"><Icon name="shield" size={18} /></span>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <b className="serif" style={{ fontSize: 19 }}>Penjaga</b>
-            <div className="listening"><i className={status} />Listening · water {live.water_lpm.toFixed(2)} L/min · power {live.power_kw.toFixed(1)} kW</div>
+          <Character mood={headMood} size={30} live />
+          <div className="agent-title">
+            <b>Penjaga</b>
+            <span className="sep" aria-hidden="true">|</span>
+            <span className="listening">Listening · water {live.water_lpm.toFixed(2)} L/min · power {live.power_kw.toFixed(1)} kW</span>
           </div>
-          <button className="round" onClick={() => setPanel('menu')} aria-label="Your home"><Icon name="cases" size={17} /></button>
+          <button className="icon-btn fold" onClick={() => setCollapsed(!collapsed)} aria-expanded={!collapsed} aria-label={collapsed ? 'Open the conversation' : 'Fold the conversation'}><Icon name="chevron" size={16} /></button>
         </header>
 
-        <div className="thread" aria-live="polite">
-          {thread.map((i) => (
-            <article key={i.key} id={i.key} className={`a-item ${i.who} ${i.tone ?? ''}`}>
-              {i.who === 'penjaga' && i.kicker && <div className="a-kicker">{i.kicker}</div>}
-              {i.text && <div className="a-text">{i.text}</div>}
-              {i.card}
-              {i.chips && i.chips.length > 0 && (
-                <div className="a-chips">
-                  {i.chips.map((ch) => (
-                    <button key={ch.label} className={`a-chip ${ch.primary ? 'primary' : ''} ${ch.tone ?? ''}`} onClick={ch.onClick}>
-                      {ch.icon && <Icon name={ch.icon} size={15} />}{ch.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {i.who === 'penjaga' && i.focus && !i.chips?.length && i.key !== latest?.key && (
-                <button className="a-show" onClick={() => show(i.focus)}><Icon name="pin" size={13} /> Show in the house</button>
-              )}
-            </article>
-          ))}
-          <div ref={threadEnd} />
-        </div>
-
-        <form className="agent-compose" onSubmit={(e) => { e.preventDefault(); ask(text); }}>
-          <div className="suggest">{suggestions.map((s) => <button type="button" key={s} onClick={() => ask(s)}>{s}</button>)}</div>
-          <div className="row">
-            <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Ask Penjaga about your home" aria-label="Ask Penjaga" />
-            <button className="btn primary" aria-label="Send"><Icon name="send" size={18} /></button>
+        {collapsed ? (
+          preview && (
+            <button className={`a-preview ${preview.tone ?? ''}`} onClick={() => setCollapsed(false)} aria-label="Open the conversation">
+              <span className="a-avatar pj" aria-hidden="true"><Character mood={moodFor(preview.tone)} size={28} live /></span>
+              <span className="a-body">
+                <span className="a-meta"><b className="a-name">Penjaga</b>{preview.kicker && <span className="a-kicker">{preview.kicker}</span>}</span>
+                <span className="a-line">{preview.text}</span>
+              </span>
+            </button>
+          )
+        ) : (
+          <div className="thread" aria-live="polite">
+            {thread.map((i, n) => {
+              const cont = n > 0 && thread[n - 1].who === i.who && !i.kicker; // same speaker again: no second avatar
+              return (
+                <article key={i.key} id={i.key} className={`a-item ${i.who} ${i.tone ?? ''} ${cont ? 'cont' : ''}`}>
+                  <span className={`a-avatar ${i.who === 'penjaga' ? 'pj' : 'me'}`} aria-hidden="true">{i.who === 'penjaga' ? <Character mood={moodFor(i.tone)} size={28} live={i.key === preview?.key} /> : 'A'}</span>
+                  <div className="a-body">
+                    {!cont && <div className="a-meta"><b className="a-name">{i.who === 'penjaga' ? 'Penjaga' : 'You'}</b>{i.kicker && <span className="a-kicker">{i.kicker}</span>}</div>}
+                    {i.text && <div className="a-text">{i.text}</div>}
+                    {i.card}
+                    {i.chips && i.chips.length > 0 && (
+                      <div className="a-chips">
+                        {i.chips.map((ch) => (
+                          <button key={ch.label} className={`a-chip ${ch.primary ? 'primary' : ''} ${ch.tone ?? ''}`} onClick={ch.onClick}>
+                            {ch.icon && <Icon name={ch.icon} size={14} />}{ch.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {i.who === 'penjaga' && i.focus && !i.chips?.length && i.key !== latest?.key && (
+                      <button className="a-show" onClick={() => show(i.focus)}><Icon name="pin" size={13} /> Show in the house</button>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+            <div ref={threadEnd} />
           </div>
-          <div className="tiny muted" style={{ textAlign: 'center' }}>Penjaga acts only after you confirm</div>
-        </form>
+        )}
+
+        <div className="agent-compose">
+          {!collapsed && <div className="suggest">{suggestions.map((s) => <button type="button" key={s} onClick={() => orb.current?.ask(s)}>{s}</button>)}</div>}
+          <div className="compose-slot" ref={pillSlot} />
+          {!collapsed && <div className="compose-note">Penjaga acts only after you confirm</div>}
+        </div>
+        <ThinkingOrb ref={orb} anchor={pillSlot} onAsk={ask} onFocus={() => { if (collapsed) setCollapsed(false); }} />
       </section>
 
-      {panel === 'menu' && (
-        <Sheet title="Your home" onClose={() => setPanel(null)}>
-          <div className="small muted" style={{ marginTop: -6, marginBottom: 12 }}>No. 12, Jalan Elmina Green 6 · Representative SDP Elmina Green Six terrace</div>
-          {[['record', 'house3d', 'Home Passport & maintenance', `${v.passport.length} records · ${v.maintenance.length} coming up`], ['notices', 'notices', 'Notices from management', v.notices.length ? `${v.notices.length} notice${v.notices.length > 1 ? 's' : ''}` : 'Nothing right now'], ['settings', 'shield', 'Privacy & what Penjaga reads', 'Switch any layer off']].map(([id, icon, l, d]) => (
-            <button key={id} className="choice" onClick={() => setPanel(id as 'record')}><Icon name={icon} /><span style={{ flex: 1 }}><b>{l}</b><div className="small muted">{d}</div></span><Icon name="chevron" size={16} /></button>
-          ))}
-          <button className="choice" onClick={() => { setPanel(null); nav('/welcome'); }}><Icon name="replay" /><span style={{ flex: 1 }}><b>Replay the tour</b></span></button>
-        </Sheet>
+      {drawer && (
+        <>
+          <div className="ndrawer-scrim" onClick={closeDrawer} />
+          <section className="ndrawer" role="dialog" aria-label="Notifications">
+            <header className="ndrawer-h">
+              <h2>Notifications</h2>
+              <button className="icon-btn" onClick={closeDrawer} aria-label="Close"><Icon name="close" size={16} /></button>
+            </header>
+            <div className="ndrawer-list">
+              {!notes.length && <div className="ndrawer-empty">Nothing yet. When something happens at home, the lamp comes down.</div>}
+              {fresh.length > 0 && <div className="label ndrawer-sec">New</div>}
+              {[...fresh, ...earlier.slice(0, 30)].map((n, k) => (
+                <Fragment key={n.id}>
+                  {k === fresh.length && fresh.length > 0 && <div className="label ndrawer-sec">Earlier</div>}
+                  <button className={`nitem ${k < fresh.length ? 'new' : ''}`} onClick={() => { closeDrawer(); n.open(); }}>
+                    <Character mood={moodFor(n.tone)} size={30} />
+                    <span className="nbody">
+                      <span className="ntitle"><span>{n.title}</span><span className="ntime">{when(n.t)}</span></span>
+                      <span className="ndetail">{n.detail}</span>
+                    </span>
+                  </button>
+                </Fragment>
+              ))}
+            </div>
+            <div className="ndrawer-links">
+              <button onClick={() => { closeDrawer(); setPanel('record'); }}><Icon name="house3d" size={16} />Home Passport</button>
+              <button onClick={() => { closeDrawer(); setPanel('notices'); }}><Icon name="notices" size={16} />Notices</button>
+              <button onClick={() => { closeDrawer(); setPanel('settings'); }}><Icon name="shield" size={16} />Privacy</button>
+              <button onClick={() => { closeDrawer(); nav('/welcome'); }}><Icon name="replay" size={16} />Replay the tour</button>
+            </div>
+            <button className="ndrawer-grab" onClick={closeDrawer} aria-label="Push the list back up"><i /></button>
+          </section>
+        </>
       )}
       {panel === 'record' && (
         <Sheet title="Home Passport" onClose={() => setPanel(null)}>
