@@ -287,10 +287,16 @@ def test_live_readings_for_the_listening_line(h: Harness) -> None:
         ("2025-11-03T11:59:50+08:00", 0.4),
     ]
     h.up.readings["elec.main.power_w"] = [("2025-11-03T11:59:30+08:00", 1250.0)]
+    h.up.readings["water.tank.level_pct"] = [("2025-11-03T11:57:00+08:00", 82.5)]
+    h.up.readings["weather.outdoor.temp_c"] = [("2025-11-03T11:00:00+08:00", 31.4)]  # hourly
     h.follow()
     r = h.client.get("/api/v1/live", headers=_h(Role.homeowner))
     assert r.status_code == 200
     assert r.json()["water_lpm"] == 0.4
     assert r.json()["power_kw"] == 1.25
+    # the other sensors, each within its own window; one with no reading is None
+    assert r.json()["tank_pct"] == 82.5
+    assert r.json()["outdoor_c"] == 31.4
+    assert r.json()["pressure_bar"] is None
     h.up.readings = {}
     assert h.client.get("/api/v1/live", headers=_h(Role.homeowner)).json()["water_lpm"] is None

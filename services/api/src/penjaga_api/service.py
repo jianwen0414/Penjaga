@@ -170,6 +170,14 @@ MIN_BASELINE_S = 86400.0
 WATER_STREAM = "water.main.flow_lpm"
 POWER_STREAM = "elec.main.power_w"
 LIVE_WINDOW_S = 60.0  # the live line shows the latest reading in this window
+# The other sensors, for the app's sensor strip: (stream, how far back a reading still counts, s).
+# Windows follow each stream's sample period (the weather feed is hourly).
+LIVE_SENSORS = {
+    "pressure_bar": ("water.main.pressure_bar", LIVE_WINDOW_S),
+    "tank_pct": ("water.tank.level_pct", 300.0),
+    "fridge_w": ("elec.appliance.app_fridge_kitchen.power_w", LIVE_WINDOW_S),
+    "outdoor_c": ("weather.outdoor.temp_c", 7200.0),
+}
 MAINTENANCE_SHOWN = 6  # the app lists the soonest reminders; GET /maintenance has them all
 
 
@@ -714,22 +722,40 @@ class ApiService:
 
     async def live(self) -> dict[str, Any]:
         """The house right now, for the app's "listening" line: the latest water flow (L/min)
-        and total power (kW) from the last ``LIVE_WINDOW_S`` of readings. The app never holds a
-        stream token; values are None when no reading arrived in that window."""
+        and total power (kW) from the last ``LIVE_WINDOW_S`` of readings, and the other sensors
+        (``LIVE_SENSORS``) for its sensor strip. The app never holds a stream token; values are
+        None when no reading arrived in a stream's window (or the house has no such sensor)."""
         now = await self.house_time()
         end = datetime.fromisoformat(now)
-        start = (end - timedelta(seconds=LIVE_WINDOW_S)).isoformat()
 
-        async def latest(stream: str) -> float | None:
-            doc = await self.upstream.readings_summary(stream, start, now, LIVE_WINDOW_S)
+        async def latest(
+            stream: str, window_s: float = LIVE_WINDOW_S, *, optional: bool = False
+        ) -> float | None:
+            start = (end - timedelta(seconds=window_s)).isoformat()
+            try:
+                doc = await self.upstream.readings_summary(stream, start, now, window_s)
+            except UpstreamUnavailableError as exc:  # a sensor this house doesn't have
+                if not optional:
+                    raise
+                log.debug("live %s: %s", stream, exc)
+                return None
             points = [p for p in doc.get("points", []) if p.get("last") is not None]
             return float(points[-1]["last"]) if points else None
 
-        water, power = await asyncio.gather(latest(WATER_STREAM), latest(POWER_STREAM))
+        names = list(LIVE_SENSORS)
+        water, power, *others = await asyncio.gather(
+            latest(WATER_STREAM),
+            latest(POWER_STREAM),
+            *(latest(*LIVE_SENSORS[n], optional=True) for n in names),
+        )
+        sensors = {
+            n: None if v is None else round(v, 2) for n, v in zip(names, others, strict=True)
+        }
         return {
             "at": epoch_ms(now),
             "water_lpm": None if water is None else round(water, 3),
             "power_kw": None if power is None else round(power / 1000, 3),
+            **sensors,
         }
 
     async def mark_toured(self) -> None:

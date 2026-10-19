@@ -32,7 +32,7 @@ from penjaga_api.cases import (
     TICKET_STATUS,
     CaseState,
 )
-from penjaga_api.templates import CaseExtras, guided_targets
+from penjaga_api.templates import LEAKAGE_GUIDED_TYPES, CaseExtras, evn, guided_targets
 from penjaga_api.upstream import UpstreamUnavailableError
 from penjaga_api.vendors import directory, list_vendors
 
@@ -44,9 +44,19 @@ log = logging.getLogger("penjaga_api.actions")
 CONFIRM_FOR = timedelta(minutes=30)  # house time a preview stays confirmable
 DEFECT_LIABILITY = 24  # months from handover (landed homes, statutory)
 TICKET_STATUSES = ("received", "scheduled", "in_progress", "resolved")
-CHECK_SETTLE_S = 120.0
+CHECK_SETTLE_S = 120.0  # a breaker: the circuit is off at once
+# A valve: most fixtures are fed from the roof tank, and the meter only sees the mains refilling it.
+# After the leak stops, the float valve still tops the tank up for a while, so wait it out (a
+# meter leak test is usually done over half an hour).
+VALVE_SETTLE_S = 1200.0
 CHECK_WINDOW_S = 600.0
 CHECK_STOPPED_BELOW_LPM = 0.02
+CIRCUIT_OFF_BELOW_A = 0.1  # a breaker switched off: its circuit draws (almost) nothing
+# A healthy circuit carries its own small share of leakage (about 0.2-0.3 mA in the demo house), so
+# switching it off lowers the residual current a little too: the leaking circuit must take away
+# clearly more than that, and most of the rise detection saw.
+RESIDUAL_MIN_DROP_MA = 0.35
+RESIDUAL_SHARE_OF_RISE = 0.8
 CONTACT = ("in_app", "phone_call", "whatsapp")
 
 
@@ -422,23 +432,40 @@ class Actions:
     ) -> dict[str, Any]:
         state, case = await self._case(case_id)
         self._offered(case, "check")
-        fixture, valve = self._check_target(state, params)
+        target, control = self._check_target(state, params)
         now = await self._redeem(confirmation, case_id, ActionKind.check, params)
-        check = await self.service.upstream.start_check(
-            {
-                "kind": "flow_stop",
-                "since": now,
-                "settle_s": CHECK_SETTLE_S,
-                "window_s": CHECK_WINDOW_S,
-                "expect_below_lpm": CHECK_STOPPED_BELOW_LPM,
+        doc: dict[str, Any]
+        if state.lead["type"] in LEAKAGE_GUIDED_TYPES:
+            # the owner switches the circuit off at its breaker; its safety switch's residual
+            # current says whether the leakage went with it (detection adds it to the check)
+            check = await self.service.upstream.start_check(
+                {
+                    "kind": "circuit_load",
+                    "circuit_id": target,
+                    "since": now,
+                    "settle_s": CHECK_SETTLE_S,
+                    "window_s": CHECK_WINDOW_S,
+                }
+            )
+            doc = {
+                "control": "breaker",
+                "fixture_id": target,
+                "circuit_id": target,
+                "breaker_id": control,
+                "expect_drop_ma": evn(state.lead, "rise_on_direct_circuits"),
             }
-        )
-        doc = {
-            "fixture_id": fixture,
-            "valve_id": valve,
-            "ready_at": check["ready_at"],
-            "result": None,
-        }
+        else:
+            check = await self.service.upstream.start_check(
+                {
+                    "kind": "flow_stop",
+                    "since": now,
+                    "settle_s": VALVE_SETTLE_S,
+                    "window_s": CHECK_WINDOW_S,
+                    "expect_below_lpm": CHECK_STOPPED_BELOW_LPM,
+                }
+            )
+            doc = {"control": "valve", "fixture_id": target, "valve_id": control}
+        doc.update(ready_at=check["ready_at"], result=None)
         self.store.put_record(
             "check",
             check["check_id"],
@@ -463,17 +490,22 @@ class Actions:
                 continue
             now = await self.service.house_time()
             measured = {m["name"]: m.get("value") for m in check.get("measurements", [])}
-            result = "stopped" if check.get("verdict") == "stopped" else "continued"
-            if check["status"] == "unavailable":
-                result = "unavailable"
             base = ("kind", "id", "run", "case_id", "status", "created", "updated")
             doc = {k: v for k, v in record.items() if k not in base}
+            breaker = doc.get("control") == "breaker"
+            if breaker:
+                result = leakage_result(measured, doc.get("expect_drop_ma"))
+            else:
+                result = "stopped" if check.get("verdict") == "stopped" else "continued"
+            if check["status"] == "unavailable":
+                result = "unavailable"
             doc.update(
-                result=None if result == "unavailable" else result,
-                verdict=check.get("verdict"),
-                flow_before=measured.get("flow_before"),
-                flow_after=measured.get("flow_after"),
+                result=None if result == "unavailable" else result, verdict=check.get("verdict")
             )
+            for key in (
+                ("residual_before", "residual_after") if breaker else ("flow_before", "flow_after")
+            ):
+                doc[key] = measured.get(key)
             self.store.put_record(
                 "check", record["id"], run=record["run"], case_id=record["case_id"],
                 status=check["status"], house_time=now, doc=doc,
@@ -487,7 +519,11 @@ class Actions:
                     kind=CHECK_RESULT,
                     actor="owner",
                     house_time=now,
-                    detail={"label": f"{label[:1].lower()}{label[1:]}", "result": result},
+                    detail={
+                        "label": f"{label[:1].lower()}{label[1:]}",
+                        "result": result,
+                        "check": doc.get("control", "valve"),
+                    },
                 )
             self._changed(now, "case", {"id": record["case_id"], "check": record["id"]})
             done += 1
@@ -499,3 +535,29 @@ class Actions:
         self.store.publish(kind, house_time, payload)
         self.service.publish_case_changes()
         self.service.notify()
+
+
+def leakage_result(measured: dict[str, Any], expect_drop_ma: float | None) -> str:
+    """A breaker check's result from detection's ``circuit_load`` measurements: ``stopped`` when
+    the leakage went with the circuit, ``continued`` when it didn't, ``unavailable`` without
+    residual readings or when the circuit still drew current (it wasn't switched off).
+
+    Every circuit leaks a little, so switching off a healthy one also lowers the residual current:
+    it counts only when the fall is significant (beyond twice its standard error), at least
+    ``RESIDUAL_MIN_DROP_MA`` and at least ``RESIDUAL_SHARE_OF_RISE`` of the rise the leakage
+    finding saw. Detection's ``switch_off_evidence`` asks for half the rise; the finding is raised
+    early, while the rise is still small, so half of it is within a healthy circuit's share."""
+    change = measured.get("residual_change")
+    if not isinstance(change, int | float):
+        return "unavailable"
+    after = measured.get("current_after")
+    if isinstance(after, int | float) and after >= CIRCUIT_OFF_BELOW_A:
+        return "unavailable"
+    se = measured.get("residual_change_se")
+    noise = 2 * float(se) if isinstance(se, int | float) else 0.0
+    fall = -float(change)
+    if fall <= max(noise, RESIDUAL_MIN_DROP_MA):
+        return "continued"
+    if expect_drop_ma is not None and fall < RESIDUAL_SHARE_OF_RISE * expect_drop_ma:
+        return "continued"
+    return "stopped"

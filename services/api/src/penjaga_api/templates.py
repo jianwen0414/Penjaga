@@ -87,10 +87,42 @@ GUIDED_INTRO = (
 )
 
 
-def guided_targets(case: CaseState, index: HouseIndex) -> list[tuple[str, str]]:
-    """(fixture, the valve that isolates it most narrowly) to try, in order: the case's
-    candidates if detection named any, else the tank-fed toilet cisterns, ground floor first."""
+LEAKAGE_GUIDED_TYPES = frozenset({"earth_leakage_rising", "earth_leakage_elevated"})
+LEAKAGE_GUIDED_INTRO = (
+    "Switch off one breaker at a time while Penjaga watches your safety switch: an "
+    "electrician's first test, done for you from your switchboard. When the leakage drops, "
+    "we've found the circuit."
+)
+
+
+def is_guided(case: CaseState) -> bool:
+    return case.lead["type"] in GUIDED_TYPES | LEAKAGE_GUIDED_TYPES
+
+
+def leakage_targets(case: CaseState, index: HouseIndex) -> list[tuple[str, str]]:
+    """(circuit, its breaker) to switch off, in order: the leakage finding's candidate circuits,
+    most likely first, else the circuits its safety switch protects directly."""
     lead = case.lead
+    ranked = sorted(lead["candidates"], key=lambda c: -float(c.get("p") or 0.0))
+    circuits = [
+        c["object_id"]
+        for c in ranked
+        if index.exists(c["object_id"]) and index.kind_of(c["object_id"]) is ElementKind.circuit
+    ]
+    if not circuits:
+        rcd = _device(lead, "rcd_")
+        if rcd and index.exists(rcd):
+            circuits = [c for c in index.circuits_under(rcd) if index.rccb_chain(c)[:1] == (rcd,)]
+    return [(c, index.circuit(c).mcb_id) for c in circuits]
+
+
+def guided_targets(case: CaseState, index: HouseIndex) -> list[tuple[str, str]]:
+    """(what is tested, what the owner operates) to try, in order. Water: (fixture, the valve
+    that isolates it most narrowly), the case's candidates if detection named any, else the
+    tank-fed toilet cisterns, ground floor first. Earth leakage: (circuit, its breaker)."""
+    lead = case.lead
+    if lead["type"] in LEAKAGE_GUIDED_TYPES:
+        return leakage_targets(case, index)
     fixtures = [
         c["object_id"]
         for c in lead["candidates"]
@@ -112,26 +144,44 @@ def _guided(ctx: Ctx, extras: CaseExtras) -> tuple[dict[str, Any], tuple[str, st
     latest = {c["fixture_id"]: c for c in extras.checks}
     steps = []
     located: tuple[str, str] | None = None
-    for fixture, valve in guided_targets(ctx.case, ctx.index):
-        step: dict[str, Any] = {
-            "fixture_id": fixture,
-            "fixture_label": ctx.names.of(fixture),
-            "valve_id": valve,  # the valve the owner closes (the Lab mirrors it in the simulator)
-            "instruction": (
-                f"Close the {ctx.names.of(valve)} (clockwise until it stops), wait a moment, "
-                "then tap Check."
-            ),
-        }
-        done = latest.get(fixture)
+    leakage = ctx.lead["type"] in LEAKAGE_GUIDED_TYPES
+    for target, control in guided_targets(ctx.case, ctx.index):
+        # the valve or breaker the owner operates (the Lab mirrors it in the simulator)
+        step: dict[str, Any] = (
+            {
+                "kind": "breaker",
+                "fixture_id": target,
+                "fixture_label": ctx.names.of(target),
+                "circuit_id": target,
+                "breaker_id": control,
+                "instruction": (
+                    f"Switch off the {ctx.names.of(control)} on your switchboard, wait a "
+                    "moment, then tap Check."
+                ),
+            }
+            if leakage
+            else {
+                "kind": "valve",
+                "fixture_id": target,
+                "fixture_label": ctx.names.of(target),
+                "valve_id": control,
+                "instruction": (
+                    f"Close the {ctx.names.of(control)} (clockwise until it stops), wait a "
+                    "moment, then tap Check."
+                ),
+            }
+        )
+        done = latest.get(target)
         if done:
             step["result"] = done["result"]
-            for key in ("flow_before", "flow_after"):
+            for key in ("flow_before", "flow_after", "residual_before", "residual_after"):
                 if done.get(key) is not None:
                     step[key] = done[key]
             if done["result"] == "stopped" and located is None:
-                located = (fixture, valve)
+                located = (target, control)
         steps.append(step)
-    guided: dict[str, Any] = {"intro": GUIDED_INTRO, "steps": steps, "done": located is not None}
+    intro = LEAKAGE_GUIDED_INTRO if leakage else GUIDED_INTRO
+    guided: dict[str, Any] = {"intro": intro, "steps": steps, "done": located is not None}
     if located:
         guided["located"] = located[0]
     return guided, located
@@ -691,6 +741,21 @@ def _rcd_scope(ctx: Ctx, rcd: str) -> str:
     return ctx.names.listing(ctx.index.circuits_under(rcd), limit=3)
 
 
+def _leakage_actions(ctx: Ctx, rcd: str, *, urgent_trade: bool) -> list[dict[str, Any]]:
+    """An electrician, plus a guided check that finds the leaking circuit when the switch protects
+    more than one directly (the first thing an electrician would do)."""
+    actions = _electrical_actions(ctx, rcd, urgent_trade=urgent_trade)
+    if len(leakage_targets(ctx.case, ctx.index)) > 1:
+        check = act(
+            "guided_check",
+            "Find the circuit with a guided check",
+            primary=not urgent_trade,
+            detail="Switch off one breaker at a time while Penjaga watches the leakage",
+        )
+        actions.insert(0 if not urgent_trade else 1, check)
+    return actions
+
+
 def _leakage_elevated(ctx: Ctx) -> Text:
     d = ctx.lead
     rcd = _device(d, "rcd_") or "rcd_main"
@@ -714,7 +779,7 @@ def _leakage_elevated(ctx: Ctx) -> Text:
         ),
         headline="Risk of electric shock and nuisance tripping",
         impact_lines=[f"Circuits behind it: {_rcd_scope(ctx, rcd)}."],
-        actions=_electrical_actions(ctx, rcd, urgent_trade=True),
+        actions=_leakage_actions(ctx, rcd, urgent_trade=True),
         evidence_title=f"Earth leakage at your {switch}",
         stats=[
             ("10-minute average", f"{smart(mean)} mA" if mean is not None else NONE),
@@ -795,7 +860,7 @@ def _leakage_rising(ctx: Ctx) -> Text:
         confidence_note=f"{certainty(d)}: a sustained rise measured at the safety switch.",
         headline="An early warning, before anything trips",
         impact_lines=[f"Circuits behind it: {_rcd_scope(ctx, rcd)}."],
-        actions=_electrical_actions(ctx, rcd, urgent_trade=d["severity"] != "heads_up"),
+        actions=_leakage_actions(ctx, rcd, urgent_trade=d["severity"] != "heads_up"),
         evidence_title=f"Earth leakage at your {switch}, last 7 days",
         stats=stats + ([("Switch rating", f"{num(rated)} mA")] if rated is not None else []),
         explanation=(
@@ -1191,6 +1256,26 @@ def _safety(ctx: Ctx) -> list[str] | None:
     return safety_lines(key, circuit=circuit)
 
 
+def _located(t: Text, ctx: Ctx, located: tuple[str, str]) -> None:
+    """What a guided check that found the problem changes about the case's text."""
+    names = ctx.names
+    target, control = located
+    if ctx.lead["type"] in LEAKAGE_GUIDED_TYPES:
+        t.title = f"The earth leakage is on the {names.of(target)} circuit"
+        t.confidence_note = (
+            "Confirmed by your check: switching off its breaker took the leakage away."
+        )
+        t.focus_label = f"{names.of(target)} circuit"
+        rooms = _rooms(ctx, target)  # like an overload: the rooms it feeds, then its name
+        t.location = f"{rooms} \u00b7 {names.raw(target)}" if rooms else names.raw(target)
+    else:
+        t.title = f"The {names.of(target)} is leaking"
+        t.confidence_note = "Confirmed by your check: closing its valve stopped the flow."
+        t.focus_label = names.of(target)
+        t.location = f"{names.where(target)} \u00b7 {names.of(target)}"
+    t.focus_ids = [target, control]
+
+
 def render(
     case: CaseState,
     index: HouseIndex,
@@ -1216,15 +1301,10 @@ def render(
     actions = list(t.actions)
     outcome = case.outcome
     guided: dict[str, Any] | None = None
-    if lead["type"] in GUIDED_TYPES and case.status in ("open", "monitoring", "action_pending"):
+    if is_guided(case) and case.status in ("open", "monitoring", "action_pending"):
         guided, located = _guided(ctx, extras)
         if located:
-            fixture, valve = located
-            t.title = f"The {names.of(fixture)} is leaking"
-            t.location = f"{names.where(fixture)} \u00b7 {names.of(fixture)}"
-            t.confidence_note = "Confirmed by your check: closing its valve stopped the flow."
-            t.focus_ids = [fixture, valve]
-            t.focus_label = names.of(fixture)
+            _located(t, ctx, located)
             actions = [a for a in actions if a["kind"] != "guided_check"]
     booking = _booking(extras, now)
     if booking and booking["status"] != "completed":
