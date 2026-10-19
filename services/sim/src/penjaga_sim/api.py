@@ -86,6 +86,14 @@ class ActionRequest(BaseModel):
     duration_s: float = Field(gt=0, le=86400)
 
 
+class AnomalyEnded(BaseModel):
+    """DELETE /sim/v1/anomalies/{record_id} (not in the lab contract yet): the event's new end, or
+    null when it had not started and was dropped."""
+
+    record_id: str
+    end: str | None
+
+
 class ActionApplied(BaseModel):
     start: str
     end: str
@@ -203,6 +211,11 @@ def create_app(service: SimService, *, operator_token: str, autostart: bool = Tr
     async def post_anomaly(spec: AnomalySpec) -> JSONResponse:
         body = {"record_id": await service.impose(spec)}
         return document(body, api, "AnomalyCreated", code=201)
+
+    @app.delete(f"{PREFIX}/anomalies/{{record_id}}", dependencies=auth, response_model=AnomalyEnded)
+    async def delete_anomaly(record_id: str) -> AnomalyEnded:
+        """Stop a normal-life event early: the Lab's undo. House days already sent keep it."""
+        return AnomalyEnded(record_id=record_id, end=await service.end_anomaly(record_id))
 
     @app.post(f"{PREFIX}/world/reset", dependencies=auth, response_model=ResetResponse)
     async def post_reset(body: ResetRequest) -> JSONResponse:

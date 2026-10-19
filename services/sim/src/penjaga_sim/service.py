@@ -337,6 +337,16 @@ class SimService:
             self._write_truth()
             return record_id
 
+    async def end_anomaly(self, record_id: str) -> str | None:
+        """Stop an imposed anomaly from the next unpublished house day.
+
+        Returns its new end, or None when it had not started and was dropped."""
+        async with self.lock:
+            world = self.require_world()
+            end = world.end_anomaly(record_id)
+            self._write_truth()
+            return None if end is None else world._iso(end)
+
     def faults(self) -> list[dict[str, Any]]:
         world = self.require_world()
         return [fault_view(world, f, world.published_until_us) for f in world.faults]
