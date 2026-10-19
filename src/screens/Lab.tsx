@@ -98,14 +98,18 @@ function RealLab() {
   const [faults, setFaults] = useState<lab.SimFault[]>([]);
   const [findings, setFindings] = useState<Awaited<ReturnType<typeof lab.findings>>>([]);
   const [note, setNote] = useState('');
+  const [events, setEvents] = useState<lab.TruthRecord[]>([]);
+  const [runs, setRuns] = useState<lab.EvalRun[] | null>(null);
   const refresh = useCallback(async () => {
     try {
-      const [f, d] = await Promise.all([lab.faults(), lab.findings()]);
+      const [f, d, t] = await Promise.all([lab.faults(), lab.findings(), lab.truth()]);
       setFaults(f.filter(lab.isLive));
       setFindings(d);
+      setEvents(t.filter((r) => r.kind === 'legit_anomaly' && lab.NORMAL_EVENTS.some((e) => e.type === r.label)));
     } catch {
       setNote("Can't reach the simulator or detection. Start the backend: uv run python scripts/dev_stack.py");
     }
+    lab.evalRuns().then(setRuns).catch(() => setRuns(null));
   }, []);
   useEffect(() => { void refresh(); const t = setInterval(() => void refresh(), 3000); return () => clearInterval(t); }, [refresh]);
   // work may return a sentence to show instead of "done" (e.g. when there was nothing to do)
@@ -161,6 +165,17 @@ function RealLab() {
         </div>
 
         <div className="card pad stack" style={{ marginTop: 14 }}>
+          <b>Normal life</b>
+          <div className="small muted">Things a household does that look unusual on a meter but are not problems. Start one and watch the homeowner app stay quiet: no false alarm.</div>
+          <div className="row" style={{ flexWrap: 'wrap' }}>
+            {lab.NORMAL_EVENTS.map((e) => <button key={e.type} className="btn" onClick={run(e.label, () => lab.startEvent(e))}>{e.label} ({e.days} days)</button>)}
+          </div>
+          {events.length > 0 && <div className="small">Happening in the house: {events.map((r) => `${lab.NORMAL_EVENTS.find((e) => e.type === r.label)?.label ?? r.label} (${dayText(r.start)}${r.end ? ` to ${dayText(r.end)}` : ''})`).join(' · ')}</div>}
+        </div>
+
+        <Scores runs={runs} />
+
+        <div className="card pad stack" style={{ marginTop: 14 }}>
           <b>Vendor jobs</b>
           <div className="small muted">After the owner books a vendor in the app, finish the job here.</div>
           <div className="row" style={{ flexWrap: 'wrap' }}>
@@ -185,6 +200,69 @@ function RealLab() {
 
         <div className="small muted" style={{ marginTop: 14 }}>To reset the house, restart the backend (scripts/dev_stack.py). The living-alone check runs only with the stand-in backend.</div>
       </div>
+    </div>
+  );
+}
+
+const dayText = (iso: string) => new Date(iso).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', timeZone: 'Asia/Kuala_Lumpur' });
+
+// The detectors running live, in the owner's words (services/detect/deployment.toml); others are candidates.
+const DETECTOR: Record<string, string> = {
+  l1_mnf_baseline: 'Night-flow leak check',
+  l1_burst_rule: 'Burst pipe rule',
+  l2_safety_floor: 'Electrical safety rules',
+  l2_leakage_baseline: 'Earth-leakage trend',
+  l3_health_baseline: 'Appliance health',
+  l5_supply: 'Water and power cuts',
+};
+const SUITE: Record<string, string> = { l1_v0: 'Water leaks', l2_v0: 'Electrical safety', l3_v0: 'Appliances', l5_v0: 'Water and power cuts' };
+const faultName = (type: string) => lab.SCENARIOS.find((sc) => sc.type === type)?.label.replace(' (urgent)', '') ?? type;
+const pct = (v: number | null | undefined) => (v == null ? 'n/a' : `${Math.round(v * 100)}%`);
+const hours = (h: number | null | undefined) => (h == null ? '' : h < 1 ? ` · ${Math.max(1, Math.round(h * 60))} min` : h < 48 ? ` · ${h.toFixed(h < 10 ? 1 : 0)} h` : ` · ${(h / 24).toFixed(1)} days`);
+
+/** How well detection works: the latest finished evaluation of each test suite (M11, GET /eval/v1/runs). Each run
+ * replays simulated houses the detectors never saw, with real faults and normal-life events, and scores what they
+ * found against the simulator's ground truth. */
+function Scores({ runs }: { runs: lab.EvalRun[] | null }) {
+  const done = (runs ?? []).filter((r) => r.status === 'complete' && r.results);
+  const latest = Object.values(
+    done.reduce<Record<string, lab.EvalRun>>((by, r) => {
+      const held = by[r.suite];
+      const better = !held || (r.split === 'test' && held.split !== 'test') || (r.split === held.split && r.created_at > held.created_at);
+      return better ? { ...by, [r.suite]: r } : by;
+    }, {}),
+  ).sort((a, b) => a.suite.localeCompare(b.suite));
+  const busy = (runs ?? []).filter((r) => r.status === 'queued' || r.status === 'running');
+  return (
+    <div className="card pad stack" style={{ marginTop: 14 }}>
+      <b>How well detection works</b>
+      <div className="small muted">From the evaluation service: simulated houses the detectors never saw, with real faults and normal-life events, scored against what really happened.</div>
+      {runs === null && <div className="small muted">Can't reach the evaluation service (port 8704).</div>}
+      {busy.length > 0 && <div className="small">Running now: {busy.map((r) => `${SUITE[r.suite] ?? r.suite} (${r.split})`).join(' · ')}</div>}
+      {runs !== null && latest.length === 0 && (
+        <div className="small muted">No finished evaluation on this computer yet. Each run first generates weeks of simulated readings (it needs at least 5 GB of free disk), for example: <code>uv run python -m penjaga_eval.cli run --suite l1_v0 --split test --detector l1_mnf_baseline --detector l1_burst_rule</code></div>
+      )}
+      {latest.map((r) => {
+        // The live detectors work together, so each fault type counts as found by the best of them; false alarms add up.
+        const live = Object.entries(r.results!).filter(([name]) => DETECTOR[name]).flatMap(([, d]) => Object.values(d.layers));
+        const types = new Map<string, lab.FaultTypeScore>();
+        for (const m of live) {
+          for (const [ft, t] of Object.entries(m.by_fault_type ?? {})) {
+            const held = types.get(ft);
+            if (t.n > 0 && (!held || (t.recall ?? 0) > (held.recall ?? 0))) types.set(ft, t);
+          }
+        }
+        const alarms = live.reduce((a, m) => a + (m.false_alarms_per_house_month ?? 0), 0);
+        return (
+          <div key={r.run_id} className="stack" style={{ gap: 4 }}>
+            <div className="small"><b>{SUITE[r.suite] ?? r.suite}</b> <span className="muted">· {r.episodes ?? '?'} houses · {r.split === 'test' ? 'sealed test set' : 'validation set'} · {dayText(r.finished_at ?? r.created_at)} · checks: {Object.keys(r.results!).filter((n) => DETECTOR[n]).map((n) => DETECTOR[n]).join(', ')}</span></div>
+            <div className="small" style={{ paddingLeft: 10 }}>
+              {[...types].map(([ft, t]) => <div key={ft}>{faultName(ft)}: found in {pct(t.recall)} of {t.n} house{t.n === 1 ? '' : 's'}{t.ttd_hours_median != null ? `, typically within${hours(t.ttd_hours_median).replace(' ·', '')}` : ''}</div>)}
+              <div className="muted">False alarms: {Number(alarms.toFixed(2))} per house a month</div>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

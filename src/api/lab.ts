@@ -108,3 +108,46 @@ export async function completeJobs(layer: 'L1' | 'L2' | 'L3'): Promise<number> {
 }
 
 export const findings = () => call<{ type: string; severity: string; status: string; object_ids: string[] }[]>('GET', '/lab/detect/v1/findings');
+
+// ---------------- normal life: things a household does that must NOT raise an alarm ----------------
+// The simulator applies these to whole house days, from the next house midnight (POST /sim/v1/anomalies).
+
+export interface NormalEvent { type: string; label: string; days: number; expect: string }
+export const NORMAL_EVENTS: NormalEvent[] = [
+  { type: 'guests', label: 'Guests stay over', days: 3, expect: 'more water and power, no leak alarm' },
+  { type: 'holiday_absence', label: 'Family away on holiday', days: 4, expect: 'the house goes quiet, no alarm' },
+  { type: 'festive_cooking', label: 'Festive cooking (open house)', days: 2, expect: 'heavy kitchen load, no overload alarm' },
+  { type: 'night_bucket_fill', label: 'Filling buckets at night', days: 3, expect: 'night water use, no leak alarm' },
+  { type: 'heatwave', label: 'Heatwave', days: 4, expect: 'aircons work harder, no fault alarm' },
+];
+
+interface SimStatus { published_until: string | null }
+
+/** Start a normal-life event from the next house midnight (the simulator only changes days not yet sent). */
+export async function startEvent(e: NormalEvent): Promise<string> {
+  const { published_until } = await call<SimStatus>('GET', '/lab/sim/v1/status');
+  if (!published_until) throw new Error('the simulator has not started');
+  const day = new Date(Date.parse(published_until) + 8 * 3600_000); // house days are Malaysian days (+08:00)
+  const next = `${new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate() + 1)).toISOString().slice(0, 10)}T00:00:00+08:00`;
+  await call('POST', '/lab/sim/v1/anomalies', { anomaly_type: e.type, start_at: next, duration_s: e.days * 86400 });
+  return `${e.label}: from the next house midnight, for ${e.days} days. Penjaga should stay quiet (${e.expect}).`;
+}
+
+export interface TruthRecord { kind: 'fault' | 'legit_anomaly'; label: string; start: string; end: string | null }
+/** What the simulator really did, up to the house time already sent (ground truth, operator only). */
+export const truth = () => call<TruthRecord[]>('GET', '/lab/sim/v1/truth');
+
+// ---------------- how well detection works: Jianwen's evaluation (M11) ----------------
+
+export interface FaultTypeScore { n: number; recall: number | null; ttd_hours_median?: number | null }
+export interface LayerScore {
+  recall: number | null; recall_located: number | null; precision: number | null;
+  false_alarms_per_house_month: number | null; faults: number; detected: number;
+  by_fault_type?: Record<string, FaultTypeScore> | null;
+}
+export interface EvalRun {
+  run_id: string; suite: string; split: 'validation' | 'test'; status: string; created_at: string; finished_at?: string | null;
+  episodes?: number | null; detectors: string[];
+  results?: Record<string, { version: string; layers: Record<string, LayerScore> }> | null;
+}
+export const evalRuns = () => call<EvalRun[]>('GET', '/lab/eval/v1/runs');
