@@ -34,14 +34,24 @@ ml/artifacts/
 .obsidian/cache/
 .trash/
 
-# OS / editors
+# OS / editors / local tool settings
 .DS_Store
 Thumbs.db
 desktop.ini
+.vscode/
+.idea/
+*.swp
+.claude/settings.local.json
 
 # Project documents (PRD, decisions, designs, reports) are kept local, never committed.
 docs/
 
-# OS and log files (the homeowner app)
-.DS_Store
+# Logs, caches and build leftovers (the apps)
 *.log
+.vite/
+*.tsbuildinfo
+coverage/
+
+# Blender's automatic backups (house_typeB.blend1, …)
+*.blend1
+*.blend2
