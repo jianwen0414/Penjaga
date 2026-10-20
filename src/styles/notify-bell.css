@@ -1,0 +1,65 @@
+/* The notification bell (src/components/NotifyBell.tsx): a round toolbar button that keeps ringing while
+   something new is waiting, until the owner opens the list. */
+.nbell { position: relative; color: var(--ink-2); }
+.nbell svg { transform-origin: 50% 12%; }
+.nbell.ringing { color: var(--urgent, #ad3227); }
+.nbell.ringing.act { color: var(--act, #b05f17); }
+.nbell.ringing.calm { color: var(--accent, #1f4d40); }
+.nbell.ringing svg { animation: nbell-ring 1.8s ease-in-out infinite; }
+@keyframes nbell-ring {
+  0% { transform: rotate(0); } 5% { transform: rotate(18deg); } 12% { transform: rotate(-16deg); } 19% { transform: rotate(13deg); }
+  26% { transform: rotate(-10deg); } 33% { transform: rotate(6deg); } 40% { transform: rotate(-3deg); } 46%, 100% { transform: rotate(0); }
+}
+/* a soft pulse around the button while it rings */
+.nbell.ringing::after {
+  content: ''; position: absolute; inset: -1px; border-radius: 50%; pointer-events: none;
+  box-shadow: 0 0 0 0 currentColor; animation: nbell-pulse 1.8s ease-out infinite;
+}
+@keyframes nbell-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 45%, transparent); } 70%, 100% { box-shadow: 0 0 0 10px transparent; } }
+.nbell-count {
+  position: absolute; right: -4px; top: -4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
+  display: grid; place-items: center; font-size: 11px; font-weight: 700; color: #fff; background: var(--urgent, #ad3227);
+  box-shadow: 0 0 0 2px var(--bg, #f4efe7); pointer-events: none; animation: nbell-pop 0.4s cubic-bezier(0.34, 1.5, 0.5, 1) both;
+}
+.nbell-count.act { background: var(--act, #b05f17); }
+.nbell-count.calm { background: var(--accent, #1f4d40); }
+@keyframes nbell-pop { from { transform: scale(0.4); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .nbell.ringing svg, .nbell.ringing::after, .nbell-count { animation: none; }
+}
+
+/* ---------------- the list (drops down under the toolbar bell) ---------------- */
+.ndrawer-scrim { position: fixed; inset: 0; z-index: 55; background: rgba(29, 27, 24, 0.28); animation: fade 0.2s var(--ease, ease); }
+.ndrawer {
+  position: fixed; z-index: 56; top: 62px; right: 18px; width: min(400px, calc(100vw - 24px)); max-height: min(72vh, 620px);
+  display: flex; flex-direction: column;
+  background: rgba(251, 249, 245, 0.97); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(29, 27, 24, 0.1); border-radius: 16px;
+  box-shadow: 0 30px 60px -20px rgba(40, 30, 15, 0.4);
+  transform-origin: var(--notch, 100%) 0; animation: ndrawer-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@media (max-width: 959px) { .ndrawer { top: 56px; right: 12px; } } /* until the bell is measured (Agent.tsx places it under the bell) */
+/* the notch pointing up at the bell */
+.ndrawer::before {
+  content: ''; position: absolute; top: -7px; left: calc(var(--notch, calc(100% - 30px)) - 7px); width: 14px; height: 14px;
+  background: inherit; border: inherit; border-right: 0; border-bottom: 0; border-radius: 3px 0 0 0; rotate: 45deg;
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+@keyframes ndrawer-in { from { opacity: 0; transform: translateY(-8px) scale(0.97); } }
+.ndrawer-h { display: flex; align-items: center; gap: 10px; padding: 14px 14px 10px 18px; border-bottom: 1px solid var(--line); }
+.ndrawer-h h2 { flex: 1; font-family: var(--serif); font-size: 21px; }
+.ndrawer-list { overflow-y: auto; padding: 4px 8px 8px; }
+.ndrawer-sec { padding: 12px 10px 4px; }
+.nitem { display: flex; gap: 11px; align-items: flex-start; width: 100%; text-align: left; border: 0; background: none; padding: 10px; border-radius: 12px; }
+.nitem:hover { background: var(--surface-2); }
+.nitem .nbody { flex: 1; min-width: 0; }
+.nitem .ntitle { display: flex; align-items: baseline; gap: 8px; font-size: 14px; font-weight: 600; color: var(--ink); }
+.nitem .ntitle span:first-child { flex: 1; min-width: 0; }
+.nitem .ntime { flex: none; font-size: 11.5px; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
+.nitem .ndetail { display: block; font-size: 13px; color: var(--ink-2); margin-top: 1px; }
+.nitem.new .ntitle::after { content: ''; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--urgent); align-self: center; order: 3; }
+.ndrawer-links { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 10px 14px 4px; border-top: 1px solid var(--line); }
+.ndrawer-links button { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 9px 10px; font-size: 13px; font-weight: 600; color: var(--ink-2); text-align: left; }
+.ndrawer-links button:hover { background: var(--surface-2); }
+.ndrawer-empty { padding: 26px 14px; text-align: center; color: var(--muted); font-size: 13.5px; }
+@media (prefers-reduced-motion: reduce) { .ndrawer { animation: fade 0.15s linear; } }

@@ -7,6 +7,7 @@ const P: Record<string, ReactNode> = {
   cases: <><rect x="4" y="5" width="16" height="15" rx="2.5" /><path d="M8 10h8M8 14h5" /></>,
   house3d: <><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z" /><path d="m4 7.5 8 4.5 8-4.5M12 12v9" /></>,
   notices: <><path d="M6 9a6 6 0 1 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z" /><path d="M10 19a2 2 0 0 0 4 0" /></>,
+  bell: <><path d="M6 8.5a6 6 0 0 1 12 0c0 6.5 2.5 8.5 2.5 8.5h-17S6 15 6 8.5Z" /><path d="M10.2 20.5a2 2 0 0 0 3.6 0" /></>,
   ask: <><path d="M5 18.5V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H8.5L5 18.5Z" /><path d="M9 10.5h.01M12 10.5h.01M15 10.5h.01" /></>,
   back: <path d="M15 5 8 12l7 7" />,
   close: <path d="M6 6l12 12M18 6 6 18" />,

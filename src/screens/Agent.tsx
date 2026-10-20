@@ -2,7 +2,7 @@
 // what it's talking about in the house. The owner acts by replying (or typing), never by hunting through pages.
 // The conversation is rebuilt from case data on every render (so it survives reloads); only the owner's
 // free-form questions and taps on the house are session-only.
-import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import spec from '../../house.spec.json';
 import { useView, api, useLive, houseNow } from '../api/client';
@@ -10,7 +10,7 @@ import { ViewerSlot, useEngine, type Engine } from '../app/engine';
 import { Icon, Chart, Sheet, SEV_LABEL, fmtDay, fmtTime } from '../components/ui';
 import ThinkingOrb, { type ThinkingOrbHandle } from '../components/ThinkingOrb';
 import Character, { moodFor, type Mood } from '../components/Character';
-import Lamp from '../components/Lamp';
+import NotifyBell from '../components/NotifyBell';
 import type { Case, ChatMessage, FocusCommand, Severity, Vendor } from '../api/types';
 import type { ElementInfo, DrillResult } from '../viewer/engine';
 import NoticesPanel from './Notices';
@@ -33,7 +33,7 @@ const circuits = (spec as unknown as { services: { circuits: { id: string; label
 const LAYER_NAME: Record<string, string> = { L1: 'Water', L2: 'Electrical safety', L5: 'Water supply' };
 const FOLD_KEY = 'penjaga.chat.collapsed';
 const SEEN_KEY = 'penjaga.notifications.seen';
-/** Something that happened at home, for the lamp and its list. */
+/** Something that happened at home, for the bell and its list. */
 type Note = { id: string; t: number; tone: Severity | 'ok' | 'calm'; title: string; detail: string; open: () => void };
 
 function greeting() {
@@ -62,6 +62,10 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
   const setCollapsed = (c: boolean) => { setCollapsedState(c); try { localStorage.setItem(FOLD_KEY, c ? '1' : '0'); } catch { /* ignore */ } };
   const [thinking, setThinking] = useState(false);
   const [drawer, setDrawer] = useState(false);
+  // The list drops down under the bell: where the bell is, re-measured if the window changes while it's open.
+  const bellRef = useRef<HTMLButtonElement | null>(null);
+  const [bellAt, setBellAt] = useState<DOMRect | null>(null);
+  const openDrawer = (bell: HTMLButtonElement) => { bellRef.current = bell; setBellAt(bell.getBoundingClientRect()); setDrawer(true); };
   const [seen, setSeen] = useState<Set<string>>(() => { try { return new Set(JSON.parse(localStorage.getItem(SEEN_KEY) ?? '[]') as string[]); } catch { return new Set(); } });
   const markSeen = (ids: string[]) => setSeen((s) => {
     const n = new Set(s);
@@ -69,11 +73,14 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
     try { localStorage.setItem(SEEN_KEY, JSON.stringify([...n].slice(-500))); } catch { /* ignore */ }
     return n;
   });
+  const closeDrawerRef = useRef<() => void>(() => {});
   useEffect(() => {
     if (!drawer) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setDrawer(false); } };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeDrawerRef.current(); };
+    const onResize = () => { if (bellRef.current) setBellAt(bellRef.current.getBoundingClientRect()); };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('resize', onResize);
+    return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('resize', onResize); };
   }, [drawer]);
   const orb = useRef<ThinkingOrbHandle>(null);
   const pillSlot = useRef<HTMLDivElement>(null);
@@ -378,7 +385,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
   const flowCase = flow ? caseById(flow.caseId) : null;
   useEffect(() => { if (flow?.type === 'check' && flowCase?.guided?.done) setFlow(null); }, [flow, flowCase?.guided?.done]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const onReady = (e: Engine) => { e.setInteractive(true); e.setAutoRotate(false); e.setInsets({ left: 430 }); lastShown.current = ''; return () => e.setInsets({ left: 0 }); };
+  const onReady = (e: Engine) => { e.setInteractive(true); e.setAutoRotate(false); e.setInsets({ left: 470 }); lastShown.current = ''; return () => e.setInsets({ left: 0 }); };
 
   // The orb shows Penjaga working on it; the reply enters the thread when the orb resolves.
   const ask = async (q: string) => {
@@ -410,7 +417,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
     ? ['What happens if I wait?', 'How much is this costing me?', "What's wrong at home?"]
     : ['Where does the master bathroom heater get its power?', 'Where are the pipes in Bathroom 2?', 'Where is my water tank?'];
 
-  // ---------- notifications: the lamp comes down for anything new and stays until the owner looks ----------
+  // ---------- notifications: the bell keeps ringing for anything new until the owner opens the list ----------
   const lookAt = (elId: string, focus?: FocusCommand) => {
     setCollapsed(false);
     show(focus);
@@ -435,9 +442,16 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
   notes.sort((a, b) => b.t - a.t);
   const fresh = notes.filter((n) => !seen.has(n.id) && n.t >= houseNow() - 3 * 86400e3);
   const earlier = notes.filter((n) => !fresh.includes(n));
-  const lampTone = fresh.some((n) => n.tone === 'urgent') ? 'urgent' : fresh.some((n) => n.tone === 'act_soon' || n.tone === 'heads_up') ? 'act' : 'calm';
-  const lookNewest = () => { const n = fresh[0]; if (n) { markSeen([n.id]); n.open(); } };
+  const bellTone = fresh.some((n) => n.tone === 'urgent') ? 'urgent' : fresh.some((n) => n.tone === 'act_soon' || n.tone === 'heads_up') ? 'act' : 'calm';
   const closeDrawer = () => { setDrawer(false); markSeen(notes.map((n) => n.id)); };
+  closeDrawerRef.current = closeDrawer;
+  // the list's left edge sits just left of the bell (kept on screen), with a notch pointing up at it
+  const drawerW = Math.min(400, window.innerWidth - 24);
+  const drawerAt = bellAt && (() => {
+    const mid = bellAt.left + bellAt.width / 2;
+    const left = Math.max(12, Math.min(mid - 30, window.innerWidth - drawerW - 12));
+    return { left, top: bellAt.bottom + 10, right: 'auto', '--notch': `${mid - left}px` } as CSSProperties;
+  })();
   const when = (t: number) => (new Date(t).toDateString() === new Date(houseNow()).toDateString() ? fmtTime(t) : fmtDay(t));
 
   return (
@@ -445,6 +459,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
       <div className="agent-stage">
         <ViewerSlot label="Your home in 3D. Tap anything and Penjaga will tell you about it." onReady={onReady} />
         <div className="stage-tools-r">
+          <NotifyBell count={fresh.length} tone={bellTone} ringing={fresh.length > 0 && !drawer} onClick={openDrawer} />
           <div className="seg" role="group" aria-label="Floors">
             {([['split', 'Both'], ['GF', 'Ground'], ['FF', 'First'], ['stack', 'Stacked']] as const).map(([id, l]) => (
               <button key={id} className={stage.view === id ? 'on' : ''} onClick={() => { unfocus({ reframe: false }); engine?.setView(id); }}>{l}</button>
@@ -464,7 +479,6 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
             <button onClick={() => unfocus()}><Icon name="close" size={14} /><span className="long">Back to whole house</span><span className="short">Whole house</span></button>
           </div>
         )}
-        <Lamp count={fresh.length} tone={lampTone} onLook={lookNewest} onPull={() => setDrawer(true)} />
       </div>
 
       <section className={`agent-col ${collapsed ? 'collapsed' : ''}`} aria-label="Penjaga">
@@ -530,13 +544,13 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
       {drawer && (
         <>
           <div className="ndrawer-scrim" onClick={closeDrawer} />
-          <section className="ndrawer" role="dialog" aria-label="Notifications">
+          <section className="ndrawer" role="dialog" aria-label="Notifications" style={drawerAt ?? undefined}>
             <header className="ndrawer-h">
               <h2>Notifications</h2>
               <button className="icon-btn" onClick={closeDrawer} aria-label="Close"><Icon name="close" size={16} /></button>
             </header>
             <div className="ndrawer-list">
-              {!notes.length && <div className="ndrawer-empty">Nothing yet. When something happens at home, the lamp comes down.</div>}
+              {!notes.length && <div className="ndrawer-empty">Nothing yet. When something happens at home, the bell will ring.</div>}
               {fresh.length > 0 && <div className="label ndrawer-sec">New</div>}
               {[...fresh, ...earlier.slice(0, 30)].map((n, k) => (
                 <Fragment key={n.id}>
@@ -557,7 +571,6 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
               <button onClick={() => { closeDrawer(); setPanel('settings'); }}><Icon name="shield" size={16} />Privacy</button>
               <button onClick={() => { closeDrawer(); nav('/welcome'); }}><Icon name="replay" size={16} />Replay the tour</button>
             </div>
-            <button className="ndrawer-grab" onClick={closeDrawer} aria-label="Push the list back up"><i /></button>
           </section>
         </>
       )}

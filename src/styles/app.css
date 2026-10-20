@@ -316,7 +316,7 @@ details.how summary::-webkit-details-marker { display: none; }
    Penjaga, the agent. The house is the stage; Penjaga speaks from a small glass panel beside it,
    in chat rows (avatar, name, label, text) that collapse to a one-message preview.
    ========================================================================================= */
-.agent { position: fixed; inset: 0; display: grid; grid-template-rows: 46vh 1fr; background: #ece6dd; }
+.agent { position: fixed; inset: 0; display: grid; grid-template-rows: 42vh 1fr; background: #ece6dd; }
 .agent.is-collapsed { grid-template-rows: 1fr auto; }
 .agent-stage { position: relative; min-height: 0; }
 .agent-stage .slot { position: absolute; inset: 0; }
@@ -349,16 +349,15 @@ details.how summary::-webkit-details-marker { display: none; }
   .agent, .agent.is-collapsed { display: block; }
   .agent-stage { position: absolute; inset: 0; }
   .agent-col {
-    position: absolute; left: 18px; bottom: 18px; width: 400px; height: min(640px, calc(100vh - 36px)); margin: 0;
+    position: absolute; left: 18px; top: 18px; bottom: 18px; width: 452px; margin: 0;
     border-radius: 16px; background: rgba(251, 249, 245, 0.8);
     backdrop-filter: blur(20px) saturate(1.15); -webkit-backdrop-filter: blur(20px) saturate(1.15);
     border: 1px solid rgba(29, 27, 24, 0.1);
     /* shadow-2xl, plus a faint glow in the house's colours (accent, water, heads-up) */
     box-shadow: 0 25px 50px -12px rgba(40, 30, 15, 0.28), -10px 0 40px -18px rgba(31, 77, 64, 0.35),
       12px 6px 44px -20px rgba(43, 127, 184, 0.3), 0 -10px 40px -22px rgba(154, 122, 20, 0.3);
-    transition: height 0.32s var(--ease);
   }
-  .agent-col.collapsed { height: auto; }
+  .agent-col.collapsed { top: auto; } /* folded: just the header and the latest message, at the bottom */
   .stage-tools-r { top: 18px; right: 18px; left: auto; }
   .stage-shown { left: calc(50% + 235px); bottom: 28px; max-width: calc(100% - 520px); }
 }
@@ -374,7 +373,6 @@ details.how summary::-webkit-details-marker { display: none; }
 .icon-btn.fold svg { transform: rotate(90deg); transition: transform 0.25s var(--ease); }
 .agent-col.collapsed .icon-btn.fold svg { transform: rotate(-90deg); }
 @keyframes breathe { 0%, 100% { opacity: 0.35; transform: scale(0.85); } 50% { opacity: 1; transform: scale(1.1); } }
-@media (prefers-reduced-motion: reduce) { .agent-col { transition: none; } }
 
 /* ---- the conversation ---- */
 .thread {
@@ -447,9 +445,5 @@ details.how summary::-webkit-details-marker { display: none; }
   .stage-tools-r .seg button { padding: 6px 9px; font-size: 12px; }
   .stage-tools-r .lbl { display: none; }
 }
-/* the notification lamp hangs just right of the chat panel on desktop (clear of the stage tools, top right),
-   and at the top right on a phone */
-@media (min-width: 960px) { .agent-stage .lamp { --lamp-x: 500px; } }
-@media (max-width: 959px) { .agent-stage .lamp { --lamp-x: calc(100% - 34px); } .stage-tools-r { right: 66px; } }
 /* the alert toast must never cover the stage controls (top right) */
 @media (min-width: 960px) { .agent ~ .toast, .toast { top: auto; bottom: 24px; right: 24px; } }
