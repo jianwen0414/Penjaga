@@ -33,6 +33,7 @@ from penjaga_api.api import create_app
 from penjaga_api.service import ApiService, Role
 from penjaga_api.store import ApiStore
 from penjaga_api.upstream import HttpUpstream
+from penjaga_api.voice import GoogleSpeech, VoiceConfig
 
 REPO = Path(__file__).resolve().parents[4]
 log = logging.getLogger("penjaga_api")
@@ -93,6 +94,15 @@ def _agent() -> OpenRouterClient | None:
     return OpenRouterClient(config)
 
 
+def _speech() -> GoogleSpeech | None:
+    config = VoiceConfig.from_env()
+    if not config.enabled:
+        log.info("Penjaga's voice: browser voice only (no GOOGLE_TTS_API_KEY)")
+        return None
+    log.info("Penjaga's voice: Google Text-to-Speech, %s", config.voice)
+    return GoogleSpeech(config)
+
+
 def _cmd_serve(args: argparse.Namespace) -> int:
     outbound, callers = resolve_tokens(args.dev_tokens, args.api_tokens)
     if outbound is None or not callers:
@@ -108,7 +118,8 @@ def _cmd_serve(args: argparse.Namespace) -> int:
     load_env_file(args.env_file)
     service = ApiService(store, upstream, llm=_agent())
     try:
-        uvicorn.run(create_app(service, tokens=callers), host=args.host, port=args.port)
+        app = create_app(service, tokens=callers, speech=_speech())
+        uvicorn.run(app, host=args.host, port=args.port)
     finally:
         store.close()
     return 0
@@ -125,7 +136,12 @@ def main(argv: list[str] | None = None) -> int:
     sv.add_argument("--data-dir", type=Path, default=REPO / "var" / "api")
     sv.add_argument("--dev-tokens", type=Path, help="tokens file from `penjaga-stream serve --dev`")
     sv.add_argument("--api-tokens", type=Path, default=REPO / "var" / "api-tokens.json")
-    sv.add_argument("--env-file", type=Path, default=REPO / ".env", help="OPENROUTER_API_KEY etc.")
+    sv.add_argument(
+        "--env-file",
+        type=Path,
+        default=REPO / ".env",
+        help="OPENROUTER_API_KEY, GOOGLE_TTS_API_KEY etc.",
+    )
     ev = sub.add_parser("eval-agent", help="score candidate models live (uses the OpenRouter key)")
     ev.add_argument("--models", nargs="+", default=[DEFAULT_MODEL, *DEFAULT_FALLBACKS])
     ev.add_argument("--out", type=Path, default=REPO / "var" / "agent-eval.md")

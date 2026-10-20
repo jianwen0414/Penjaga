@@ -6,7 +6,8 @@ Authentication: ``Authorization: Bearer <token>``, one token per role: ``homeown
 Errors: 401 without a valid token; 403 for a role that may not call the route; 404 unknown item;
 409 consent decided on an outdated text, a case action its state doesn't allow, or a layer the
 owner switched off; 422 invalid request, unknown contract ID or an unreadable notice; 502 detection
-or the clock failed; 503 no episode followed yet, or the AI notice reader is unavailable.
+or the clock failed; 503 no episode followed yet, the AI notice reader is unavailable, or Penjaga's
+voice is off or unavailable (the app then speaks with the browser's own voice).
 
 No ``from __future__ import annotations`` here: FastAPI resolves route annotations at runtime,
 and the role guards they name are local to ``create_app``.
@@ -47,6 +48,7 @@ from penjaga_api.service import (
 )
 from penjaga_api.store import DEFAULT_RETENTION_DAYS
 from penjaga_api.upstream import UpstreamUnavailableError
+from penjaga_api.voice import MAX_TEXT_CHARS, GoogleSpeech, SpeechUnavailableError
 
 PREFIX = "/api/v1"
 BEARER = HTTPBearer(auto_error=False)  # module level: FastAPI resolves annotations here
@@ -106,6 +108,10 @@ class NoticeText(BaseModel):
 class SeedNoticeRequest(BaseModel):
     preset: str = Field(max_length=40)
     starts_in_h: float | None = Field(default=None, ge=-48, le=240)
+
+
+class SpeechRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=MAX_TEXT_CHARS)
 
 
 class ChatRequest(BaseModel):
@@ -174,7 +180,11 @@ def _guards(tokens: Mapping[Role, str]) -> Guards:
 
 
 def create_app(
-    service: ApiService, *, tokens: Mapping[Role, str], autostart: bool = True
+    service: ApiService,
+    *,
+    tokens: Mapping[Role, str],
+    autostart: bool = True,
+    speech: GoogleSpeech | None = None,
 ) -> FastAPI:
     guards = _guards(tokens)
 
@@ -188,6 +198,8 @@ def create_app(
             stop.set()
             if task is not None:
                 await task
+            if speech is not None:
+                await speech.aclose()
 
     app = FastAPI(
         title="Penjaga Core API",
@@ -216,10 +228,12 @@ def create_app(
     app.add_exception_handler(MaintenanceItemNotFoundError, error(status.HTTP_404_NOT_FOUND))
     app.add_exception_handler(NoticeUnreadableError, error(status.HTTP_422_UNPROCESSABLE_CONTENT))
     app.add_exception_handler(LLMUnavailableError, error(status.HTTP_503_SERVICE_UNAVAILABLE))
+    app.add_exception_handler(SpeechUnavailableError, error(status.HTTP_503_SERVICE_UNAVAILABLE))
 
     _add_house_routes(app, service, guards)
     _add_case_routes(app, service, guards)
     _add_chat_routes(app, service, guards)
+    _add_voice_routes(app, speech, guards)
     _add_action_routes(app, service, guards)
     _add_notice_routes(app, service, guards)
     _add_privacy_routes(app, service, guards)
@@ -448,6 +462,26 @@ def _add_chat_routes(app: FastAPI, service: ApiService, g: Guards) -> None:
         conversation_id: Annotated[str, Query(pattern=r"^conv_[0-9a-f]{16}$")],
     ) -> list[dict[str, Any]]:
         return service.store.chat_history(conversation_id)
+
+
+def _add_voice_routes(app: FastAPI, speech: GoogleSpeech | None, g: Guards) -> None:
+    @app.get(f"{PREFIX}/voice")
+    async def voice(_: Annotated[Role, Depends(g.app)]) -> dict[str, Any]:
+        """Whether Penjaga has its own voice (Google Text-to-Speech) and which one."""
+        return {"speech": speech is not None, "voice": speech.voice if speech else None}
+
+    @app.post(f"{PREFIX}/voice/speech")
+    async def say(body: SpeechRequest, _: Annotated[Role, Depends(g.app)]) -> Response:
+        """A sentence Penjaga is about to say, as MP3. 503 when the voice is off or failing."""
+        if speech is None:
+            raise SpeechUnavailableError("Penjaga's voice is off (no GOOGLE_TTS_API_KEY)")
+        try:
+            audio = await speech.synthesize(body.text)
+        except ValueError as exc:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+        return Response(
+            audio, media_type="audio/mpeg", headers={"Cache-Control": "private, max-age=3600"}
+        )
 
 
 def _add_privacy_routes(app: FastAPI, service: ApiService, g: Guards) -> None:
