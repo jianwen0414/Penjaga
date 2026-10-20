@@ -172,7 +172,10 @@ def test_anomaly(h: Harness) -> None:
 
 def test_an_anomaly_can_be_stopped_from_the_next_unsent_day(h: Harness) -> None:
     h.step()
-    stop = lambda rid: h.client.delete(f"/sim/v1/anomalies/{rid}", headers=AUTH)  # noqa: E731
+
+    def stop(rid: str) -> Any:
+        return h.client.delete(f"/sim/v1/anomalies/{rid}", headers=AUTH)
+
     planned = h.post(
         "/anomalies",
         {
