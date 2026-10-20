@@ -338,7 +338,7 @@ details.how summary::-webkit-details-marker { display: none; }
    Penjaga, the agent. The house is the stage; Penjaga speaks from a small glass panel beside it,
    in chat rows (avatar, name, label, text) that collapse to a one-message preview.
    ========================================================================================= */
-.agent { position: fixed; inset: 0; display: grid; grid-template-rows: 42vh 1fr; background: #ece6dd; }
+.agent { position: fixed; inset: 0; display: grid; grid-template-rows: 42vh 1fr; grid-template-columns: minmax(0, 1fr); background: #ece6dd; } /* the column may be narrower than the toolbar (it wraps), never the screen wider */
 .agent.is-collapsed { grid-template-rows: 1fr auto; }
 .agent-stage { position: relative; min-height: 0; }
 .agent-stage .slot { position: absolute; inset: 0; }

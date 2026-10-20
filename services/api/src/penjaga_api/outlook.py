@@ -72,6 +72,14 @@ def outlook(
         "measured_at": lead.get("updated_at") or lead.get("first_seen"),
     }
     ev = _evidence(lead)
+    if case.get("contained"):
+        return {
+            **base,
+            "kind": None,
+            "projectable": False,
+            "why_not": "The owner shut the supply off: nothing more is lost while it stays off, "
+            "so there is nothing to carry forward until it is turned back on.",
+        }
     # rising leakage: the case may hold findings from both L2 detectors; only the trend detector
     # measures a rate (mA a day), and only a rate can be carried forward
     rising = [t.latest for t in state.active_tracks if t.latest["type"] == "earth_leakage_rising"]

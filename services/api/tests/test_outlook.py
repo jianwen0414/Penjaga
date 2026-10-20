@@ -163,6 +163,20 @@ def test_an_overload_is_a_risk_now_with_nothing_to_project(h: Harness) -> None:
     assert "risk right now" in o["why_not"]
 
 
+def test_a_contained_case_has_nothing_to_carry_forward(h: Harness) -> None:
+    h.follow(finding("burst_pipe_suspected"))
+    (case,) = h.client.get("/api/v1/cases", headers=_h(Role.homeowner)).json()
+    r = h.client.post(
+        f"/api/v1/cases/{case['id']}/contained",
+        json={"what": "main_stop_valve"},
+        headers=_h(Role.homeowner),
+    )
+    assert r.status_code == 200, r.text
+    o = h.outlook()["burst_pipe_suspected"]
+    assert o["projectable"] is False
+    assert "shut the supply off" in o["why_not"]
+
+
 def test_resolved_cases_are_left_out(h: Harness) -> None:
     h.follow(
         finding(
