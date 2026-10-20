@@ -11,6 +11,7 @@ import { Icon, Chart, Sheet, SEV_LABEL, fmtDay, fmtTime } from '../components/ui
 import Character, { moodFor, type Mood } from '../components/Character';
 import LiveCharacter, { type Activity } from '../character/LiveCharacter';
 import Resting from '../components/Resting';
+import StageBuddy from '../components/StageBuddy';
 import NotifyBell from '../components/NotifyBell';
 import MiniOrb from '../components/MiniOrb';
 import { useLiquidGlass } from '../components/LiquidGlass';
@@ -435,7 +436,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
     if (!e) return;
     retire(e.askKey);
     engine?.clearRoute();
-    if (e.plan.sim) api.ownerDid(e.plan.sim);
+    if (e.plan.sim) api.ownerDid(e.plan.sim, e.plan.contain ? e.plan.caseId : undefined);
     // the supply is off, not fixed: the case stays open for the repair instead of reading as fixed when it goes quiet
     if (e.plan.contain) api.contain(e.plan.caseId, e.plan.contain);
     const c = caseById(e.plan.caseId);
@@ -838,6 +839,10 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
         : justFixed ? 'happy'
           : hour >= 23 || hour < 6 ? 'sleeping' : 'calm';
   const activity: Activity = hearing ? 'listening' : speaker.speaking ? 'speaking' : thinking ? 'thinking' : 'idle';
+  // Penjaga steps out beside the panel while it listens, talks or guides an emergency (StageBuddy)
+  const headAvatar = useRef<HTMLButtonElement>(null);
+  const [buddyOut, setBuddyOut] = useState(false);
+  const buddyCaption = hearing ? 'Listening · tap to stop' : speaker.speaking ? 'Talking · tap to stop' : em ? 'Guiding you' : 'Penjaga';
   const suggestions = openCases.length
     ? ['What happens if I wait?', 'How much is this costing me?', "What's wrong at home?"]
     : ['Where does the master bathroom heater get its power?', 'Where are the pipes in Bathroom 2?', 'Where is my water tank?'];
@@ -900,6 +905,17 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
           <button className="round" onClick={() => unfocus()} aria-label="Whole house"><Icon name="house3d" size={17} /></button>
         </div>
         {hud && <InspectHud hud={hud} />}
+        <StageBuddy
+          present={!!(hearing || speaker.speaking || em) && rest === 'off'}
+          mood={em ? 'concerned' : headMood}
+          activity={activity}
+          voice={speech.level}
+          mic={getMic}
+          home={() => headAvatar.current}
+          caption={buddyCaption}
+          onTap={() => { if (speaker.speaking) speech.cancel(); else if (hearing) listening.current?.stop(); else void talk(); }}
+          onAway={setBuddyOut}
+        />
         {shown && (
           <div className="stage-shown" role="status">
             <span className="stage-shown-what">Showing <b>{shown}</b></span>
@@ -913,7 +929,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
         {glass.layers}
         <header className="agent-head">
           {/* Penjaga, alive: it looks at the pointer, listens and talks here. Tap it to talk (or to stop it talking). */}
-          <button className="pj-live" data-active={activity !== 'idle' && activity !== 'thinking' ? activity : undefined} onClick={() => (speaker.speaking ? speech.cancel() : void talk())}
+          <button ref={headAvatar} className="pj-live" data-away={buddyOut ? '' : undefined} data-active={activity !== 'idle' && activity !== 'thinking' ? activity : undefined} onClick={() => (speaker.speaking ? speech.cancel() : void talk())}
             aria-label={speaker.speaking ? 'Stop Penjaga talking' : hearing ? 'Stop listening' : canListen() ? 'Talk to Penjaga' : 'Penjaga'}>
             <LiveCharacter mood={headMood} activity={activity} size={30} voice={speech.level} mic={getMic} track />
           </button>

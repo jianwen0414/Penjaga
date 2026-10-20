@@ -33,7 +33,8 @@ export interface EmergencyPlan {
 
 const ACTIVE = new Set(['open', 'monitoring', 'action_pending']);
 /** Cases that should start an emergency conversation. */
-export const isEmergency = (c: Case): boolean => c.severity === 'urgent' && ACTIVE.has(c.status) && !c.guided?.done;
+// (a case whose supply the owner already shut off is contained: no emergency to walk through again)
+export const isEmergency = (c: Case): boolean => c.severity === 'urgent' && ACTIVE.has(c.status) && !c.guided?.done && !c.contained;
 
 const VALVE = /main stop valve|stop valve|water supply/i;
 const BOARD = /breaker|distribution board|switchboard|\bboard\b|safety switch|\bRCC?B\b|\bRCD\b/i;
@@ -87,6 +88,9 @@ export function answerKind(said: string): 'done' | 'lost' | 'wait' | 'unknown' {
   const t = ` ${said.toLowerCase().replace(/[^a-z0-9\s']/g, ' ').replace(/\s+/g, ' ').trim()} `;
   if (/\b(can ?not|can't|cannot|couldn't|could not|don't|do not|tak|tidak) (find|see|reach|open|close|turn|switch|jumpa|nampak)\b|\bwhere is it\b|\bwhere\b.*\b(valve|board|switch)\b|\bstuck\b|\bhelp\b/.test(t)) return 'lost';
   if (/\b(not yet|wait|hold on|one moment|give me a (second|minute)|on my way|going now|belum|kejap|tunggu)\b/.test(t)) return 'wait';
-  if (/\b(done|did it|it's off|its off|it is off|turned (it )?off|switched (it )?off|closed( it)?|shut( it)?( off)?|off now|yes|yeah|yep|okay|ok|got it|i'm there|im there|i am there|here|sudah|dah|siap|ya)\b/.test(t)) return 'done';
+  // "it's not off", "I haven't closed it": not done yet
+  if (/\b(not|isn't|isnt|didn't|didnt|haven't|havent|hasn't|won't|no)\b/.test(t)) return 'wait';
+  // recognition often drops the ending: "closed" arrives as "close", "switched off" as "switch off"
+  if (/\b(done|did it|it's off|its off|it is off|turn(ed)? (it )?off|switch(ed)? (it )?off|close[ds]?( it)?|shut( it)?( off)?|off now|off|yes|yeah|yep|okay|ok|got it|i'm there|im there|i am there|here|sudah|dah|siap|ya|tutup)\b/.test(t)) return 'done';
   return 'unknown';
 }

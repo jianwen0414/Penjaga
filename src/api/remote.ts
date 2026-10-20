@@ -254,19 +254,48 @@ export function runGuidedCheck(caseId: string, fixtureId: string): void {
 // proxy). It lasts longer than the check (house time). The Core API itself never calls
 // the simulator; in a real home the owner does it by hand.
 const ACTION_HELD_S = 40 * 60; // longer than a valve check (20 min settle + 10 min watch)
-async function actInSimulator(action: { close_valves?: string[]; switch_off_circuits?: string[] }, heldS = ACTION_HELD_S): Promise<void> {
+type SimAction = { close_valves?: string[]; switch_off_circuits?: string[] };
+/** Do it in the simulated house; resolves with when it ends (house time, ms), or null if the simulator refused. */
+async function actInSimulator(action: SimAction, heldS = ACTION_HELD_S): Promise<number | null> {
   const r = await fetch('/lab/sim/v1/actions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...action, duration_s: heldS }),
   });
-  if (!r.ok) console.warn('[penjaga] the simulator did not do it', action, r.status, await r.text());
+  if (!r.ok) { console.warn('[penjaga] the simulator did not do it', action, r.status, await r.text()); return null; }
+  const { end } = await r.json() as { end?: string };
+  return end ? Date.parse(end) : null;
 }
 
-/** The same demo bridge for an emergency: the owner says they closed the main stop valve, so the simulated house
- * closes it (until a plumber would have come: 6 house hours), and the meter shows whether it worked. */
-export function ownerDid(action: { close_valves?: string[]; switch_off_circuits?: string[] }): void {
-  actInSimulator(action, 6 * 3600).catch((err) => console.warn('[penjaga] the simulator did not do it', err));
+/** The same demo bridge for an emergency: the owner says they shut the supply off (the main stop valve), so the
+ * simulated house does too, and keeps it off for as long as the case is contained: a real valve stays shut until the
+ * repair. The simulator takes a day at most per action, so it is renewed before each day runs out (checked often:
+ * at x600 a house hour passes in six seconds), and stops being renewed once the case is no longer contained. */
+const DAY_S = 86_400;
+const RENEW_BEFORE_MS = 6 * 3600e3; // house time
+const held = new Map<string, { action: SimAction; end: number; since: number }>();
+let holdTimer: ReturnType<typeof setInterval> | undefined;
+export function ownerDid(action: SimAction, caseId?: string): void {
+  void actInSimulator(action, DAY_S)
+    .then((end) => {
+      if (!caseId || end === null) return;
+      held.set(caseId, { action, end, since: Date.now() });
+      holdTimer ??= setInterval(renewHolds, 2000);
+    })
+    .catch((err) => console.warn('[penjaga] the simulator did not do it', err));
+}
+function renewHolds(): void {
+  for (const [caseId, h] of held) {
+    const c = view.cases.find((x) => x.id === caseId);
+    // released: repaired, resolved or gone (a short grace while the view catches up with "contained")
+    if ((!c?.contained || c.status === 'resolved') && Date.now() - h.since > 60_000) { held.delete(caseId); continue; }
+    if (houseNow() < h.end - RENEW_BEFORE_MS) continue;
+    h.end = Infinity; // one renewal in flight at a time
+    void actInSimulator(h.action, DAY_S)
+      .then((end) => { const now = held.get(caseId); if (now) now.end = end ?? houseNow() + 3600e3; })
+      .catch(() => { const now = held.get(caseId); if (now) now.end = houseNow() + 600e3; });
+  }
+  if (!held.size) { clearInterval(holdTimer); holdTimer = undefined; }
 }
 
 // ---------------- "Ask Penjaga" (step 6) ----------------

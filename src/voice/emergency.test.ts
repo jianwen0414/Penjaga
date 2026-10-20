@@ -58,14 +58,15 @@ describe('an urgent case becomes a place to go and a thing to do', () => {
     expect(isEmergency(urgent('L1', BURST))).toBe(true);
     expect(isEmergency(urgent('L1', BURST, { status: 'resolved' }))).toBe(false);
     expect(isEmergency(urgent('L1', BURST, { severity: 'act_soon' }))).toBe(false);
+    expect(isEmergency(urgent('L1', BURST, { status: 'action_pending', contained: { what: 'main_stop_valve', at: 0 } }))).toBe(false);
   });
 });
 
 describe('what the owner says back', () => {
   test.each([
-    ['done', 'done'], ["it's off now", 'done'], ['okay I closed it', 'done'], ['yes', 'done'], ["I'm there", 'done'], ['sudah', 'done'],
+    ['done', 'done'], ["it's off now", 'done'], ['Close', 'done'], ['closed', 'done'], ['switch off', 'done'], ['off', 'done'], ['dah tutup', 'done'], ['okay I closed it', 'done'], ['yes', 'done'], ["I'm there", 'done'], ['sudah', 'done'],
     ["I can't find it", 'lost'], ['where is the valve', 'lost'], ['help', 'lost'], ['tak jumpa', 'lost'],
-    ['not yet', 'wait'], ['hold on', 'wait'], ["I'm on my way", 'wait'], ['kejap', 'wait'],
+    ['not yet', 'wait'], ["it's not off", 'wait'], ["I haven't closed it", 'wait'], ['no', 'wait'], ['hold on', 'wait'], ["I'm on my way", 'wait'], ['kejap', 'wait'],
     ['the cat is hungry', 'unknown'],
   ])('%s is %s', (said, kind) => expect(answerKind(said)).toBe(kind));
 });
