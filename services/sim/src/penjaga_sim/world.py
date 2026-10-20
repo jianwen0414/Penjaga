@@ -262,6 +262,25 @@ class World:
                 return cleared
         raise UnknownFaultError(f"unknown fault {fault_id!r}")
 
+    def end_anomaly(self, record_id: str) -> int | None:
+        """Stop an imposed anomaly early, from the first house day not yet published (a day already
+        sent keeps it). One that has not started by then is dropped. Returns the new end (None if
+        dropped)."""
+        for i, a in enumerate(self._anomalies):
+            if a.record_id != record_id:
+                continue
+            cut = self.day_start_us(self.day_of(self.published_until_us) + timedelta(days=1))
+            if a.end_us <= cut:
+                raise WorldConflictError(f"{record_id} already ends by {self._iso(a.end_us)}")
+            if a.start_us >= cut:
+                del self._anomalies[i]
+                self._invalidate_from(a.start_us)
+                return None
+            self._anomalies[i] = _Anomaly(a.spec, a.start_us, cut, a.record_id)
+            self._invalidate_from(cut)
+            return cut
+        raise UnknownFaultError(f"unknown anomaly {record_id!r}")
+
     def impose(self, spec: AnomalySpec) -> str:
         """Impose a legitimate anomaly on whole house days.
 

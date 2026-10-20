@@ -3,7 +3,7 @@
 // the simulator only; the homeowner app learns about faults solely through detection on readings.
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { BACKEND } from '../api/client';
-import * as lab from '../api/lab';
+import RealLab from './RealLab';
 import { getWorld, subscribe, update, resetWorld } from '../standin/world';
 import { completeBookings } from '../standin/agent';
 import { detect } from '../standin/detect';
@@ -91,100 +91,3 @@ function StandinLab() {
 
 // The Lab on the real backend: every simulator fault, notices and job completion through the Core API's operator
 // routes, and detection's own findings. The homeowner app (VITE_BACKEND=api) updates live.
-const GROUPS: lab.Scenario['group'][] = ['Water', 'Electrical safety', 'Appliances', 'Supply'];
-const placeName = (id?: string | null) => lab.SCENARIOS.flatMap((s) => s.where).find(([w]) => w === id)?.[1] ?? id ?? '';
-
-function RealLab() {
-  const [faults, setFaults] = useState<lab.SimFault[]>([]);
-  const [findings, setFindings] = useState<Awaited<ReturnType<typeof lab.findings>>>([]);
-  const [note, setNote] = useState('');
-  const refresh = useCallback(async () => {
-    try {
-      const [f, d] = await Promise.all([lab.faults(), lab.findings()]);
-      setFaults(f.filter(lab.isLive));
-      setFindings(d);
-    } catch {
-      setNote("Can't reach the simulator or detection. Start the backend: uv run python scripts/dev_stack.py");
-    }
-  }, []);
-  useEffect(() => { void refresh(); const t = setInterval(() => void refresh(), 3000); return () => clearInterval(t); }, [refresh]);
-  // work may return a sentence to show instead of "done" (e.g. when there was nothing to do)
-  const run = (label: string, work: () => Promise<unknown>) => () => {
-    setNote(`${label}…`);
-    work().then((r) => { setNote(typeof r === 'string' ? r : `${label}: done`); void refresh(); }).catch((e) => setNote(`${label} failed: ${e instanceof Error ? e.message : e}`));
-  };
-  const job = (trade: string, layer: 'L1' | 'L2' | 'L3') => run(`${trade} completes the job`, async () => {
-    const n = await lab.completeJobs(layer);
-    return n ? `${trade} completed ${n} job${n > 1 ? 's' : ''}. The case shows the visit as done.` : `No open ${trade.toLowerCase()} booking. Book one on the case in the homeowner app first.`;
-  });
-  const liveOf = (type: string) => faults.find((f) => f.spec.fault_type === type);
-  return (
-    <div className="ops">
-      <div className="page">
-        <div className="row" style={{ justifyContent: 'space-between' }}>
-          <div><div className="label">Operator only</div><h1 className="serif" style={{ fontSize: 32 }}>Penjaga Lab</h1></div>
-          <a className="btn" href="/" target="_blank" rel="noreferrer">Open homeowner app ↗</a>
-        </div>
-        <p className="muted">Start a fault in the simulated house. Detection only sees the readings it causes, so each case appears once detection is sure, after the house time shown next to it. Keep the homeowner app open in another tab: it updates live.</p>
-        {note && <div className="small" role="status" style={{ marginTop: 6 }}>{note}</div>}
-
-        <div className="grid2" style={{ marginTop: 18 }}>
-          {GROUPS.map((g) => (
-            <div className="card pad stack" key={g}>
-              <b>{g}</b>
-              {lab.SCENARIOS.filter((sc) => sc.group === g).map((sc) => {
-                const live = liveOf(sc.type);
-                return (
-                  <div key={sc.type} className="stack" style={{ gap: 6 }}>
-                    <div className="small"><b>{sc.label}</b> <span className="muted">· case {sc.when}</span>{live && <span> · <b>running</b>{live.spec.location_id ? ` at ${placeName(live.spec.location_id)}` : ''}</span>}</div>
-                    <div className="row" style={{ flexWrap: 'wrap' }}>
-                      {sc.where.length
-                        ? sc.where.map(([id, name]) => <button key={id} className="btn" onClick={run(`${sc.label}: ${name}`, () => lab.inject(sc, id))}>{name}</button>)
-                        : <button className="btn" onClick={run(sc.label, () => lab.inject(sc, null))}>Start</button>}
-                      {live && <button className="btn" onClick={run(`Clear ${sc.label.toLowerCase()}`, () => lab.clearType(sc.type))}>Clear</button>}
-                    </div>
-                  </div>
-                );
-              })}
-              {g === 'Supply' && (
-                <div className="stack" style={{ gap: 6 }}>
-                  <div className="small"><b>Notices from management</b> <span className="muted">· post one before a cut and the case says "planned works"</span></div>
-                  <div className="row" style={{ flexWrap: 'wrap' }}>
-                    <button className="btn" onClick={run('Water works notice', () => lab.postNotice('water_works'))}>Post water works notice</button>
-                    <button className="btn" onClick={run('Power outage notice', () => lab.postNotice('power_outage'))}>Post power outage notice</button>
-                    <button className="btn" onClick={run('Withdraw notices', lab.clearNotices)}>Withdraw notices</button>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        <div className="card pad stack" style={{ marginTop: 14 }}>
-          <b>Vendor jobs</b>
-          <div className="small muted">After the owner books a vendor in the app, finish the job here.</div>
-          <div className="row" style={{ flexWrap: 'wrap' }}>
-            <button className="btn" onClick={job('Plumber', 'L1')}>Plumber completes job</button>
-            <button className="btn" onClick={job('Electrician', 'L2')}>Electrician completes job</button>
-            <button className="btn" onClick={job('Aircon service', 'L3')}>Aircon service completes job</button>
-          </div>
-        </div>
-
-        <div className="card pad" style={{ marginTop: 14 }}>
-          <div className="row" style={{ justifyContent: 'space-between' }}>
-            <b>What detection sees</b>
-            {faults.length > 0 && <button className="btn" onClick={run('Clear all faults', lab.clearAll)}>Clear all faults</button>}
-          </div>
-          <div className="small muted" style={{ marginTop: 6 }}>Running in the simulator: {faults.map((f) => `${lab.SCENARIOS.find((sc) => sc.type === f.spec.fault_type)?.label ?? f.spec.fault_type}${f.spec.location_id ? ` (${placeName(f.spec.location_id)})` : ''}`).join(' · ') || 'nothing'}</div>
-          <div className="small" style={{ marginTop: 8 }}>
-            {findings.length
-              ? findings.map((d, i) => <div key={i}>{d.status === 'active' ? '●' : '○'} {d.type.replaceAll('_', ' ')} · {d.severity}{d.object_ids.length ? ` · ${d.object_ids.join(', ')}` : ''}</div>)
-              : <span className="muted">No findings yet.</span>}
-          </div>
-        </div>
-
-        <div className="small muted" style={{ marginTop: 14 }}>To reset the house, restart the backend (scripts/dev_stack.py). The living-alone check runs only with the stand-in backend.</div>
-      </div>
-    </div>
-  );
-}

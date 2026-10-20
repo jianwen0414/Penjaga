@@ -338,8 +338,14 @@ class _Replay:
             self.outcome = f"Repaired by {d['vendor_name']}"
             self.note(t, "Job marked complete", "vendor")
         elif action.kind == CHECK_RESULT:
-            result = "stopped" if d["result"] == "stopped" else "continued"
-            self.note(t, f"Checked {d['label']}: flow {result}", action.actor)
+            if d.get("check") == "breaker":
+                result = "dropped" if d["result"] == "stopped" else "unchanged"
+                self.note(
+                    t, f"Switched off the {d['label']} circuit: leakage {result}", action.actor
+                )
+            else:
+                result = "stopped" if d["result"] == "stopped" else "continued"
+                self.note(t, f"Checked {d['label']}: flow {result}", action.actor)
 
     def revision(self, t: str, doc: dict[str, Any]) -> None:
         previous = self.latest.get(doc["id"])

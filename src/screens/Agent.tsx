@@ -5,18 +5,18 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import spec from '../../house.spec.json';
-import { useView, api, useLive, houseNow } from '../api/client';
+import { useView, api, useLive, houseNow, BACKEND, type Live } from '../api/client';
 import { ViewerSlot, useEngine, type Engine } from '../app/engine';
 import { Icon, Chart, Sheet, SEV_LABEL, fmtDay, fmtTime } from '../components/ui';
 import ThinkingOrb, { type ThinkingOrbHandle } from '../components/ThinkingOrb';
 import Character, { moodFor, type Mood } from '../components/Character';
 import NotifyBell from '../components/NotifyBell';
 import type { Case, ChatMessage, FocusCommand, Severity, Vendor } from '../api/types';
-import type { ElementInfo, DrillResult } from '../viewer/engine';
+import type { ElementInfo, DrillResult, InspectPhase } from '../viewer/engine';
 import NoticesPanel from './Notices';
 import SettingsPanel from './Settings';
 
-type Chip = { label: string; icon?: string; primary?: boolean; tone?: 'danger'; onClick: () => void };
+type Chip = { label: string; icon?: string; primary?: boolean; quiet?: boolean; flip?: boolean; tone?: 'danger'; onClick: () => void }; // quiet: a minor follow-up, drawn as a link
 type Item = {
   key: string; t: number; who: 'penjaga' | 'you';
   kicker?: string; tone?: Severity | 'ok' | 'calm';
@@ -37,14 +37,15 @@ const SEEN_KEY = 'penjaga.notifications.seen';
 type Note = { id: string; t: number; tone: Severity | 'ok' | 'calm'; title: string; detail: string; open: () => void };
 
 function greeting() {
-  const h = new Date().getHours();
+  const h = new Date(houseNow()).getHours(); // the house's clock, like the time shown above it
   return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
 }
 const usualness = (v: number, t: number) => {
   if (!t) return '';
   const p = Math.round(((v - t) / t) * 100);
-  return Math.abs(p) <= 8 ? 'about usual' : p > 0 ? `${p}% more than usual` : `${-p}% less than usual`;
+  return ` (${Math.abs(p) <= 8 ? 'about usual' : p > 0 ? `${p}% more than usual` : `${-p}% less than usual`})`;
 };
+const SEV_RANK: Record<Severity, number> = { info: 0, heads_up: 1, act_soon: 2, urgent: 3 };
 
 export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'settings' | 'record' }) {
   const v = useView();
@@ -84,23 +85,102 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
   }, [drawer]);
   const orb = useRef<ThinkingOrbHandle>(null);
   const pillSlot = useRef<HTMLDivElement>(null);
+  const [sensorsOpen, setSensorsOpen] = useState(false);
   const threadEnd = useRef<HTMLDivElement>(null);
   const caseById = (id: string) => v.cases.find((c) => c.id === id);
   const say = (it: Omit<Item, 'key' | 't'> & { t?: number }) => setSession((s) => [...s, { key: `s${Date.now()}${Math.random()}`, t: houseNow(), ...it }]);
   // What the 3D view is pointing at right now, so the owner can always put it away again.
   const [shown, setShown] = useState<string | null>(null);
+  const [liveKey, setLiveKey] = useState<string | null>(null); // the message the 3D view is showing
   const focusOn = (f: FocusCommand) => {
     const ok = !!engine?.focus(f);
     setShown(ok ? f.label ?? 'This part' : null);
     return ok;
   };
-  const unfocus = (opts?: { reframe?: boolean }) => { engine?.clearFocus(opts); setShown(null); };
+  const unfocus = (opts?: { reframe?: boolean }) => { inspecting.current++; setHud(null); engine?.clearFocus(opts); setShown(null); setLiveKey(null); };
   useEffect(() => {
     if (!shown) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') unfocus(); };
+    // Esc puts the 3D focus away, unless an inspection picture is open: then it only closes that
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !document.querySelector('.shot-viewer')) unfocus(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [shown]); // eslint-disable-line react-hooks/exhaustive-deps
+  // "Scan my home": the beam crosses the house and each room shows what Penjaga knows about it right now (the open
+  // cases, from the sensors that never stop listening); then the most serious problem is followed to its source.
+  const [scanning, setScanning] = useState(false);
+  async function scanHome() {
+    if (!engine || scanning) return;
+    setScanning(true);
+    setShown(null);
+    const live = v.cases.filter((c) => c.status !== 'resolved' && c.status !== 'dismissed');
+    const rooms: Record<string, Severity> = {};
+    for (const c of live) {
+      for (const id of c.focus.object_ids) {
+        const r = engine.roomOf(id);
+        if (r && (!rooms[r] || SEV_RANK[c.severity] > SEV_RANK[rooms[r]])) rooms[r] = c.severity;
+      }
+    }
+    await engine.scan(rooms);
+    setScanning(false);
+    setShown('Home scan');
+    const worst = [...live].sort((a, b) => SEV_RANK[b.severity] - SEV_RANK[a.severity])[0];
+    say({
+      who: 'penjaga', tone: worst ? 'calm' : 'ok', kicker: 'Home scan',
+      text: worst
+        ? <><b className="a-lead">{live.length === 1 ? 'One thing needs a look' : `${live.length} things need a look`}.</b> Everywhere else is fine. I'm taking you to the most important one.</>
+        : <><b className="a-lead">Every room looks fine.</b> Your water meter, switchboard, safety switches and fridge all read normal right now.</>,
+      card: worst ? (
+        <ul className="scan-list">
+          {[...live].sort((a, b) => SEV_RANK[b.severity] - SEV_RANK[a.severity]).map((c) => (
+            <li key={c.id}>
+              <i className={`dot sev-${c.severity}`} aria-hidden="true" />
+              <span><b>{c.title}</b><span className="small muted">{c.location}</span></span>
+              <button className="a-chip" onClick={() => void inspectCase(c)}><Icon name="scan" size={14} />Inspect</button>
+            </li>
+          ))}
+        </ul>
+      ) : undefined,
+    });
+    if (worst) setTimeout(() => void inspectCase(worst), engine.reduceMotion ? 0 : 900);
+  }
+  // "Show me where" on a case: a 3D inspection. The view walks into the room at eye level, x-rays the wall and marks
+  // the fault red, narrated by the HUD; the captured shot (and clip) lands in the chat. The model is the camera:
+  // nothing in the house films anything.
+  const [hud, setHud] = useState<Hud | null>(null);
+  const [viewer, setViewer] = useState<Shot | null>(null);
+  const inspecting = useRef(0);
+  async function inspectCase(c: Case, focus: FocusCommand = c.focus) {
+    if (!engine) return;
+    if (!focus.object_ids.some((id) => engine.has(id))) { show(focus); return; } // says it isn't in the model
+    // not pinpointed yet (e.g. "somewhere after your water meter"): a picture of the meter tells the owner nothing,
+    // so just show where it was measured; the guided check finds the spot, and then it is worth inspecting
+    if (focus === c.focus && c.guided && !c.guided.done) { show(focus); return; }
+    const run = ++inspecting.current;
+    setLiveKey(null);
+    setShown(focus.label || c.title);
+    setHud({ phase: 'walk', title: c.title, room: null });
+    const r = await engine.inspect(focus, {
+      onPhase: (phase, info) => { if (inspecting.current === run) setHud((h) => h && { ...h, phase, room: info.room ?? h.room }); },
+    });
+    if (inspecting.current !== run) return;
+    setTimeout(() => { if (inspecting.current === run) setHud(null); }, 1400);
+    if (!r) { setHud(null); return; } // put away before it finished
+    // "the fridge", but "the Bathroom 2 toilet cistern"; no ", in the bathroom 2" when the name already says so
+    const name = (label?: string) => {
+      const l = (label || 'spot').replace(/^the /i, '');
+      return /^[A-Z][a-z]+ \d/.test(l) || l.startsWith('"') ? l : l.replace(/^./, (ch) => ch.toLowerCase());
+    };
+    const inRoom = r.room && !(focus.label ?? '').toLowerCase().includes(r.room.toLowerCase()) ? `, in the ${r.room.toLowerCase()}` : '';
+    const shot: Shot = { image: r.image, video: r.video ? URL.createObjectURL(r.video) : undefined, title: c.title, where: r.room ?? c.location };
+    say({
+      who: 'penjaga', tone: 'calm', kicker: '3D inspection',
+      text: focus !== c.focus
+        ? <><b className="a-lead">Here's the {name(focus.label)}{inRoom}.</b></>
+        : <><b className="a-lead">Here it is: the {name(focus.label)}{inRoom}.</b> It's marked in red.</>,
+      card: <ShotCard shot={shot} onOpen={() => setViewer(shot)} />,
+      chips: [{ label: 'Open full view', icon: 'eye', primary: true, onClick: () => setViewer(shot) }],
+    });
+  }
   // A part the 3D model doesn't have yet: clear the old highlight (it would look like the answer) and say so.
   const show = (f?: FocusCommand) => {
     if (!f || !engine) return;
@@ -170,17 +250,27 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
   // ---------- case conversation ----------
   function caseChips(c: Case): Chip[] {
     if (c.status === 'resolved' || flow?.caseId === c.id) return [];
-    const chips: Chip[] = [{ label: 'Show me where', icon: 'pin', onClick: () => show(c.focus) }];
+    const chips: Chip[] = [{ label: 'Show me where', icon: 'scan', onClick: () => void inspectCase(c) }];
     for (const a of c.actions) {
-      if (a.kind === 'guided_check') chips.unshift({ label: 'Help me find it', icon: 'water', primary: true, onClick: () => { setFlow({ type: 'check', caseId: c.id }); } });
+      if (a.kind === 'guided_check') { const power = c.guided?.steps[0]?.kind === 'breaker'; chips.unshift({ label: power ? 'Help me find the circuit' : 'Help me find it', icon: power ? 'bolt' : 'water', primary: true, onClick: () => { setFlow({ type: 'check', caseId: c.id }); } }); }
       if (a.kind === 'book_vendor') chips.splice(a.primary ? 0 : chips.length, 0, { label: a.label, icon: 'wrench', primary: a.primary, tone: c.severity === 'urgent' && a.primary ? 'danger' : undefined, onClick: () => setFlow({ type: 'book', caseId: c.id }) });
-      if (a.kind === 'show_in_3d') chips.push({ label: a.label, icon: 'bolt', onClick: () => show(a.focus) });
+      // another place to look (e.g. the breaker); one that is the case's own place is "Show me where" already
+      if (a.kind === 'show_in_3d' && a.focus && a.focus.object_ids.join() !== c.focus.object_ids.join()) { const f = a.focus; chips.push({ label: a.label, icon: 'bolt', onClick: () => void inspectCase(c, f) }); }
       if (a.kind === 'send_management') chips.push({ label: 'Tell management', icon: 'send', onClick: () => setFlow({ type: 'mgmt', caseId: c.id }) });
       if (a.kind === 'dismiss') chips.push({ label: 'Not an issue', onClick: () => dismissAsk(c) });
     }
-    chips.push({ label: open[`ev:${c.id}`] ? 'Hide the evidence' : 'Why do you think so?', onClick: () => setOpen((o) => ({ ...o, [`ev:${c.id}`]: !o[`ev:${c.id}`] })) });
-    if (c.impact.how) chips.push({ label: 'How did you get the cost?', onClick: () => setOpen((o) => ({ ...o, [`cost:${c.id}`]: !o[`cost:${c.id}`] })) });
-    return chips;
+    // The next step and "Show me where" up front; the other options wait under "More options".
+    const main = chips.filter((ch) => ch.primary).slice(0, 2);
+    const where = chips.find((ch) => ch.label === 'Show me where');
+    if (where && !main.includes(where)) main.push(where);
+    const rest = chips.filter((ch) => !main.includes(ch));
+    const more = !!open[`opts:${c.id}`];
+    const out: Chip[] = [...main];
+    if (rest.length === 1) out.push(rest[0]); // one extra: no point hiding it behind another button
+    else if (rest.length) out.push(...(more ? rest : []), { label: more ? 'Fewer options' : `More options (${rest.length})`, icon: 'chevron', quiet: true, flip: more, onClick: () => setOpen((o) => ({ ...o, [`opts:${c.id}`]: !o[`opts:${c.id}`] })) });
+    out.push({ label: open[`ev:${c.id}`] ? 'Hide the evidence' : 'Why do you think so?', quiet: true, onClick: () => setOpen((o) => ({ ...o, [`ev:${c.id}`]: !o[`ev:${c.id}`] })) });
+    if (c.impact.how) out.push({ label: 'How did you get the cost?', quiet: true, onClick: () => setOpen((o) => ({ ...o, [`cost:${c.id}`]: !o[`cost:${c.id}`] })) });
+    return out;
   }
   function dismissAsk(c: Case) {
     say({
@@ -195,7 +285,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
     items.push({
       key: `${c.id}:open`, t: c.opened_at, who: 'penjaga', tone: c.severity,
       kicker: `${LAYER_NAME[c.layer] ?? 'Home'} · ${SEV_LABEL[c.severity]}`,
-      text: <><b className="a-lead">{c.guided?.done && c.status !== 'resolved' ? 'Something in your home needs a look.' : c.title}.</b> {c.guided?.done ? '' : c.summary}</>,
+      text: <><b className="a-lead">{c.guided?.done && c.status !== 'resolved' ? 'Something in your home needs a look.' : c.title}.</b> {c.guided?.done ? '' : <Clamp text={c.summary} open={!!open[`more:${c.id}`]} onMore={() => setOpen((o) => ({ ...o, [`more:${c.id}`]: true }))} />}</>,
       card: (
         <>
           {urgent && c.safety && (
@@ -212,6 +302,14 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
     // what happened since, as a dialogue
     // keys carry the entry's position: two entries can share a millisecond of house time
     for (const [i, e] of c.timeline.slice(2).entries()) {
+      const off = e.text.match(/^Switched off the (.+) circuit: leakage (dropped|unchanged)$/);
+      if (off) {
+        items.push({ key: `${c.id}:${e.t}:${i}:you`, t: e.t, who: 'you', text: `I switched off the ${off[1]} breaker.` });
+        items.push(off[2] === 'dropped'
+          ? { key: `${c.id}:${e.t}:${i}`, t: e.t + 1, who: 'penjaga', tone: 'ok', kicker: 'Found it', text: <><b className="a-lead">That's it: the {off[1]} circuit.</b> The leakage dropped the moment you switched it off, so the fault is on that circuit: a socket, its cable, or something plugged into it. Leave that breaker off and unplug what's on it. The electrician can now go straight to it instead of testing the whole house.</>, card: <CaseFacts c={c} showHow={!!open[`cost:${c.id}`]} />, focus: c.focus }
+          : { key: `${c.id}:${e.t}:${i}`, t: e.t + 1, who: 'penjaga', tone: 'calm', text: `The leakage stayed, so it's not that circuit. You can switch it back on.` });
+        continue;
+      }
       const m = e.text.match(/^Checked (.+): flow (stopped|continued)$/);
       if (m) {
         items.push({ key: `${c.id}:${e.t}:${i}:you`, t: e.t, who: 'you', text: `I closed the valve under the ${m[1]}.` });
@@ -249,6 +347,17 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
       const step = c.guided.steps.find((s) => !s.result);
       if (!step) return [];
       const first = !c.guided.steps.some((s) => s.result);
+      if (step.kind === 'breaker') {
+        const name = step.fixture_label.replace(/"/g, '');
+        return [{
+          key: `flow:check:${step.fixture_id}`, t: houseNow() + 5, who: 'penjaga', tone: 'calm',
+          kicker: 'Finding it together',
+          text: <>{first ? "Let's find which circuit is leaking. I'll watch your safety switch while you switch off one breaker at a time. When the leakage drops, we've found it. " : ''}<b>{first ? 'Start with:' : 'Next:'}</b> at your switchboard, switch off the breaker labelled <b>{name}</b>.</>,
+          card: <CheckMeter key={step.fixture_id} label="Your safety switch · leakage, live" busy="Watching the leakage…" ready="It's off · check now" onDone={() => api.runGuidedCheck(c.id, step.fixture_id)} />,
+          focus: { layer: 'electrical', object_ids: [step.fixture_id], severity: 'info', label: `${name} circuit` },
+          chips: [{ label: 'Stop the check', onClick: () => setFlow(null) }],
+        }];
+      }
       return [{
         key: `flow:check:${step.fixture_id}`, t: houseNow() + 5, who: 'penjaga', tone: 'calm',
         kicker: 'Finding it together',
@@ -318,12 +427,13 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
         {status === 'all_quiet' && <>Your home is quiet. Water, power and appliances all look normal.</>}
         {status === 'attention' && <>{openCases.length === 1 ? 'One thing needs a look' : `${openCases.length} things need a look`}. I've worked out what I can, and I have a next step ready.</>}
         {status === 'urgent' && <>Something needs you now: an electrical safety issue. I'll take you through it.</>}
-        {' '}So far today you've used {t.water_l.toLocaleString()} L of water ({usualness(t.water_l, t.water_typical_l)}) and {t.elec_kwh} kWh of power ({usualness(t.elec_kwh, t.elec_typical_kwh)}).
+        {' '}So far today you've used {t.water_l.toLocaleString()} L of water{usualness(t.water_l, t.water_typical_l)} and {t.elec_kwh} kWh of power{usualness(t.elec_kwh, t.elec_typical_kwh)}.
         {v.maintenance[0] && <> Next on my list: {v.maintenance[0].title.toLowerCase()}, due {fmtDay(v.maintenance[0].due)}.</>}
       </>
     ),
     frame: true,
     chips: [
+      { label: 'Scan my home', icon: 'scan', primary: true, onClick: () => void scanHome() },
       { label: 'Show me my pipes and wiring', icon: 'layers', onClick: () => { unfocus(); engine?.setLayer('water', true); engine?.setLayer('electrical', true); } },
       { label: 'Can I drill somewhere?', icon: 'drill', onClick: () => { engine?.setDrill(true); say({ who: 'penjaga', tone: 'calm', kicker: 'Can I drill here?', text: 'Tap any wall in the house and I\'ll tell you what runs inside it.' }); } },
     ],
@@ -367,6 +477,8 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
   const lastShown = useRef('');
   useEffect(() => {
     if (!engine || !latest || lastShown.current === latestKey) return;
+    if (hud) { lastShown.current = latestKey; return; } // mid-inspection: don't yank the view away
+    setLiveKey(latest.focus ? latest.key : null);
     lastShown.current = latestKey;
     if (latest.focus) focusOn(latest.focus);
     else { unfocus(); openCases.forEach((c) => engine.flag(c.focus.object_ids.slice(0, 1), c.severity)); }
@@ -394,14 +506,19 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
     const m = await api.ask(q, { caseId: openCases[0]?.id });
     return () => { setThinking(false); reply(m); };
   };
+  // The answer has passed the guardrails before it arrives; it types itself out, then its buttons appear.
   const reply = (a: ChatMessage) => {
-    say({
-      who: 'penjaga', tone: 'calm', text: a.text, focus: a.chips?.find((c) => c.focus)?.focus,
-      chips: a.chips?.map((c) => ({
-        label: c.label, icon: c.focus ? 'pin' : undefined,
-        onClick: () => { if (c.focus) show(c.focus); else if (c.drill) engine?.setDrill(true); else if (c.to?.startsWith('/cases/')) { const id = c.to.split('/').pop()!; const cc = caseById(id); if (cc) { show(cc.focus); document.getElementById(`${id}:open`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }); } } },
-      })),
-    });
+    const key = `r${Date.now()}${Math.random()}`;
+    const chips: Chip[] | undefined = a.chips?.map((c) => ({
+      label: c.label, icon: c.focus ? 'pin' : undefined,
+      onClick: () => { if (c.focus) show(c.focus); else if (c.drill) engine?.setDrill(true); else if (c.to?.startsWith('/cases/')) { const id = c.to.split('/').pop()!; const cc = caseById(id); if (cc) { show(cc.focus); document.getElementById(`${id}:open`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }); } } },
+    }));
+    const follow = () => threadEnd.current?.scrollIntoView({ block: 'end' });
+    const done = () => { setSession((s) => s.map((it) => (it.key === key ? { ...it, chips } : it))); setTimeout(() => threadEnd.current?.scrollIntoView({ block: 'end', behavior: 'smooth' }), 60); };
+    setSession((s) => [...s, {
+      key, t: houseNow(), who: 'penjaga', tone: 'calm', focus: a.chips?.find((c) => c.focus)?.focus,
+      text: <Typewriter text={a.text} onTick={follow} onDone={done} />,
+    }]);
   };
   const preview = [...thread].reverse().find((i) => i.who === 'penjaga' && i.text);
   // Penjaga's face in the header: thinking while it answers, else how the house is (asleep in quiet night hours,
@@ -471,8 +588,10 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
             <button className={stage.xray ? 'on' : ''} onClick={() => engine?.setXray(!stage.xray)} aria-label="See through walls"><Icon name="eye" size={15} /><span className="lbl">See through</span></button>
           </div>
           <div className="seg"><button className={stage.drill ? 'on' : ''} onClick={() => engine?.setDrill(!stage.drill)} aria-label="Can I drill here?"><Icon name="drill" size={15} /><span className="lbl">Drill check</span></button></div>
+          <button className={`scan-btn ${scanning ? 'busy' : ''}`} onClick={() => void scanHome()} disabled={scanning}><Icon name="scan" size={15} />{scanning ? 'Scanning…' : 'Scan my home'}</button>
           <button className="round" onClick={() => unfocus()} aria-label="Whole house"><Icon name="house3d" size={17} /></button>
         </div>
+        {hud && <InspectHud hud={hud} />}
         {shown && (
           <div className="stage-shown" role="status">
             <span className="stage-shown-what">Showing <b>{shown}</b></span>
@@ -481,16 +600,18 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
         )}
       </div>
 
+      {viewer && <ShotViewer shot={viewer} onClose={() => setViewer(null)} />}
       <section className={`agent-col ${collapsed ? 'collapsed' : ''}`} aria-label="Penjaga">
         <header className="agent-head">
           <Character mood={headMood} size={30} live />
           <div className="agent-title">
             <b>Penjaga</b>
             <span className="sep" aria-hidden="true">|</span>
-            <span className="listening">Listening · water {live.water_lpm.toFixed(2)} L/min · power {live.power_kw.toFixed(1)} kW</span>
+            <button className="listening" onClick={() => setSensorsOpen((o) => !o)} aria-expanded={sensorsOpen} aria-controls="sensors"><i className={status} />Listening · water {live.water_lpm.toFixed(2)} L/min · power {live.power_kw.toFixed(1)} kW<Icon name="chevron" size={12} /></button>
           </div>
           <button className="icon-btn fold" onClick={() => setCollapsed(!collapsed)} aria-expanded={!collapsed} aria-label={collapsed ? 'Open the conversation' : 'Fold the conversation'}><Icon name="chevron" size={16} /></button>
         </header>
+        {sensorsOpen && <Sensors live={live} />}
 
         {collapsed ? (
           preview && (
@@ -505,18 +626,18 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
         ) : (
           <div className="thread" aria-live="polite">
             {thread.map((i, n) => {
-              const cont = n > 0 && thread[n - 1].who === i.who && !i.kicker; // same speaker again: no second avatar
+              const cont = n > 0 && thread[n - 1].who === i.who && !i.kicker && i.key !== liveKey; // same speaker again: no second avatar
               return (
                 <article key={i.key} id={i.key} className={`a-item ${i.who} ${i.tone ?? ''} ${cont ? 'cont' : ''}`}>
                   <span className={`a-avatar ${i.who === 'penjaga' ? 'pj' : 'me'}`} aria-hidden="true">{i.who === 'penjaga' ? <Character mood={moodFor(i.tone)} size={28} live={i.key === preview?.key} /> : 'A'}</span>
                   <div className="a-body">
-                    {!cont && <div className="a-meta"><b className="a-name">{i.who === 'penjaga' ? 'Penjaga' : 'You'}</b>{i.kicker && <span className="a-kicker">{i.kicker}</span>}</div>}
+                    {!cont && <div className="a-meta"><b className="a-name">{i.who === 'penjaga' ? 'Penjaga' : 'You'}</b>{i.kicker && <span className="a-kicker">{i.kicker}</span>}{i.key === liveKey && <span className="live3d"><i aria-hidden="true" />Live in 3D</span>}</div>}
                     {i.text && <div className="a-text">{i.text}</div>}
                     {i.card}
                     {i.chips && i.chips.length > 0 && (
                       <div className="a-chips">
                         {i.chips.map((ch) => (
-                          <button key={ch.label} className={`a-chip ${ch.primary ? 'primary' : ''} ${ch.tone ?? ''}`} onClick={ch.onClick}>
+                          <button key={ch.label} className={`a-chip ${ch.primary ? 'primary' : ''} ${ch.quiet ? 'quiet' : ''} ${ch.flip ? 'flip' : ''} ${ch.tone ?? ''}`} onClick={ch.onClick} aria-expanded={ch.flip !== undefined && ch.icon === 'chevron' ? ch.flip : undefined}>
                             {ch.icon && <Icon name={ch.icon} size={14} />}{ch.label}
                           </button>
                         ))}
@@ -614,7 +735,126 @@ function CaseFacts({ c, showHow }: { c: Case; showHow: boolean }) {
 }
 
 // Live meter while the owner closes a valve: watch for a moment, then take the reading.
-function CheckMeter({ onDone }: { onDone: () => void }) {
+// Types a finished answer out word by word (a few seconds at most), with a caret; instant under reduced motion.
+function Typewriter({ text, onTick, onDone }: { text: string; onTick?: () => void; onDone?: () => void }) {
+  const words = text.split(/(\s+)/);
+  const reduce = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const [n, setN] = useState(reduce ? words.length : 0);
+  const finished = useRef(false);
+  useEffect(() => {
+    if (n >= words.length) {
+      if (!finished.current) { finished.current = true; onDone?.(); }
+      return;
+    }
+    const step = Math.max(1, Math.ceil(words.length / 90)); // long answers type faster: about 2 s at most
+    const t = setTimeout(() => { setN((k) => Math.min(words.length, k + step * 2)); onTick?.(); }, 22);
+    return () => clearTimeout(t);
+  }, [n]); // eslint-disable-line react-hooks/exhaustive-deps
+  const typing = n < words.length;
+  return <>{words.slice(0, n).join('')}{typing && <span className="caret" aria-hidden="true" />}{typing && <span className="sr-only">{text}</span>}</>;
+}
+
+// A long case summary: its first two sentences, then "More" for the rest.
+function Clamp({ text, open, onMore }: { text: string; open: boolean; onMore: () => void }) {
+  const parts = text.split(/(?<=[.!?])\s+(?=[A-Z])/); // not at decimals like 0.51
+  if (open || parts.length <= 2 || text.length < 200) return <>{text}</>;
+  return <>{parts.slice(0, 2).join(' ')} <button className="more" onClick={onMore}>More</button></>;
+}
+
+type Hud = { phase: InspectPhase; title: string; room: string | null };
+type Shot = { image: string; video?: string; title: string; where: string };
+
+// The inspection's camera overlay: corner brackets, REC, and a line saying what the view is doing.
+function InspectHud({ hud }: { hud: Hud }) {
+  const line: Record<InspectPhase, string> = {
+    walk: hud.room ? `Going to the ${hud.room.toLowerCase()}` : 'Going there',
+    look: hud.room ? `In the ${hud.room.toLowerCase()}` : 'Here',
+    xray: "Showing what's inside the wall",
+    found: `Found: ${hud.title}`,
+    done: 'Picture saved in the chat',
+  };
+  return (
+    <div className={`inspect-hud ph-${hud.phase}`} aria-live="polite">
+      <i className="c tl" /><i className="c tr" /><i className="c bl" /><i className="c br" />
+      <div className="hud-top"><span className="rec" />3D inspection</div>
+      {hud.phase === 'xray' && <div className="scanline" aria-hidden="true" />}
+      <div className="hud-line">{line[hud.phase]}</div>
+    </div>
+  );
+}
+
+function ShotCard({ shot, onOpen }: { shot: Shot; onOpen: () => void }) {
+  return (
+    <button className="shot" onClick={onOpen} aria-label={`Open the 3D inspection of ${shot.title}`}>
+      <img src={shot.image} alt="" />
+      {shot.video && <span className="shot-clip"><Icon name="replay" size={13} />Clip</span>}
+      <span className="shot-cap"><b>{shot.title}</b><span>{shot.where}</span></span>
+    </button>
+  );
+}
+
+// Full view of an inspection: the picture or the clip, and a way to keep them.
+function ShotViewer({ shot, onClose }: { shot: Shot; onClose: () => void }) {
+  const [mode, setMode] = useState<'picture' | 'clip'>('picture');
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  const file = shot.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return (
+    <div className="shot-viewer" role="dialog" aria-modal="true" aria-label={`3D inspection: ${shot.title}`} onClick={onClose}>
+      <div className="sv-panel" onClick={(e) => e.stopPropagation()}>
+        <div className="sv-head">
+          <div><div className="micro">3D inspection</div><b>{shot.title}</b><div className="small muted">{shot.where}</div></div>
+          <button className="round" onClick={onClose} aria-label="Close" autoFocus><Icon name="close" size={17} /></button>
+        </div>
+        {shot.video && (
+          <div className="seg sv-tabs" role="tablist">
+            <button role="tab" aria-selected={mode === 'picture'} className={mode === 'picture' ? 'on' : ''} onClick={() => setMode('picture')}>Picture</button>
+            <button role="tab" aria-selected={mode === 'clip'} className={mode === 'clip' ? 'on' : ''} onClick={() => setMode('clip')}>Clip</button>
+          </div>
+        )}
+        <div className="sv-media">
+          {mode === 'clip' && shot.video
+            ? <video src={shot.video} controls autoPlay muted playsInline />
+            : <img src={shot.image} alt={`3D inspection of ${shot.title}: the fault is marked in red`} />}
+        </div>
+        <div className="sv-foot">
+          <span className="tiny muted">From your home's 3D model and live sensors. Nothing in your home films you.</span>
+          <span className="row" style={{ gap: 8 }}>
+            <a className="a-chip" href={shot.image} download={`penjaga-${file}.jpg`}>Save picture</a>
+            {shot.video && <a className="a-chip" href={shot.video} download={`penjaga-${file}.webm`}>Save clip</a>}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// What Penjaga listens to: the house's own sensors, live. Nothing here watches people (no cameras, no microphones).
+function Sensors({ live }: { live: Live }) {
+  const real = BACKEND === 'api';
+  const fmt = (v: number | null | undefined, d: number, unit: string) => (v == null ? 'No reading yet' : `${v.toFixed(d)} ${unit}`);
+  const tiles: [string, string, string][] = [
+    ['Water meter', `${live.water_lpm.toFixed(2)} L/min`, 'Flow into the house'],
+    ['Switchboard', `${live.power_kw.toFixed(2)} kW`, 'Every circuit, and both safety switches'],
+    ...(real ? [
+      ['Water pressure', fmt(live.pressure_bar, 2, 'bar'), 'Mains supply at the inlet'],
+      ['Roof tank', fmt(live.tank_pct, 0, '%'), 'How full it is'],
+      ['Fridge plug', fmt(live.fridge_w, 0, 'W'), 'Smart plug on the fridge'],
+      ['Weather', fmt(live.outdoor_c, 1, '°C'), 'Outdoor temperature, Elmina'],
+    ] as [string, string, string][] : []),
+  ];
+  return (
+    <div className="sensors" id="sensors">
+      {tiles.map(([k, v, hint]) => <div key={k} title={hint}><span className="micro">{k}</span><b>{v}</b></div>)}
+      <p className="tiny muted">Penjaga senses the building, never the people in it: no cameras, no microphones.</p>
+    </div>
+  );
+}
+
+function CheckMeter({ onDone, label = 'Your water meter · live', busy = 'Watching the meter…', ready = "It's closed · check now" }: { onDone: () => void; label?: string; busy?: string; ready?: string }) {
   const [phase, setPhase] = useState<'ready' | 'watching'>('ready');
   const [bars, setBars] = useState<number[]>(() => Array(22).fill(0.66));
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -630,9 +870,9 @@ function CheckMeter({ onDone }: { onDone: () => void }) {
   };
   return (
     <div className="a-card">
-      <div className="label">Your water meter · live</div>
+      <div className="label">{label}</div>
       <div className="meter" aria-hidden>{bars.map((b, k) => <i key={k} style={{ height: `${b * 100}%` }} />)}</div>
-      <button className="a-chip primary" onClick={run} disabled={phase === 'watching'}>{phase === 'watching' ? 'Watching the meter…' : "It's closed · check now"}</button>
+      <button className="a-chip primary" onClick={run} disabled={phase === 'watching'}>{phase === 'watching' ? busy : ready}</button>
     </div>
   );
 }

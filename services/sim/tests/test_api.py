@@ -170,6 +170,41 @@ def test_anomaly(h: Harness) -> None:
     assert r.json()["record_id"].startswith("tr_")
 
 
+def test_an_anomaly_can_be_stopped_from_the_next_unsent_day(h: Harness) -> None:
+    h.step()
+    stop = lambda rid: h.client.delete(f"/sim/v1/anomalies/{rid}", headers=AUTH)  # noqa: E731
+    planned = h.post(
+        "/anomalies",
+        {
+            "anomaly_type": "guests",
+            "start_at": at(START, 30.0).isoformat(),
+            "duration_s": 3 * 86_400,
+        },
+    )
+    rid = planned.json()["record_id"]
+    r = stop(rid)  # not started yet: dropped
+    assert r.status_code == 200, r.text
+    assert r.json() == {"record_id": rid, "end": None}
+    assert stop(rid).status_code == 404
+    long = h.post(
+        "/anomalies",
+        {
+            "anomaly_type": "heatwave",
+            "start_at": at(START, 30.0).isoformat(),
+            "duration_s": 4 * 86_400,
+        },
+    )
+    rid = long.json()["record_id"]
+    for _ in range(32):  # house time is sent into the event's first day
+        h.step(3600)
+    assert h.service.require_world().published_until_us > int(at(START, 25.0).timestamp() * 1e6)
+    ended = stop(rid)
+    assert ended.status_code == 200, ended.text
+    end = datetime.fromisoformat(ended.json()["end"])
+    assert (end.hour, end.minute) == (0, 0)  # a whole-day boundary, after what was already sent
+    assert stop(rid).status_code == 409  # already ends there
+
+
 def test_reset(h: Harness) -> None:
     h.step()
     r = h.post(

@@ -278,7 +278,7 @@ def test_a_guided_check_runs_on_live_readings_and_updates_the_case(h: Harness) -
     assert request["since"] == h.up.house_time
 
     assert asyncio.run(h.service.actions.poll_checks()) == 0  # still measuring
-    h.later(minutes=13)
+    h.later(minutes=31)  # 20 min for the tank to settle + 10 min watch
     assert asyncio.run(h.service.actions.poll_checks()) == 1
     checked = h.case()
     assert checked["guided"]["steps"][0]["result"] == "continued"
@@ -293,7 +293,7 @@ def test_a_guided_check_runs_on_live_readings_and_updates_the_case(h: Harness) -
         json={"fixture_id": second, "confirmation": token},
         headers=OWNER,
     )
-    h.later(minutes=13)
+    h.later(minutes=31)
     asyncio.run(h.service.actions.poll_checks())
     found = h.case()
     assert found["guided"]["done"] is True
@@ -302,6 +302,87 @@ def test_a_guided_check_runs_on_live_readings_and_updates_the_case(h: Harness) -
     assert found["focus"]["object_ids"] == [second, "valve_bath_master_wc_angle"]
     assert all(a["kind"] != "guided_check" for a in found["actions"])
     assert h.store.disclosures() == []  # a check sends nothing anywhere
+
+
+def test_a_breaker_check_finds_the_circuit_that_leaks_to_earth(h: Harness) -> None:
+    behind = ["circ_sockets_living", "circ_sockets_kitchen", "circ_sockets_yard"]
+    h.follow(
+        finding(
+            "earth_leakage_rising",
+            candidates=[{"object_id": c, "p": 0.33, "basis": "behind_rccb"} for c in behind],
+            candidates_other_p=0.01,
+            evidence=[
+                {"name": "baseline_direct_leakage", "value": 3.0, "unit": "mA"},
+                {"name": "recent_direct_leakage", "value": 4.5, "unit": "mA"},
+                {"name": "rise_on_direct_circuits", "value": 1.5, "unit": "mA"},
+            ],
+        )
+    )
+    case = h.case()
+    assert case["actions"][0]["kind"] == "guided_check"  # the electrician's first test, first
+    steps = case["guided"]["steps"]
+    assert [s["circuit_id"] for s in steps] == behind
+    assert steps[0]["kind"] == "breaker"
+    assert steps[0]["breaker_id"] == "mcb_sockets_living"
+    assert "Switch off the breaker for the" in steps[0]["instruction"]
+
+    token = h.preview(case["id"], "check", {"fixture_id": behind[0]})["confirmation"]
+    started = h.client.post(
+        f"/api/v1/cases/{case['id']}/checks",
+        json={"fixture_id": behind[0], "confirmation": token},
+        headers=OWNER,
+    )
+    assert started.status_code == 201, started.text
+    (request,) = [c["request"] for c in h.up.checks.values()]
+    assert request == {
+        "kind": "circuit_load",
+        "circuit_id": behind[0],
+        "since": h.up.house_time,
+        "settle_s": 120.0,
+        "window_s": 600.0,
+    }
+    h.later(minutes=13)
+    asyncio.run(h.service.actions.poll_checks())
+    checked = h.case()
+    # a healthy circuit's own small share of leakage went with it: not the one
+    assert checked["guided"]["steps"][0]["result"] == "continued"
+    assert checked["guided"]["steps"][0]["residual_after"] == 8.8
+    assert any("leakage unchanged" in x for x in texts(checked))
+
+    h.up.check_residual = (9.0, 7.4)  # the rise went with the circuit
+    token = h.preview(case["id"], "check", {"fixture_id": behind[1]})["confirmation"]
+    h.client.post(
+        f"/api/v1/cases/{case['id']}/checks",
+        json={"fixture_id": behind[1], "confirmation": token},
+        headers=OWNER,
+    )
+    h.later(minutes=13)
+    asyncio.run(h.service.actions.poll_checks())
+    found = h.case()
+    assert found["guided"]["done"] is True
+    assert found["title"] == 'The earth leakage is on the "Sockets, dry kitchen" circuit'
+    assert found["location"] == "Dry kitchen · Sockets, dry kitchen"
+    assert found["focus"]["object_ids"] == [behind[1], "mcb_sockets_kitchen"]
+    assert all(a["kind"] != "guided_check" for a in found["actions"])
+    assert any(
+        'Switched off the "Sockets, dry kitchen" circuit: leakage dropped' in x
+        for x in texts(found)
+    )
+
+
+def test_a_breaker_left_on_is_not_a_result() -> None:
+    from penjaga_api.actions import leakage_result
+
+    on = {"residual_change": -1.6, "residual_change_se": 0.05, "current_after": 1.1}
+    assert leakage_result(on, 1.5) == "unavailable"  # still drawing current: not switched off
+    assert leakage_result({}, 1.5) == "unavailable"  # no residual readings
+    noisy = {"residual_change": -0.08, "residual_change_se": 0.06, "current_after": 0.0}
+    assert leakage_result(noisy, None) == "continued"
+    # seen live: detection raised the case at a 0.49 mA rise; a healthy circuit took 0.28 mA with it
+    healthy = {"residual_change": -0.28, "residual_change_se": 0.02, "current_after": 0.0}
+    assert leakage_result(healthy, 0.49) == "continued"
+    leaking = {"residual_change": -1.6, "residual_change_se": 0.03, "current_after": 0.0}
+    assert leakage_result(leaking, 0.49) == "stopped"
 
 
 def test_a_check_only_runs_on_the_case_s_own_steps(h: Harness) -> None:

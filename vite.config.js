@@ -59,6 +59,10 @@ export default defineConfig(({ mode }) => {
           target: env.PENJAGA_DETECT_URL || 'http://127.0.0.1:8703', changeOrigin: true,
           rewrite: (p) => p.replace(/^\/lab\/detect/, '/detect'), configure: withToken(() => operatorToken(env)),
         },
+        '/lab/eval': {
+          target: env.PENJAGA_EVAL_URL || 'http://127.0.0.1:8704', changeOrigin: true,
+          rewrite: (p) => p.replace(/^\/lab\/eval/, '/eval'), configure: withToken(() => operatorToken(env)),
+        },
       },
     },
   };

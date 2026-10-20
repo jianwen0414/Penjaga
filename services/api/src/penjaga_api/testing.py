@@ -56,6 +56,7 @@ class FakeUpstream:
         self.checks: dict[str, dict[str, Any]] = {}
         self.check_verdict = "unchanged"
         self.check_flow = (0.709, 0.944)  # (before, after) L/min
+        self.check_residual = (9.0, 8.8)  # (before, after) mA: a healthy circuit's own share
         self._readers: list[asyncio.Queue[Any]] = []
 
     def _check(self) -> None:
@@ -150,6 +151,22 @@ class FakeUpstream:
         self._check()
         doc = self.checks[check_id]
         if doc["status"] == "pending" and self.house_time >= doc["ready_at"]:
+            if doc["request"]["kind"] == "circuit_load":  # with the RCCB's residual current
+                r0, r1 = self.check_residual
+                doc.update(
+                    status="complete",
+                    verdict="dropped",
+                    measurements=[
+                        {"name": "current_before", "value": 1.2, "unit": "A"},
+                        {"name": "current_after", "value": 0.0, "unit": "A"},
+                        {"name": "rccb", "value": "rcd_sockets"},
+                        {"name": "residual_before", "value": r0, "unit": "mA"},
+                        {"name": "residual_after", "value": r1, "unit": "mA"},
+                        {"name": "residual_change", "value": r1 - r0, "unit": "mA"},
+                        {"name": "residual_change_se", "value": 0.05, "unit": "mA"},
+                    ],
+                )
+                return dict(doc)
             before, after = self.check_flow
             doc.update(
                 status="complete",

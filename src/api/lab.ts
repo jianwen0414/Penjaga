@@ -64,29 +64,50 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
 
 export const faults = () => call<SimFault[]>('GET', '/lab/sim/v1/faults');
 export const isLive = (f: SimFault) => f.state !== 'cleared' && f.state !== 'ended';
+/** Running as far as the operator is concerned: a stopped fault gets an end time at once but stays "active" until
+ * house time passes it, so one ending within the next minute counts as stopped (supply cuts end hours ahead). */
+export const isRunning = (f: SimFault, houseMs: number) => isLive(f) && (!f.end || Date.parse(f.end) > houseMs + 60_000);
+async function running(): Promise<SimFault[]> {
+  const [list, st] = await Promise.all([faults(), simStatus()]);
+  const now = st.published_until ? Date.parse(st.published_until) : 0;
+  return list.filter((f) => isRunning(f, now));
+}
 
 /** Start a fault; one of each kind at a time, so a second press moves it. */
 export async function inject(s: Scenario, location: string | null): Promise<void> {
   await clearType(s.type);
-  await call('POST', '/lab/sim/v1/faults', {
+  const body = {
     fault_type: s.type,
     location_id: location,
     magnitude: { value: s.magnitude, unit: s.unit },
     progression: { kind: 'constant' },
     ...(s.durationH ? { duration_s: s.durationH * 3600 } : {}),
-  });
+  };
+  try {
+    await call('POST', '/lab/sim/v1/faults', body);
+  } catch (e) {
+    // moving a fault: the one just cleared can still hold this instant for a moment (409); once more is enough
+    if (!(e instanceof Error) || !e.message.startsWith('409')) throw e;
+    await new Promise((r) => setTimeout(r, 700));
+    await call('POST', '/lab/sim/v1/faults', body);
+  }
 }
+
+/** The simulator's clock: house time already sent (null before it starts). */
+export const simStatus = () => call<{ published_until: string | null }>('GET', '/lab/sim/v1/status');
+
+/** Notices management has published (as management). */
+export const notices = () => call<{ id: string; status: string; utility: 'water' | 'power'; title: string }[]>('GET', '/lab/mgmt/v1/manage/notices');
 
 export const clearFault = (id: string) => call('DELETE', `/lab/sim/v1/faults/${id}`);
 
 export async function clearType(type: string): Promise<void> {
-  const live = (await faults()).filter((f) => f.spec.fault_type === type && isLive(f));
-  await Promise.all(live.map((f) => clearFault(f.fault_id)));
+  const live = (await running()).filter((f) => f.spec.fault_type === type);
+  await Promise.allSettled(live.map((f) => clearFault(f.fault_id)));
 }
 
 export async function clearAll(): Promise<void> {
-  const live = (await faults()).filter(isLive);
-  await Promise.all(live.map((f) => clearFault(f.fault_id)));
+  await Promise.allSettled((await running()).map((f) => clearFault(f.fault_id)));
 }
 
 /** A notice for this street from the Core API's presets, started half an hour ago. */
@@ -108,3 +129,58 @@ export async function completeJobs(layer: 'L1' | 'L2' | 'L3'): Promise<number> {
 }
 
 export const findings = () => call<{ type: string; severity: string; status: string; object_ids: string[] }[]>('GET', '/lab/detect/v1/findings');
+
+// ---------------- normal life: things a household does that must NOT raise an alarm ----------------
+// The simulator applies these to whole house days, from the next house midnight (POST /sim/v1/anomalies).
+
+export interface NormalEvent { type: string; label: string; days: number; expect: string }
+export const NORMAL_EVENTS: NormalEvent[] = [
+  { type: 'guests', label: 'Guests stay over', days: 3, expect: 'more water and power, no leak alarm' },
+  { type: 'holiday_absence', label: 'Family away on holiday', days: 4, expect: 'the house goes quiet, no alarm' },
+  { type: 'festive_cooking', label: 'Festive cooking (open house)', days: 2, expect: 'heavy kitchen load, no overload alarm' },
+  { type: 'night_bucket_fill', label: 'Filling buckets at night', days: 3, expect: 'night water use, no leak alarm' },
+  { type: 'heatwave', label: 'Heatwave', days: 4, expect: 'aircons work harder, no fault alarm' },
+];
+
+interface SimStatus { published_until: string | null }
+
+/** Start a normal-life event from the next house midnight (the simulator only changes days not yet sent). */
+export async function startEvent(e: NormalEvent): Promise<string> {
+  // returns the simulator's record id (to stop it later)
+  const { published_until } = await call<SimStatus>('GET', '/lab/sim/v1/status');
+  if (!published_until) throw new Error('the simulator has not started');
+  const day = new Date(Date.parse(published_until) + 8 * 3600_000); // house days are Malaysian days (+08:00)
+  const midnight = (plus: number) => `${new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate() + plus)).toISOString().slice(0, 10)}T00:00:00+08:00`;
+  const post = (plus: number) => call<{ record_id: string }>('POST', '/lab/sim/v1/anomalies', { anomaly_type: e.type, start_at: midnight(plus), duration_s: e.days * 86400 });
+  try {
+    return (await post(1)).record_id;
+  } catch (err) {
+    // at high speed that midnight can pass while we ask (409): take the one after
+    if (!(err instanceof Error) || !err.message.startsWith('409')) throw err;
+    return (await post(2)).record_id;
+  }
+}
+
+export interface TruthRecord { record_id: string; kind: 'fault' | 'legit_anomaly'; label: string; start: string; end: string | null }
+/** Stop a normal-life event: from the next house day not yet sent (a planned one is dropped). */
+export const stopEvent = (recordId: string) => call<{ record_id: string; end: string | null }>('DELETE', `/lab/sim/v1/anomalies/${recordId}`);
+/** What the simulator really did, up to the house time already sent (ground truth, operator only). */
+export const truth = () => call<TruthRecord[]>('GET', '/lab/sim/v1/truth');
+
+// ---------------- how well detection works: Jianwen's evaluation (M11) ----------------
+
+export interface FaultTypeScore { n: number; recall: number | null; ttd_hours_median?: number | null }
+export interface LayerScore {
+  recall: number | null; recall_located: number | null; precision: number | null;
+  false_alarms_per_house_month: number | null; faults: number; detected: number;
+  by_fault_type?: Record<string, FaultTypeScore> | null;
+}
+export interface EvalRun {
+  run_id: string; suite: string; split: 'validation' | 'test'; status: string; created_at: string; finished_at?: string | null;
+  episodes?: number | null; detectors: string[]; error?: string | null;
+  results?: Record<string, { version: string; layers: Record<string, LayerScore> }> | null;
+}
+export const evalRuns = () => call<EvalRun[]>('GET', '/lab/eval/v1/runs');
+
+/** Start a quick evaluation (validation split, a few houses) of the live detectors on one suite. */
+export const startEval = (suite: string, limit = 4) => call<EvalRun>('POST', '/lab/eval/v1/runs', { suite, split: 'validation', limit });

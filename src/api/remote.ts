@@ -179,8 +179,13 @@ export const contractName = (id: string): string | undefined => names.get(id);
 /** Vendors from the Core API's directory (prefetched; undefined until loaded). */
 export const cachedVendors = (category: VendorCategory): Vendor[] | undefined => vendorCache.get(category);
 
-export async function live(): Promise<{ water_lpm: number | null; power_kw: number | null }> {
-  const r = await call<{ at: number; water_lpm: number | null; power_kw: number | null }>('GET', '/live');
+/** The house's sensors right now (GET /api/v1/live); null when a sensor sent nothing recently. */
+export interface LiveReadings {
+  water_lpm: number | null; power_kw: number | null;
+  pressure_bar?: number | null; tank_pct?: number | null; fridge_w?: number | null; outdoor_c?: number | null;
+}
+export async function live(): Promise<LiveReadings> {
+  const r = await call<LiveReadings & { at: number }>('GET', '/live');
   if (r.at) houseMs = r.at;
   return r;
 }
@@ -230,25 +235,25 @@ export function markMaintenanceDone(itemId: string): void {
 
 /** Starts a guided check; the step's result arrives with the view once the meter has been watched. */
 export function runGuidedCheck(caseId: string, fixtureId: string): void {
-  const valve = view.cases.find((c) => c.id === caseId)?.guided?.steps.find((s) => s.fixture_id === fixtureId)?.valve_id;
+  const step = view.cases.find((c) => c.id === caseId)?.guided?.steps.find((s) => s.fixture_id === fixtureId);
   confirmed(caseId, 'check', { fixture_id: fixtureId }, 'checks')
-    .then(() => (valve ? closeValveInSimulator(valve) : undefined))
+    .then(() => (step?.circuit_id ? actInSimulator({ switch_off_circuits: [step.circuit_id] }) : step?.valve_id ? actInSimulator({ close_valves: [step.valve_id] }) : undefined))
     .catch((err) => console.warn('[penjaga] check not started', err))
     .finally(loadSoon);
 }
 
-// Demo bridge (dev server only): there is no real owner to turn the valve, so when the owner confirms a check
-// the simulated house does it, through the Lab's operator route (POST /sim/v1/actions via the dev proxy). It lasts
-// longer than the check (2 min settle + 10 min watch, house time). The Core API itself never calls the simulator;
-// in a real home the owner closes the valve by hand.
-const VALVE_CLOSED_S = 20 * 60;
-async function closeValveInSimulator(valveId: string): Promise<void> {
+// Demo bridge (dev server only): there is no real owner to turn the valve or flip the breaker, so when the owner
+// confirms a check the simulated house does it, through the Lab's operator route (POST /sim/v1/actions via the dev
+// proxy). It lasts longer than the check (house time). The Core API itself never calls
+// the simulator; in a real home the owner does it by hand.
+const ACTION_HELD_S = 40 * 60; // longer than a valve check (20 min settle + 10 min watch)
+async function actInSimulator(action: { close_valves?: string[]; switch_off_circuits?: string[] }): Promise<void> {
   const r = await fetch('/lab/sim/v1/actions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ close_valves: [valveId], duration_s: VALVE_CLOSED_S }),
+    body: JSON.stringify({ ...action, duration_s: ACTION_HELD_S }),
   });
-  if (!r.ok) console.warn('[penjaga] the simulator did not close the valve', r.status, await r.text());
+  if (!r.ok) console.warn('[penjaga] the simulator did not do it', action, r.status, await r.text());
 }
 
 // ---------------- "Ask Penjaga" (step 6) ----------------

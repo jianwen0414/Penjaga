@@ -58,13 +58,20 @@ export function useNow(ms = 30000) {
 
 // Live readings for the "listening" line. In api mode they come from GET /api/v1/live (the app holds no
 // stream token); a value stays at its last reading if the backend misses one.
+export type Live = { water_lpm: number; power_kw: number; pressure_bar?: number | null; tank_pct?: number | null; fridge_w?: number | null; outdoor_c?: number | null };
 export function useLive() {
-  const [r, setR] = useState(() => (real ? { water_lpm: 0, power_kw: 0 } : { water_lpm: flowNow(), power_kw: elecAt(Date.now()) }));
+  const [r, setR] = useState<Live>(() => (real ? { water_lpm: 0, power_kw: 0 } : { water_lpm: flowNow(), power_kw: elecAt(Date.now()) }));
   useEffect(() => {
     if (real) {
       let alive = true;
+      // the other sensors keep their last reading too (the weather feed is hourly)
+      const keep = (v: number | null | undefined, prev: number | null | undefined) => v ?? prev ?? null;
       const poll = () => remote.live()
-        .then((x) => { if (alive) setR((prev) => ({ water_lpm: x.water_lpm ?? prev.water_lpm, power_kw: x.power_kw ?? prev.power_kw })); })
+        .then((x) => { if (alive) setR((prev) => ({
+          water_lpm: x.water_lpm ?? prev.water_lpm, power_kw: x.power_kw ?? prev.power_kw,
+          pressure_bar: keep(x.pressure_bar, prev.pressure_bar), tank_pct: keep(x.tank_pct, prev.tank_pct),
+          fridge_w: keep(x.fridge_w, prev.fridge_w), outdoor_c: keep(x.outdoor_c, prev.outdoor_c),
+        })); })
         .catch(() => { /* keep the last reading */ });
       void poll();
       const t = setInterval(poll, 2500);

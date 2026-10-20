@@ -297,6 +297,7 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
   let flagged = [], flagLabels = [], revealTl = null;
   function clearFlags() {
     revealTl?.kill();
+    clearTraces();
     flagged.forEach((o) => { delete o.userData.flagColor; setHighlight(o, null); });
     flagged = [];
     flagLabels.forEach((l) => l.removeFromParent());
@@ -305,23 +306,27 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
   }
   function clearFocus({ reframe = true } = {}) {
     clearFlags();
+    clearScan();
+    endInspect();
     state.focus = null;
     select(null);
     if (reframe) frame();
   }
-  function flag(ids, severity = 'heads_up', { label } = {}) {
-    const color = SEVERITY_COLOR[severity] ?? SEVERITY_COLOR.heads_up;
+  function flag(ids, severity = 'heads_up', { label, color: override } = {}) {
+    const color = override ?? SEVERITY_COLOR[severity] ?? SEVERITY_COLOR.heads_up;
     const objs = ids.map((id) => house.byId.get(id)).filter(Boolean);
     objs.forEach((o) => { o.userData.flagColor = color; setHighlight(o, color); });
     flagged = [...new Set([...flagged, ...objs])];
     if (label && objs[0]) {
       flagLabels.forEach((l) => l.removeFromParent());
-      // One object: the command's label. Several: each gets its own name (a room's name for its floor piece).
+      // One place: the command's label, once. Several rooms (e.g. "the bathrooms"): each gets its own name.
       const own = (o) => o.userData.label ?? house.rooms.get(`${o.userData.floor}:${o.userData.room}`)?.name ?? label;
-      flagLabels = objs.map((o, i) => {
+      const places = new Set(objs.map((o) => `${o.userData.floor}:${o.userData.room ?? o.userData.penjaga_id}`));
+      const many = places.size > 1;
+      flagLabels = (many ? objs : objs.slice(0, 1)).map((o, i) => {
         const el = document.createElement('div');
         el.className = `focus-label sev-${severity}`;
-        el.innerHTML = `<b>${i === 0 ? SEVERITY_LABEL[severity] ?? '' : ''}</b> ${objs.length > 1 ? own(o) : label}`;
+        el.innerHTML = `<b>${i === 0 ? SEVERITY_LABEL[severity] ?? '' : ''}</b> ${many ? own(o) : label}`;
         const tag = new CSS2DObject(el);
         const b = new THREE.Box3().setFromObject(o);
         o.worldToLocal(tag.position.set((b.min.x + b.max.x) / 2, b.max.y + 0.15, (b.min.z + b.max.z) / 2));
@@ -347,8 +352,13 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
     state.focus.reveal = { o: 1 };
     const finish = () => {
       if (services) setLayer(layer, true);
-      flag(object_ids, severity, { label: label ?? objs[0].userData.label ?? objs[0].userData.penjaga_id });
-      emit('focusDone', { object_ids });
+      // a problem on a pipe or circuit: follow it from the meter or the board first, then mark it
+      const lead = services && severity !== 'info' ? trace(objs, severity) : 0;
+      const mark = () => {
+        flag(object_ids, severity, { label: label ?? objs[0].userData.label ?? objs[0].userData.penjaga_id });
+        emit('focusDone', { object_ids });
+      };
+      if (lead) revealTl = gsap.timeline().call(mark, null, lead); else mark();
     };
     if (reduceMotion) { state.focus.reveal.o = 0.1; finish(); return true; }
     revealTl = gsap.timeline({ onUpdate: () => invalidate() })
@@ -356,6 +366,375 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
       .to(state.focus.reveal, { o: 0.12, duration: 0.5, ease: 'power1.out' }, 2.0) // structure
       .call(finish, null, 2.6); // services + highlight
     return true;
+  }
+
+  // ---------- trace: follow the problem along its pipe or circuit, from the source ----------
+  // A glowing run grows along the object's own route (spec paths, drawn from the meter or the board outwards),
+  // seen through the walls, with a bright head. Lasts until the flags are cleared.
+  let traces = [];
+  function clearTraces() {
+    traces.forEach((t) => { t.tween?.kill(); t.mesh.removeFromParent(); t.mesh.geometry.dispose(); t.head?.removeFromParent(); });
+    traces = [];
+  }
+  function routeOf(obj) {
+    if (obj.userData.paths?.length) return obj;
+    if (obj.userData.layer !== 'water') return null;
+    // a fixture or valve: the pipe in its room whose run ends nearest to it
+    const at = new THREE.Box3().setFromObject(obj).getCenter(new THREE.Vector3());
+    let best = null, bestD = Infinity;
+    for (const o of house.byId.values()) {
+      if (o.userData.kind !== 'pipe' || o.userData.floor !== obj.userData.floor || !o.userData.paths?.length) continue;
+      if (obj.userData.room && o.userData.room && o.userData.room !== obj.userData.room) continue;
+      for (const path of o.userData.paths) {
+        const end = o.localToWorld(new THREE.Vector3(...path[path.length - 1]));
+        const d = end.distanceTo(at);
+        if (d < bestD) { bestD = d; best = o; }
+      }
+    }
+    return bestD < 2.5 ? best : null;
+  }
+  function trace(objs, severity = 'act_soon', duration = 1.6) {
+    clearTraces();
+    // only when the problem sits on one run: several candidate circuits are not one place yet
+    const hosts = [...new Set(objs.map(routeOf).filter(Boolean))];
+    if (hosts.length !== 1) return 0;
+    const host = hosts[0];
+    const color = { info: 0x3d8bd6, heads_up: 0xe0a21a, act_soon: 0xf0782a, urgent: 0xe5484d }[severity] ?? 0xf0782a;
+    const longest = host.userData.paths.reduce((a, p) => (p.length > a.length ? p : a));
+    const pts = longest.map((p) => new THREE.Vector3(...p));
+    const curve = new THREE.CurvePath();
+    for (let i = 0; i < pts.length - 1; i++) if (pts[i].distanceTo(pts[i + 1]) > 1e-4) curve.add(new THREE.LineCurve3(pts[i], pts[i + 1]));
+    if (!curve.curves.length) return 0;
+    const segs = Math.max(24, Math.round(curve.getLength() * 30));
+    const geo = new THREE.TubeGeometry(curve, segs, 0.03, 8, false);
+    const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95, depthTest: false, toneMapped: false });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.renderOrder = 10;
+    mesh.layers.set(1); // drawn, but kept out of AO and shadows
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.075, 16, 12), new THREE.MeshBasicMaterial({ color: 0xfff4e0, depthTest: false, toneMapped: false }));
+    head.renderOrder = 11;
+    head.layers.set(1);
+    host.add(mesh, head);
+    const total = geo.index.count, perSeg = total / segs;
+    const t = { mesh, head, tween: null };
+    traces.push(t);
+    const show = (k) => {
+      geo.setDrawRange(0, Math.max(perSeg, Math.round((k * segs)) * perSeg));
+      head.position.copy(curve.getPointAt(Math.min(1, k)));
+      head.visible = k < 1;
+      invalidate();
+    };
+    if (reduceMotion) { show(1); return 0; }
+    const p = { k: 0 };
+    show(0);
+    t.tween = gsap.to(p, { k: 1, duration, ease: 'power1.inOut', onUpdate: () => show(p.k) });
+    return duration;
+  }
+
+  // ---------- "Scan my home": a beam crosses both floors, front to back, and each room gets its result ----------
+  // rooms: { 'GF:kitchen': 'urgent' | 'act_soon' | 'heads_up' | 'info', ... } for rooms with something open;
+  // every other room reads as fine. Resolves when the sweep has finished.
+  let scanRig = null;
+  function clearScan() {
+    if (!scanRig) return;
+    scanRig.tween?.kill();
+    scanRig.beams.forEach((b) => b.removeFromParent());
+    scanRig.tags.forEach((t) => t.removeFromParent());
+    const prev = scanRig.prev;
+    scanRig = null;
+    state.xray = prev.xray;
+    setLayer('water', prev.water);
+    setLayer('electrical', prev.electrical);
+  }
+  function scan(rooms = {}) {
+    clearFlags();
+    clearScan();
+    select(null, { silent: true });
+    state.focus = null;
+    if (state.view !== 'split') setView('split', { reframe: false });
+    frame(1.0);
+    const prev = { xray: state.xray, water: state.water, electrical: state.electrical };
+    const { width: W, depth: DEPTH } = spec.meta;
+    const beams = [], tags = [];
+    for (const [key, fg] of Object.entries(house.floors)) {
+      const z0 = fg.userData.z;
+      const beam = new THREE.Group();
+      const sheet = new THREE.Mesh(
+        new THREE.PlaneGeometry(W + 0.8, 3.2),
+        new THREE.MeshBasicMaterial({ color: 0x2f9d7a, transparent: true, opacity: 0.24, side: THREE.DoubleSide, depthWrite: false, toneMapped: false }),
+      );
+      sheet.rotation.x = Math.PI / 2; // stand the sheet up across the house (spec is Z-up)
+      const edge = new THREE.LineSegments(
+        new THREE.EdgesGeometry(sheet.geometry),
+        new THREE.LineBasicMaterial({ color: 0x48d6a6, transparent: true, opacity: 0.9, toneMapped: false }),
+      );
+      edge.rotation.x = Math.PI / 2;
+      beam.add(sheet, edge);
+      beam.position.set(W / 2, -0.6, z0 + 1.6);
+      beam.traverse((m) => { m.layers.set(1); m.renderOrder = 9; });
+      fg.userData.layers.labels.add(beam);
+      beams.push(beam);
+      for (const r of house.rooms.values()) {
+        if (r.floor !== key) continue;
+        const sev = rooms[`${key}:${r.id}`];
+        const el = document.createElement('div');
+        el.className = `scan-tag ${sev ? `sev-${sev}` : 'ok'}`;
+        el.innerHTML = `<i aria-hidden="true">${sev ? '!' : '✓'}</i>${r.name}`;
+        const tag = new CSS2DObject(el);
+        tag.position.set(r.center[0], r.center[1], r.center[2] + 1.2);
+        tag.visible = false;
+        tag.userData.y = r.center[1];
+        fg.userData.layers.labels.add(tag);
+        tags.push(tag);
+      }
+    }
+    scanRig = { beams, tags, prev, tween: null };
+    // the house opens up as the beam starts: walls see-through, pipes and wiring on
+    state.xray = true;
+    setLayer('water', true);
+    setLayer('electrical', true);
+    const rig = scanRig;
+    const reveal = (y) => rig.tags.forEach((t) => { if (!t.visible && t.userData.y <= y) { t.visible = true; t.element.classList.add('in'); } });
+    if (reduceMotion) {
+      beams.forEach((b) => (b.visible = false));
+      reveal(Infinity);
+      invalidate(true);
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      const p = { y: -0.6 };
+      rig.tween = gsap.timeline({ onUpdate: () => invalidate(), onComplete: resolve })
+        .to(p, { y: DEPTH + 0.6, duration: 3.2, ease: 'none', delay: 0.9, onUpdate: () => { beams.forEach((b) => (b.position.y = p.y)); reveal(p.y); } })
+        .to(beams.map((b) => b.children).flat().map((m) => m.material), { opacity: 0, duration: 0.35, ease: 'power1.out' })
+        .call(() => beams.forEach((b) => (b.visible = false)));
+    });
+  }
+  /** The room an element is in, as `${floor}:${room}`; a circuit counts as the room of what it feeds. */
+  function roomOf(id, seen = new Set()) {
+    const d = house.byId.get(id)?.userData;
+    if (!d || seen.has(id)) return null;
+    seen.add(id);
+    if (d.room && house.rooms.has(`${d.floor}:${d.room}`)) return `${d.floor}:${d.room}`;
+    for (const end of d.ends ?? []) { const r = roomOf(end, seen); if (r) return r; }
+    return null;
+  }
+
+  // ---------- inspection: walk into the room, eye level, x-ray the wall, mark the fault in red ----------
+  // The 3D model is the camera (the house has none): the view stands where a person would, at eye height,
+  // looking at the problem; the wall in the way peels back like an x-ray, the part and its run turn red, and a
+  // frame is captured. Phases go to `onPhase` so the app can narrate. Ends with clearFocus().
+  const EYE = 1.55;
+  let insp = null;
+  function endInspect() {
+    if (!insp) return;
+    const prev = insp.prev;
+    insp.tl?.kill();
+    insp.cancel?.();
+    stopRecording();
+    insp = null;
+    gsap.killTweensOf(camera);
+    camera.fov = prev.fov;
+    camera.updateProjectionMatrix();
+    controls.maxPolarAngle = prev.maxPolar;
+    controls.minDistance = prev.minDistance;
+    if (state.view !== prev.view) setView(prev.view, { reframe: false });
+    if (state.water !== prev.water) setLayer('water', prev.water);
+    if (state.electrical !== prev.electrical) setLayer('electrical', prev.electrical);
+  }
+  /** Where a person would stand to look at `target`: at eye height, a couple of metres away, from the side with a
+   * clear line of sight. Walls don't count as in the way (the x-ray peels them back); furniture, doors and cars do.
+   * Inside the target's room where possible. Outdoor places (porch, roof) get a low side view. */
+  const OUTDOOR_ROOMS = new Set(['porch', 'terrace', 'roof', 'balcony']);
+  const SEE_THROUGH = new Set(['wall', 'floor', 'slab', 'roof', 'glass', 'window', 'slider', 'pipe', 'circuit', 'cable']);
+  const sight = new THREE.Raycaster();
+  function elementOf(o) { while (o && !o.userData.penjaga_id) o = o.parent; return o; }
+  function blockers(from, to, target) {
+    const dir = to.clone().sub(from);
+    sight.set(from, dir.clone().normalize());
+    sight.far = dir.length() - 0.25;
+    const seen = new Set();
+    for (const hit of sight.intersectObjects(Object.values(house.floors).filter((f) => f.visible), true)) {
+      if (!isVisible(hit.object)) continue;
+      const el = elementOf(hit.object);
+      if (!el || el === target || seen.has(el)) continue;
+      let inTarget = false;
+      for (let q = hit.object; q; q = q.parent) if (q === target) { inTarget = true; break; }
+      if (inTarget || SEE_THROUGH.has(el.userData.kind) || el.userData.layer === 'water' || el.userData.layer === 'electrical') continue;
+      seen.add(el);
+    }
+    return seen.size;
+  }
+  function standpoint(target) {
+    const d = target.userData;
+    let aim = target;
+    if (d.kind === 'circuit') aim = (d.ends ?? []).map((id) => house.byId.get(id)).find(Boolean) ?? target; // look at what it feeds
+    const P = new THREE.Box3().setFromObject(aim).getCenter(new THREE.Vector3());
+    const key = roomOf(aim.userData.penjaga_id ?? d.penjaga_id);
+    const room = key && !OUTDOOR_ROOMS.has(key.split(':')[1]) ? house.rooms.get(key) : null;
+    const floor = room?.floor ?? aim.userData.floor ?? d.floor;
+    const fg = house.floors[floor];
+    const indoor = !!room;
+    const floorY = fg ? fg.localToWorld(new THREE.Vector3(0, 0, fg.userData.z)).y : P.y - 1;
+    const C = room ? fg.localToWorld(new THREE.Vector3(room.center[0], room.center[1], fg.userData.z)) : null;
+    // indoors, look from the room's middle; outdoors, from out in the open, away from the house
+    const middle = new THREE.Box3().setFromObject(house.floors.GF).getCenter(new THREE.Vector3());
+    const toCentre = C ? C.clone().sub(P).setY(0).normalize() : P.clone().sub(middle).setY(0).normalize();
+    let best = null;
+    for (const dist of indoor ? [1.5, 1.9, 2.4, 3.2] : [3.4, 4.4]) {
+      for (let a = 0; a < 12; a++) {
+        const dir = new THREE.Vector3(Math.cos((a / 12) * Math.PI * 2), 0, Math.sin((a / 12) * Math.PI * 2));
+        const pos = P.clone().addScaledVector(dir, dist);
+        pos.y = indoor ? floorY + EYE : P.y + 1.0;
+        let score = blockers(pos, P, aim) * 4 + (indoor ? Math.abs(dist - 2.4) * 0.4 : 0) - 0.6 * dir.dot(toCentre);
+        if (room) {
+          const l = fg.worldToLocal(pos.clone());
+          const [sx, sy] = room.size;
+          const inRoom = Math.abs(l.x - room.center[0]) < sx / 2 - 0.25 && Math.abs(l.y - room.center[1]) < sy / 2 - 0.25;
+          const inHouse = l.x > 0.2 && l.x < spec.meta.width - 0.2 && l.y > 0.2 && l.y < spec.meta.depth - 0.2;
+          score += (inRoom ? 0 : 2.5) + (inHouse ? 0 : 3);
+        }
+        if (!best || score < best.score) best = { score, pos };
+      }
+    }
+    return { pos: best.pos, look: P, floor, room: room?.name ?? null };
+  }
+  function inspect({ layer, object_ids = [], severity = 'urgent', label } = {}, { onPhase = () => {}, record = true } = {}) {
+    clearFocus({ reframe: false });
+    const objs = object_ids.map((id) => house.byId.get(id)).filter(Boolean);
+    if (!objs.length) return Promise.resolve(null);
+    insp = {
+      prev: { fov: camera.fov, maxPolar: controls.maxPolarAngle, minDistance: controls.minDistance, view: state.view, water: state.water, electrical: state.electrical },
+      tl: null,
+    };
+    const run = insp;
+    const home = objs[0].userData.floor;
+    if (home === 'GF' || home === 'FF') setView(home, { reframe: false });
+    // the first floor slides into place over a moment: plan the standpoint where it will be
+    const ff = house.floors.FF.position, sliding = ff.clone();
+    ff.copy(state.view === 'split' ? FF_SPLIT : new THREE.Vector3());
+    scene.updateMatrixWorld(true);
+    const at = standpoint(objs[0]);
+    ff.copy(sliding);
+    scene.updateMatrixWorld(true);
+    controls.maxPolarAngle = THREE.MathUtils.degToRad(100); // allow a level, eye-height view
+    controls.minDistance = 0.4;
+    select(null, { silent: true });
+    state.focus = { obj: objs[0], reveal: { o: 1 } };
+    if (record) startRecording(label);
+    onPhase('walk', { room: at.room });
+    const services = layer === 'water' || layer === 'electrical';
+    const finish = () => {
+      if (services) setLayer(layer, true);
+      trace(objs, 'urgent'); // red, whatever the severity: this is the part that's wrong
+      flag(object_ids, severity, { label: label ?? objs[0].userData.label ?? objs[0].userData.penjaga_id, color: SEVERITY_COLOR.urgent });
+      onPhase('found', {});
+    };
+    return new Promise((resolve) => {
+      run.cancel = () => resolve(null);
+      const done = async () => {
+        const image = capture();
+        const video = await stopRecording();
+        if (insp === run) onPhase('done', {});
+        resolve({ image, video, room: at.room });
+      };
+      if (reduceMotion) {
+        camera.fov = 50; camera.updateProjectionMatrix();
+        camera.position.copy(at.pos); controls.target.copy(at.look);
+        state.focus.reveal.o = 0.12;
+        finish();
+        invalidate(true);
+        requestAnimationFrame(() => requestAnimationFrame(() => void done()));
+        return;
+      }
+      gsap.to(camera, { fov: 50, duration: 1.6, ease: 'power2.inOut', onUpdate: () => camera.updateProjectionMatrix() });
+      flyTo(at.pos, at.look, 1.7);
+      run.tl = gsap.timeline({ onUpdate: () => invalidate() })
+        .call(() => onPhase('look', {}), null, 1.8) // the room as it is, for a beat
+        .call(() => onPhase('xray', {}), null, 2.5)
+        .to(state.focus.reveal, { o: 0.5, duration: 0.45, ease: 'power1.out' }, 2.6)
+        .to(state.focus.reveal, { o: 0.1, duration: 0.45, ease: 'power1.out' }, 3.1)
+        .call(finish, null, 3.4)
+        .call(() => void done(), null, 5.6);
+    });
+  }
+
+  // ---------- capture: the stage's visible part as an image, and as a short clip while inspecting ----------
+  const ACCENT = '#48d6a6';
+  function frameRect() {
+    const w = canvas.width, h = canvas.height;
+    const left = inset.left > 0 && host && host.clientWidth > 960 ? Math.round(inset.left * (w / host.clientWidth)) : 0;
+    return { sx: left, sy: 0, sw: w - left, sh: h };
+  }
+  function overlay(ctx, W, H, { label, rec = false, t = 0 } = {}) {
+    const k = W / 960, m = 18 * k, L = 34 * k;
+    ctx.save();
+    ctx.strokeStyle = ACCENT; ctx.lineWidth = 2.2 * k;
+    for (const [x, y, dx, dy] of [[m, m, 1, 1], [W - m, m, -1, 1], [m, H - m, 1, -1], [W - m, H - m, -1, -1]]) {
+      ctx.beginPath(); ctx.moveTo(x, y + dy * L); ctx.lineTo(x, y); ctx.lineTo(x + dx * L, y); ctx.stroke();
+    }
+    const font = getComputedStyle(document.body).fontFamily || 'sans-serif';
+    ctx.font = `600 ${13 * k}px ${font}`;
+    ctx.fillStyle = 'rgba(16, 22, 20, 0.62)';
+    const head = `PENJAGA · 3D INSPECTION${label ? ` · ${label.toUpperCase()}` : ''}`;
+    const tw = ctx.measureText(head).width;
+    ctx.fillRect(m + 10 * k, m + 10 * k, tw + (rec ? 64 : 24) * k, 26 * k);
+    ctx.fillStyle = '#f4efe7';
+    ctx.fillText(head, m + 22 * k, m + 28 * k);
+    if (rec) {
+      ctx.fillStyle = Math.floor(t * 2) % 2 ? '#e5484d' : 'rgba(229,72,77,0.35)';
+      ctx.beginPath(); ctx.arc(m + 34 * k + tw, m + 23 * k, 5 * k, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#f4efe7';
+      ctx.fillText('REC', m + 42 * k + tw, m + 28 * k);
+    }
+    ctx.restore();
+  }
+  function capture(label = insp?.label) {
+    if (lite) renderer.render(scene, camera); else composer.render();
+    const { sx, sy, sw, sh } = frameRect();
+    const W = Math.min(1280, sw), H = Math.round((sh * W) / sw);
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(canvas, sx, sy, sw, sh, 0, 0, W, H);
+    overlay(ctx, W, H, { label });
+    invalidate();
+    return c.toDataURL('image/jpeg', 0.88);
+  }
+  let recorder = null;
+  function startRecording(label) {
+    stopRecording();
+    if (reduceMotion || typeof MediaRecorder === 'undefined') return;
+    const { sw, sh } = frameRect();
+    // video encoders need even dimensions (an odd height records nothing)
+    const W = 2 * Math.round(Math.min(960, sw) / 2), H = 2 * Math.round((sh * W) / sw / 2);
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const ctx = c.getContext('2d');
+    const stream = c.captureStream(30);
+    const type = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find((t) => MediaRecorder.isTypeSupported(t));
+    if (!type) return;
+    const rec = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 4_000_000 });
+    const chunks = [];
+    rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+    const started = performance.now();
+    recorder = {
+      rec, label,
+      draw() {
+        const r = frameRect();
+        ctx.drawImage(canvas, r.sx, r.sy, r.sw, r.sh, 0, 0, W, H);
+        overlay(ctx, W, H, { label, rec: true, t: (performance.now() - started) / 1000 });
+      },
+      done: new Promise((res) => { rec.onstop = () => res(chunks.length ? new Blob(chunks, { type }) : null); }),
+    };
+    if (insp) insp.label = label;
+    rec.start(250);
+  }
+  function stopRecording() {
+    if (!recorder) return Promise.resolve(null);
+    const r = recorder;
+    recorder = null;
+    if (r.rec.state !== 'inactive') r.rec.stop();
+    return r.done;
   }
 
   // ---------- "Can I drill here?": what runs inside a wall ----------
@@ -420,7 +799,7 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
   }
   function updateWallFade() {
     const want = new Map();
-    if (state.water || state.electrical) {
+    if ((state.water || state.electrical) && !insp) { // an inspection fades only the walls in the way
       // translucent enough to read the runs inside, solid enough that the rooms still read as rooms
       walls.forEach((w) => want.set(w, 0.45));
       wallLike.forEach((w) => want.set(w, 0.45));
@@ -578,6 +957,7 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
     aoCamera.projectionMatrix.copy(camera.projectionMatrix);
     aoCamera.projectionMatrixInverse.copy(camera.projectionMatrixInverse);
     if (gsap.globalTimeline.getChildren(true, true, false).some((t) => t.isActive())) { dirty = true; moving = true; aoValid = false; }
+    if (recorder) dirty = true; // a clip needs every frame
     if (dirty) {
       dirty = false;
       bounds.clampPoint(controls.target, controls.target);
@@ -586,6 +966,7 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
       gtao.enabled = true;
       gtao.reuse = aoValid;
       if (lite) renderer.render(scene, camera); else composer.render();
+      recorder?.draw();
       if (!moving) aoValid = true;
       labelRenderer.render(scene, camera);
       hqDone = !moving;
@@ -611,7 +992,7 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
   return {
     mount, unmount, setInteractive, setAutoRotate, setInsets,
     frame, setView, setLayer, setXray, setDrill, getState,
-    focus, focusRoom, focusId, flag, clearFlags, clearFocus, drillCheck, servicesInWall,
+    focus, focusRoom, focusId, flag, clearFlags, clearFocus, drillCheck, servicesInWall, scan, inspect, capture, trace: (ids, severity) => trace(ids.map((id) => house.byId.get(id)).filter(Boolean), severity), roomOf,
     describe: (id) => describe(house.byId.get(id)),
     has: (id) => house.byId.has(id),
     on(ev, f) { (listeners[ev] ||= []).push(f); return () => { listeners[ev] = listeners[ev].filter((x) => x !== f); }; },

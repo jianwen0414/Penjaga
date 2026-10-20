@@ -10,6 +10,9 @@ export interface EngineState { view: string; water: boolean; electrical: boolean
 export interface DrillResult { wall: ElementInfo; services: (ElementInfo & { from_m: number; to_m: number })[] }
 type Events = { select: ElementInfo | null; hover: ElementInfo | null; state: EngineState; drill: DrillResult | null; focusDone: { object_ids: string[] } };
 
+export type InspectPhase = 'walk' | 'look' | 'xray' | 'found' | 'done';
+export interface Inspection { image: string; video: Blob | null; room: string | null }
+
 export interface PenjagaEngine {
   mount(el: HTMLElement): void;
   unmount(el: HTMLElement): void;
@@ -29,6 +32,15 @@ export interface PenjagaEngine {
   clearFlags(): void;
   clearFocus(opts?: { reframe?: boolean }): void;
   drillCheck(wallId: string): DrillResult | null;
+  /** A beam crosses the house; rooms in `rooms` (`${floor}:${room}` → severity) show their problem, the rest a tick. */
+  scan(rooms?: Record<string, Severity>): Promise<void>;
+  /** Follow a pipe or circuit from its source to the problem; returns the animation's length in seconds. */
+  trace(ids: string[], severity?: Severity): number;
+  roomOf(id: string): string | null;
+  /** Walk into the room at eye level, x-ray the wall, mark the fault red; resolves with the captured shot and clip
+   * (null if it was cancelled, e.g. by clearFocus). Phases: walk, look, xray, found, done. */
+  inspect(cmd: FocusCommand, opts?: { onPhase?: (phase: InspectPhase, info: { room?: string | null }) => void; record?: boolean }): Promise<Inspection | null>;
+  capture(label?: string): string;
   describe(id: string): ElementInfo | null;
   has(id: string): boolean;
   on<K extends keyof Events>(ev: K, f: (data: Events[K]) => void): () => void;

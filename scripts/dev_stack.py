@@ -36,6 +36,9 @@ from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parents[1]
 VAR = ROOT / "var"
+# Evaluation episodes are a regenerable cache kept outside the repo: on Windows, an editor watching
+# the project folder can hold a just-written episode directory and make its final rename fail.
+EPISODES = Path.home() / ".penjaga" / "eval-episodes"
 TOKENS = VAR / "dev-tokens.json"
 ZONE = ZoneInfo("Asia/Kuala_Lumpur")
 PORTS = {"stream": 8701, "sim": 8702, "detect": 8703, "eval": 8704, "api": 8705}
@@ -119,7 +122,8 @@ def main(argv: list[str] | None = None) -> int:
         ))  # fmt: skip
         stack.enter_context(_service(
             "eval",
-            ["penjaga_eval.cli", "serve", "--port", str(PORTS["eval"]), *tokens],
+            ["penjaga_eval.cli", "--episodes-root", str(EPISODES), "serve", "--port",
+             str(PORTS["eval"]), *tokens],
             f"{url['eval']}/eval/v1/health",
         ))  # fmt: skip
         stack.enter_context(_service(
