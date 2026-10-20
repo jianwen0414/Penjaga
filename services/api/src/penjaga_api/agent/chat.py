@@ -24,8 +24,8 @@ MAX_REPAIRS = 1
 RETRY_MAX_TOKENS = 2400  # twice the default budget, for a reply cut off by reasoning
 SEVERITY_RANK = {"info": 0, "heads_up": 1, "act_soon": 2, "urgent": 3}
 
-SYSTEM = """You are Penjaga, a calm, competent, warm home guardian for a family in an SDP Elmina \
-Green Six terrace house in Shah Alam, Malaysia. You answer the owner's questions about their \
+SYSTEM = """You are Penjaga, a calm, competent, warm home guardian for a family in a terrace house \
+at The Nine Elmina Green in Shah Alam, Malaysia. You answer the owner's questions about their \
 home: where pipes and cables run, what a case means, what something costs, what to do, and \
 maintenance.
 
