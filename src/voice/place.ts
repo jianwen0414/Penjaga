@@ -109,3 +109,27 @@ export function placeFrom(said: string): Place {
 }
 
 export const roomName = (id: string): string => roomById.get(id)?.name ?? id;
+
+// Words that tell rooms of one kind apart ("master", "2", "flexi"), not the kind itself.
+const GENERIC_WORDS = new Set(['the', 'a', 'room', 'bedroom', 'bathroom', 'toilet', 'area', 'one', 'bilik', 'air', 'in', 'my', 'of']);
+const DISTINCT: Record<string, string[]> = {
+  bed4: ['flexi', 'suite', 'guest', 'downstairs', 'ground', 'mak', 'maks', 'bawah', '4'],
+  bath4: ['flexi', 'suite', 'guest', 'downstairs', 'ground', 'bawah', '4'],
+  master: ['master', 'main', 'utama', 'big', 'biggest'],
+  bath_master: ['master', 'main', 'utama', 'ensuite', 'en'],
+};
+/** The answer to "Which bathroom?": one of `options`, from a full name or just what sets it apart ("the master one",
+ * "number two", "the downstairs one"); null if it fits none or more than one. */
+export function pickFrom(said: string, options: string[]): string | null {
+  const full = placeFrom(said);
+  if (full.kind === 'room' && options.includes(full.room)) return full.room;
+  const words = new Set(normalise(said).trim().split(' ').filter((w) => w && !GENERIC_WORDS.has(w)));
+  const keys = (room: string) => {
+    const own = (roomById.get(room)?.name ?? room).toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter((w) => w && !GENERIC_WORDS.has(w));
+    return new Set([...own, ...(DISTINCT[room] ?? [])]);
+  };
+  const scored = options.map((room) => ({ room, hits: [...keys(room)].filter((k) => words.has(k)).length })).filter((s) => s.hits > 0);
+  const best = Math.max(0, ...scored.map((s) => s.hits));
+  const top = scored.filter((s) => s.hits === best);
+  return top.length === 1 ? top[0].room : null;
+}

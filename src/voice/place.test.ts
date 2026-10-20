@@ -1,5 +1,26 @@
 import { describe, expect, test } from 'vitest';
-import { placeFrom, normalise } from './place';
+import { placeFrom, normalise, pickFrom } from './place';
+
+describe('picking from the choices Penjaga just offered', () => {
+  const baths = ['bath_master', 'bath2', 'bath3', 'bath4'];
+  const beds = ['master', 'bed2', 'bed3', 'bed4'];
+  test.each([
+    ['the master one', baths, 'bath_master'],
+    ['number two', baths, 'bath2'],
+    ['bathroom to', baths, 'bath2'],
+    ['three', baths, 'bath3'],
+    ['the downstairs one', baths, 'bath4'],
+    ['flexi', baths, 'bath4'],
+    ['master bedroom', beds, 'master'],
+    ['the guest room', beds, 'bed4'],
+    ['two', beds, 'bed2'],
+  ])('%s is %s', (said, options, want) => expect(pickFrom(said, options)).toBe(want));
+  test('nothing that sets one apart, or two that fit, is no answer', () => {
+    expect(pickFrom('the bathroom', baths)).toBeNull();
+    expect(pickFrom('the kitchen', baths)).toBeNull();
+    expect(pickFrom('two or three', baths)).toBeNull();
+  });
+});
 
 const room = (said: string) => { const p = placeFrom(said); return p.kind === 'room' ? p.room : p.kind; };
 

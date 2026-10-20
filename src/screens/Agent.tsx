@@ -19,7 +19,7 @@ import type { ElementInfo, DrillResult, InspectPhase } from '../viewer/engine';
 import { canListen, listen, type ListenEnd, type Listening } from '../voice/listen';
 import * as speech from '../voice/speak';
 import { useVoicePrefs, voicePrefs } from '../voice/prefs';
-import { placeFrom, roomName as placeName, type Place } from '../voice/place';
+import { pickFrom, placeFrom, roomName as placeName, type Place } from '../voice/place';
 import { answerKind, isEmergency, planFor, type EmergencyPlan } from '../voice/emergency';
 import { routeTo, the } from '../nav/route';
 import LiveWords from '../voice/LiveWords';
@@ -37,7 +37,7 @@ type Item = {
   still?: boolean; // arrives without the slide-in (the owner's spoken words, already on screen as they spoke)
 };
 // An emergency in progress: the plan (where to go, what to do), and how far the owner has got.
-type Em = { plan: EmergencyPlan; stage: 'ask' | 'which' | 'route' | 'done'; room?: string; askKey?: string };
+type Em = { plan: EmergencyPlan; stage: 'ask' | 'which' | 'route' | 'done'; room?: string; askKey?: string; options?: string[]; what?: string };
 
 // Rest after this long untouched (seconds; ?idle=10 to try it quickly).
 const IDLE_MS = (Number(new URLSearchParams(location.search).get('idle')) || 75) * 1000;
@@ -344,6 +344,11 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
       return;
     }
     say({ who: 'you', text: r.text, still: true });
+    if (now.stage === 'which' && now.options) {
+      // answering "Which bathroom?": "the master one" is enough
+      const room = pickFrom(r.text, now.options);
+      if (room) { void goRoute(room); return; }
+    }
     if (now.stage === 'ask' || now.stage === 'which') placeSaid(placeFrom(r.text), tries);
     else if (now.stage === 'route') doneSaid(r.text, tries);
   }
@@ -352,6 +357,12 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
     if (p.kind === 'room') { void goRoute(p.room); return; }
     if (p.kind === 'away') { goAway(); return; }
     if (p.kind === 'ambiguous') { askWhichOf(p.options, p.what, true); return; }
+    if (e.stage === 'which' && e.options) {
+      // still not clear which one: the same choices once more, then tapping
+      if (tries < 2) askWhichOf(e.options, e.what ?? 'one', true, tries + 1);
+      else say({ who: 'penjaga', tone: 'calm', text: 'Tap the one you are in.' });
+      return;
+    }
     if (tries < 1) {
       retire(e.askKey);
       const key = sayKey({ who: 'penjaga', tone: 'urgent', text: 'Sorry, which room are you in?', chips: roomChips(QUICK_ROOMS, true) });
@@ -359,14 +370,14 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
       void speak('Sorry, which room are you in?').then(() => { if (emRef.current?.askKey === key) void emergencyListen(tries + 1); });
     } else say({ who: 'penjaga', tone: 'calm', text: 'Tap the room you are in.' });
   }
-  function askWhichOf(options: string[], what: string, listenAfter: boolean) {
+  function askWhichOf(options: string[], what: string, listenAfter: boolean, tries = 1) {
     const e = emRef.current;
     if (!e) return;
     retire(e.askKey);
     const q = `Which ${what}?`;
     const key = sayKey({ who: 'penjaga', tone: 'urgent', text: q, chips: roomChips(options, false) });
-    setEm({ ...e, stage: 'which', askKey: key });
-    if (listenAfter) void speak(q).then(() => { if (emRef.current?.askKey === key) void emergencyListen(1); });
+    setEm({ ...e, stage: 'which', askKey: key, options, what });
+    if (listenAfter) void speak(q).then(() => { if (emRef.current?.askKey === key) void emergencyListen(tries); });
   }
   function placeTapped(room: string) {
     const e = emRef.current;

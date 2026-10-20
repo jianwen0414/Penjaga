@@ -317,7 +317,7 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
     clearFlags();
     clearScan();
     clearRoute();
-    if (proj) { const p = proj; proj = null; p.objects.forEach((o) => o.removeFromParent()); }
+    if (proj) { const p = proj; proj = null; p.objects.forEach((o) => { dropLabels(o); o.removeFromParent(); }); }
     endInspect();
     state.focus = null;
     select(null);
@@ -688,6 +688,13 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
   // stair, and ends at the thing to reach, which glows. "You" and the destination are marked. The walls go
   // see-through so the whole walk is visible. Lasts until clearRoute() or clearFocus().
   let routeRig = null;
+  // A CSS2D label takes its element off the page only when it is itself removed: labels inside a group that is
+  // removed would stay on screen. Remove them one by one first.
+  function dropLabels(root) {
+    const labels = [];
+    root.traverse((o) => { if (o.isCSS2DObject) labels.push(o); });
+    labels.forEach((l) => l.removeFromParent());
+  }
   function clearRoute() {
     if (!routeRig) return;
     const rig = routeRig;
@@ -695,6 +702,7 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
     rig.tween?.kill();
     if (rig.flagged) clearFlags();
     rig.objects.forEach((o) => {
+      dropLabels(o);
       o.removeFromParent();
       o.traverse?.((m) => { m.geometry?.dispose(); if (m.material && !m.material.userData?.shared) m.material.dispose?.(); });
     });
@@ -878,7 +886,7 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
     if (!proj) return;
     const p = proj;
     proj = null;
-    p.objects.forEach((o) => { o.removeFromParent(); o.traverse?.((m) => { m.geometry?.dispose(); m.material?.dispose?.(); }); });
+    p.objects.forEach((o) => { dropLabels(o); o.removeFromParent(); o.traverse?.((m) => { m.geometry?.dispose(); m.material?.dispose?.(); }); });
     clearFlags();
     invalidate(true);
   }

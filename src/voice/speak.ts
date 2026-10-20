@@ -152,12 +152,29 @@ export interface SayOptions {
   onStart?: () => void;
 }
 
+// Whether the Core API has a voice at all (GET /api/v1/voice), asked once: without a key every sentence would first
+// fail at the network (a 503 in the console) before the browser voice took over.
+let asked: Promise<void> | null = null;
+function askCloud(): Promise<void> {
+  asked ??= fetch(ENDPOINT.replace(/\/speech$/, ''))
+    .then((r) => (r.ok ? r.json() as Promise<{ speech?: boolean }> : null))
+    .then((v) => {
+      if (v?.speech === false) { cloud = 'no'; cloudRetryAt = performance.now() + 5 * 60_000; }
+      else if (v?.speech === true && cloud === 'no') cloud = 'unknown'; // a key was added: use it
+    })
+    .catch(() => { /* unknown: try it and see */ })
+    .finally(() => { setTimeout(() => { asked = null; }, 5 * 60_000); }); // a key added later is picked up
+  return asked;
+}
+
 /** Say `text` aloud; resolves when it has been said (or why not). Interrupts anything still being said. */
 export async function say(text: string, opts: SayOptions = {}): Promise<Outcome> {
   cancel();
   const me = ++run;
   const parts = chunks(text);
   if (!parts.length) return 'done';
+  if (!opts.browserOnly) await askCloud();
+  if (me !== run) return 'cancelled';
   const useCloud = !opts.browserOnly && (cloud !== 'no' || performance.now() > cloudRetryAt);
   if (useCloud) {
     const r = await sayCloud(parts, me, opts);
