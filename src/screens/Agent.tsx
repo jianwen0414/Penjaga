@@ -8,9 +8,10 @@ import spec from '../../house.spec.json';
 import { useView, api, useLive, houseNow, BACKEND, type Live } from '../api/client';
 import { ViewerSlot, useEngine, type Engine } from '../app/engine';
 import { Icon, Chart, Sheet, SEV_LABEL, fmtDay, fmtTime } from '../components/ui';
-import ThinkingOrb, { type ThinkingOrbHandle } from '../components/ThinkingOrb';
 import Character, { moodFor, type Mood } from '../components/Character';
 import NotifyBell from '../components/NotifyBell';
+import MiniOrb from '../components/MiniOrb';
+import { useLiquidGlass } from '../components/LiquidGlass';
 import type { Case, ChatMessage, FocusCommand, Severity, Vendor } from '../api/types';
 import type { ElementInfo, DrillResult, InspectPhase } from '../viewer/engine';
 import NoticesPanel from './Notices';
@@ -62,6 +63,16 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
   const [collapsed, setCollapsedState] = useState(() => { try { return localStorage.getItem(FOLD_KEY) === '1'; } catch { return false; } });
   const setCollapsed = (c: boolean) => { setCollapsedState(c); try { localStorage.setItem(FOLD_KEY, c ? '1' : '0'); } catch { /* ignore */ } };
   const [thinking, setThinking] = useState(false);
+  // On a wide screen the panel floats over the house as liquid glass; on a phone it sits below the house, opaque.
+  const [wide, setWide] = useState(() => matchMedia('(min-width: 960px)').matches);
+  useEffect(() => {
+    const q = matchMedia('(min-width: 960px)');
+    const on = () => setWide(q.matches);
+    q.addEventListener('change', on);
+    return () => q.removeEventListener('change', on);
+  }, []);
+  const glass = useLiquidGlass({ material: 'regular', refraction: 44, bezel: 30, enabled: wide });
+  const [text, setText] = useState('');
   const [drawer, setDrawer] = useState(false);
   // The list drops down under the bell: where the bell is, re-measured if the window changes while it's open.
   const bellRef = useRef<HTMLButtonElement | null>(null);
@@ -83,8 +94,6 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
     window.addEventListener('resize', onResize);
     return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('resize', onResize); };
   }, [drawer]);
-  const orb = useRef<ThinkingOrbHandle>(null);
-  const pillSlot = useRef<HTMLDivElement>(null);
   const [sensorsOpen, setSensorsOpen] = useState(false);
   const threadEnd = useRef<HTMLDivElement>(null);
   const caseById = (id: string) => v.cases.find((c) => c.id === id);
@@ -423,7 +432,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
     kicker: `${fmtTime(houseNow())} · Today`,
     text: (
       <>
-        <span className="a-hello">{greeting()}, Aiman.</span>{' '}
+        <span className="a-hello">{greeting()}, Master.</span>{' '}
         {status === 'all_quiet' && <>Your home is quiet. Water, power and appliances all look normal.</>}
         {status === 'attention' && <>{openCases.length === 1 ? 'One thing needs a look' : `${openCases.length} things need a look`}. I've worked out what I can, and I have a next step ready.</>}
         {status === 'urgent' && <>Something needs you now: an electrical safety issue. I'll take you through it.</>}
@@ -468,8 +477,16 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
     const at = arrivals.current!.get(c.id)!;
     return caseStory(c).map((it, k) => ({ ...it, t: Math.max(it.t, at + k) }));
   });
-  // What the owner is asking right now stays at the bottom, in the order it was said, below the case stories.
-  const thread = [briefing, ...[...others, ...stories].sort((a, b) => a.t - b.t), ...session, ...flowItems()];
+  // Some items carry "just now" times (notices, the evidence opened on a tap): each keeps the time it first appeared,
+  // so it stays where it came in instead of sliding below everything said since.
+  const placedAt = useRef(new Map<string, number>());
+  const place = (it: Item) => {
+    if (!placedAt.current.has(it.key)) placedAt.current.set(it.key, it.t);
+    return { ...it, t: placedAt.current.get(it.key)! };
+  };
+  // One timeline: case stories, notices and the owner's own questions in the order they reached the owner; the step
+  // in progress (a guided check, a booking) stays at the bottom.
+  const thread = [briefing, ...[...others, ...stories].map(place).concat(session).sort((a, b) => a.t - b.t), ...flowItems()];
 
   // ---------- keep the stage in step with the conversation ----------
   const latest = [...thread].reverse().find((i) => i.focus || i.frame);
@@ -499,12 +516,17 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
 
   const onReady = (e: Engine) => { e.setInteractive(true); e.setAutoRotate(false); e.setInsets({ left: 470 }); lastShown.current = ''; return () => e.setInsets({ left: 0 }); };
 
-  // The orb shows Penjaga working on it; the reply enters the thread when the orb resolves.
+  // A small thinking orb shows Penjaga working on it until the reply lands.
   const ask = async (q: string) => {
+    if (!q.trim() || thinking) return;
+    if (collapsed) setCollapsed(false);
     say({ who: 'you', text: q });
+    setText('');
     setThinking(true);
+    setTimeout(() => threadEnd.current?.scrollIntoView({ block: 'end', behavior: 'smooth' }), 60);
     const m = await api.ask(q, { caseId: openCases[0]?.id });
-    return () => { setThinking(false); reply(m); };
+    setThinking(false);
+    reply(m);
   };
   // The answer has passed the guardrails before it arrives; it types itself out, then its buttons appear.
   const reply = (a: ChatMessage) => {
@@ -601,7 +623,8 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
       </div>
 
       {viewer && <ShotViewer shot={viewer} onClose={() => setViewer(null)} />}
-      <section className={`agent-col ${collapsed ? 'collapsed' : ''}`} aria-label="Penjaga">
+      <section className={`agent-col ${collapsed ? 'collapsed' : ''} ${glass.layers ? 'glass' : ''}`} data-liquid-glass={glass.layers ? glass.mode : undefined} aria-label="Penjaga">
+        {glass.layers}
         <header className="agent-head">
           <Character mood={headMood} size={30} live />
           <div className="agent-title">
@@ -650,16 +673,38 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
                 </article>
               );
             })}
+            {thinking && (
+              <div className="a-item penjaga cont thinking-row" role="status">
+                <span className="a-avatar pj" aria-hidden="true" />
+                <div className="a-body"><MiniOrb size={24} />Penjaga is thinking…</div>
+              </div>
+            )}
             <div ref={threadEnd} />
           </div>
         )}
 
         <div className="agent-compose">
-          {!collapsed && <div className="suggest">{suggestions.map((s) => <button type="button" key={s} onClick={() => orb.current?.ask(s)}>{s}</button>)}</div>}
-          <div className="compose-slot" ref={pillSlot} />
+          {!collapsed && <div className="suggest">{suggestions.map((s) => <button type="button" key={s} onClick={() => void ask(s)} disabled={thinking}>{s}</button>)}</div>}
+          {/* the ask pill: a ribbon of colour runs round its rim (faster while typing), a soft glow under it */}
+          <div className="ask-pill" data-typing={text.trim() ? '' : undefined}>
+            <div className="ask-glow" aria-hidden="true" />
+            <div className="ask-surface" aria-hidden="true"><div className="ask-aurora"><i /><i /><i /><i /></div></div>
+            <form className="ask-input" onSubmit={(e) => { e.preventDefault(); void ask(text); }} autoComplete="off">
+              <svg className="ask-spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M10 3.5l1.7 4.8 4.8 1.7-4.8 1.7L10 16.5l-1.7-4.8L3.5 10l4.8-1.7L10 3.5z" />
+                <path d="M18 14.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7.7-1.8z" />
+              </svg>
+              <input value={text} onChange={(e) => setText(e.target.value)} onFocus={() => { if (collapsed) setCollapsed(false); }} maxLength={300} placeholder="Ask Penjaga about your home" aria-label="Ask Penjaga" spellCheck={false} />
+              <button type="submit" className="ask-send" aria-label="Send" disabled={thinking} data-ready={text.trim() && !thinking ? '' : undefined}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M12 19V5" />
+                  <path d="M5.5 11.5L12 5l6.5 6.5" />
+                </svg>
+              </button>
+            </form>
+          </div>
           {!collapsed && <div className="compose-note">Penjaga acts only after you confirm</div>}
         </div>
-        <ThinkingOrb ref={orb} anchor={pillSlot} onAsk={ask} onFocus={() => { if (collapsed) setCollapsed(false); }} />
       </section>
 
       {drawer && (

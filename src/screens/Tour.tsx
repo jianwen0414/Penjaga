@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router';
 import { api } from '../api/client';
 import { ViewerSlot, useEngine, type Engine } from '../app/engine';
 import { Icon } from '../components/ui';
+import { useLiquidGlass } from '../components/LiquidGlass';
 
 // First-run tour (the part of onboarding kept for the first submission): three stops in the 3D home.
 const STOPS = [
-  { kicker: 'Welcome home, Aiman', title: 'This is your home, as it was built.', body: 'Representative of an SDP Elmina Green Six double-storey terrace: 4 bedrooms, 4 bathrooms, handed over June 2024.' },
+  { kicker: 'Welcome home, Master', title: 'This is your home, as it was built.', body: 'Representative of a double-storey terrace at The Nine Elmina Green: 4 bedrooms, 4 bathrooms.' },
   { kicker: 'Every room', title: 'Two floors, every wall in place.', body: 'Drag to look around, pinch to zoom, tap anything to see its record.' },
   { kicker: 'The part you never see', title: 'Penjaga knows what runs inside your walls.', body: 'Every pipe and cable, by name. When something goes wrong, it shows you exactly where.' },
   { kicker: 'Your privacy', title: 'It watches the building, not the people.', body: 'Only your water meter and electrical board. No cameras, no microphones. You can switch any layer off.' },
@@ -16,6 +17,7 @@ export default function Tour() {
   const [i, setI] = useState(0);
   const { engine } = useEngine();
   const nav = useNavigate();
+  const glass = useLiquidGlass({ material: 'regular', refraction: 36, bezel: 26 });
   const apply = (e: Engine, k: number) => {
     e.clearFocus({ reframe: false });
     e.setInteractive(true);
@@ -38,7 +40,9 @@ export default function Tour() {
   return (
     <div className="tour">
       <ViewerSlot label="A tour of your home in 3D" onReady={(e) => { e.setInsets({ left: 0 }); apply(e, 0); return () => e.setAutoRotate(false); }} />
-      <div className="tour-card card pad">
+      <div className="tour-brand" role="img" aria-label="The Nine Elmina Green" />
+      <div className={`tour-card card pad ${glass.layers ? 'glass' : ''}`} data-liquid-glass={glass.mode}>
+        {glass.layers}
         <div className="steps" aria-hidden>{STOPS.map((_, k) => <i key={k} className={k <= i ? 'on' : ''} />)}</div>
         <div className="label">{s.kicker}</div>
         <h1>{s.title}</h1>
