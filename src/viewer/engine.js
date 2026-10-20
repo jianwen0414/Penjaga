@@ -9,6 +9,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { OutlinePass } from 'three/addons/postprocessing/OutlinePass.js';
 import gsap from 'gsap';
 import { buildHouse, setOpacity, setHighlight } from './house.js';
 import { loadAssets } from './assets.js';
@@ -47,6 +48,9 @@ class CachedGTAOPass extends GTAOPass {
 }
 
 export const SEVERITY_COLOR = { info: 0x15324a, heads_up: 0x4a3a08, act_soon: 0x5a2a06, urgent: 0x6a0d0d };
+// the bright version of each, for light: the glow around a flagged part and the trace along its run
+const GLOW_COLOR = { info: 0x3d8bd6, heads_up: 0xe0a21a, act_soon: 0xf0782a, urgent: 0xe5484d };
+const SEV_RANK = { info: 0, heads_up: 1, act_soon: 2, urgent: 3 };
 const SEVERITY_LABEL = { info: 'Info', heads_up: 'Heads-up', act_soon: 'Act soon', urgent: 'Urgent' };
 
 // Plain description of a scene element for the app (no three.js objects leak out).
@@ -128,6 +132,10 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
   gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 });
   gtao.blendIntensity = 0.85;
   if (!lite) composer.addPass(gtao);
+  // A pulsing glow around the parts Penjaga points at (flag()), faintly visible through the walls in front of them.
+  const glow = new OutlinePass(new THREE.Vector2(16, 16), scene, camera);
+  Object.assign(glow, { edgeStrength: 6, edgeGlow: 1, edgeThickness: 2.5, pulsePeriod: reduceMotion ? 0 : 1.6, enabled: false });
+  if (!lite) composer.addPass(glow);
   composer.addPass(new OutputPass());
 
   // ---------- house ----------
@@ -298,8 +306,9 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
   function clearFlags() {
     revealTl?.kill();
     clearTraces();
-    flagged.forEach((o) => { delete o.userData.flagColor; setHighlight(o, null); });
+    flagged.forEach((o) => { delete o.userData.flagColor; delete o.userData.flagSev; setHighlight(o, null); });
     flagged = [];
+    updateGlow();
     flagLabels.forEach((l) => l.removeFromParent());
     flagLabels = [];
     invalidate();
@@ -315,8 +324,11 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
   function flag(ids, severity = 'heads_up', { label, color: override } = {}) {
     const color = override ?? SEVERITY_COLOR[severity] ?? SEVERITY_COLOR.heads_up;
     const objs = ids.map((id) => house.byId.get(id)).filter(Boolean);
-    objs.forEach((o) => { o.userData.flagColor = color; setHighlight(o, color); });
+    // an override colour (inspection: always red) glows as the severity it stands for
+    const sev = Object.keys(SEVERITY_COLOR).find((k) => SEVERITY_COLOR[k] === color) ?? severity;
+    objs.forEach((o) => { o.userData.flagColor = color; o.userData.flagSev = sev; setHighlight(o, color); });
     flagged = [...new Set([...flagged, ...objs])];
+    updateGlow();
     if (label && objs[0]) {
       flagLabels.forEach((l) => l.removeFromParent());
       // One place: the command's label, once. Several rooms (e.g. "the bathrooms"): each gets its own name.
@@ -335,6 +347,16 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
       });
     }
     invalidate();
+  }
+
+  // One glow for everything flagged, in the colour of the most serious of them.
+  function updateGlow() {
+    glow.selectedObjects = flagged;
+    glow.enabled = flagged.length > 0;
+    if (!glow.enabled) return;
+    const worst = flagged.reduce((a, o) => ((SEV_RANK[o.userData.flagSev] ?? 1) > (SEV_RANK[a] ?? 1) ? o.userData.flagSev : a), 'info');
+    glow.visibleEdgeColor.setHex(GLOW_COLOR[worst] ?? GLOW_COLOR.heads_up);
+    glow.hiddenEdgeColor.copy(glow.visibleEdgeColor).multiplyScalar(0.45);
   }
 
   // Focus command (PRD §10.4 / §11.2): { layer, object_ids, severity, label }
@@ -399,7 +421,7 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
     const hosts = [...new Set(objs.map(routeOf).filter(Boolean))];
     if (hosts.length !== 1) return 0;
     const host = hosts[0];
-    const color = { info: 0x3d8bd6, heads_up: 0xe0a21a, act_soon: 0xf0782a, urgent: 0xe5484d }[severity] ?? 0xf0782a;
+    const color = GLOW_COLOR[severity] ?? GLOW_COLOR.act_soon;
     const longest = host.userData.paths.reduce((a, p) => (p.length > a.length ? p : a));
     const pts = longest.map((p) => new THREE.Vector3(...p));
     const curve = new THREE.CurvePath();
@@ -937,7 +959,7 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
     const k = 0.55 + 0.45 * Math.sin(now / 260);
     for (const o of flagged) {
       if (o.userData.flagColor === undefined || !o.userData.ownMats) continue;
-      _c.setHex(o.userData.flagColor).multiplyScalar(1 + 2.2 * k);
+      _c.setHex(o.userData.flagColor).multiplyScalar(1.5 + 4 * k);
       o.traverse((m) => {
         if (!m.isMesh) return;
         (Array.isArray(m.material) ? m.material : [m.material]).forEach((mat) => { if (mat.emissive && !mat.userData.lamp) mat.emissive.copy(_c); });
