@@ -54,6 +54,13 @@ BOOKING = "booking"
 BOOKING_ACK = "booking_ack"  # derived: the (illustrative) vendor confirms after a short while
 BOOKING_COMPLETE = "booking_complete"
 CHECK_RESULT = "check_result"
+# The owner shut the supply off in an emergency (the main stop valve, a breaker). The readings go
+# quiet because the supply is off, not because it is fixed: the case waits for the repair.
+CONTAINED = "contained"
+CONTAINED_TEXT = {
+    "main_stop_valve": "Shut off the water at the main stop valve",
+    "breaker": "Switched off the breaker and left it off",
+}
 BOOKING_ACK_AFTER = timedelta(minutes=30)  # house time
 TICKET_STATUS_WORDS = {
     "received": "received your report",
@@ -122,8 +129,9 @@ class CaseState:
     resolved_at: str | None
     timeline: list[TimelineEntry]
     dismissal: CaseAction | None
-    pending: bool = False  # a ticket or booking is still open
+    pending: bool = False  # a ticket or booking is still open, or the supply is shut off
     outcome: str | None = None
+    contained: CaseAction | None = None  # the owner shut the supply off; waits for the repair
 
     @property
     def active_tracks(self) -> list[Track]:
@@ -307,6 +315,7 @@ class _Replay:
         self.open_tickets: set[str] = set()
         self.open_bookings: set[str] = set()
         self.outcome: str | None = None
+        self.contained: CaseAction | None = None
 
     def note(self, t: str, text: str, actor: str = "penjaga") -> None:
         self.timeline.append(TimelineEntry(t, actor, text))
@@ -333,8 +342,14 @@ class _Replay:
             self.note(t, f"Booked {d['vendor_name']} for {d['slot_text']}", action.actor)
         elif action.kind == BOOKING_ACK:
             self.note(t, f"{d['vendor_name']} confirmed the visit", "vendor")
+        elif action.kind == CONTAINED:
+            self.contained = action
+            self.note(
+                t, CONTAINED_TEXT.get(str(d.get("what")), "Shut the supply off"), action.actor
+            )
         elif action.kind == BOOKING_COMPLETE:
             self.open_bookings.discard(str(d["booking_id"]))
+            self.contained = None  # repaired: quiet readings now mean fixed
             self.outcome = f"Repaired by {d['vendor_name']}"
             self.note(t, "Job marked complete", "vendor")
         elif action.kind == CHECK_RESULT:
@@ -409,7 +424,8 @@ def _state(
 
     severity, floor = _severity(replay.latest, replay.floors)
     active = [t for t in tracks if t.active]
-    pending = bool(replay.open_tickets or replay.open_bookings)
+    # quiet readings while the supply is shut off are not a fix: the case waits for the repair
+    pending = bool(replay.open_tickets or replay.open_bookings or replay.contained)
     if not active:
         severity = replay.peak
     if pending:
@@ -436,6 +452,7 @@ def _state(
         dismissal=replay.dismissal if active else None,
         pending=pending,
         outcome=replay.outcome,
+        contained=replay.contained,
     )
 
 

@@ -72,6 +72,8 @@ export interface Case {
   opened_at: number;
   resolved_at?: number;
   outcome?: string;
+  /** The owner shut the supply off in an emergency: quiet readings mean "off", not "fixed", until the repair. */
+  contained?: { what: 'main_stop_valve' | 'breaker'; at: number };
 }
 
 export type VendorCategory = 'plumber' | 'electrician' | 'aircon_service';

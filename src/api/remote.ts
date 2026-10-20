@@ -226,6 +226,13 @@ export function book(caseId: string, vendorId: string, slot: number): void {
     .finally(loadSoon);
 }
 
+/** The owner shut the supply off in an emergency (the main stop valve, a breaker): the case waits for the repair. */
+export function contain(caseId: string, what: 'main_stop_valve' | 'breaker'): void {
+  call('POST', `/cases/${encodeURIComponent(caseId)}/contained`, { what })
+    .catch((err) => console.warn('[penjaga] not recorded', err))
+    .finally(loadSoon);
+}
+
 /** The owner did a maintenance task: it moves to its next date and goes into the Home Passport. */
 export function markMaintenanceDone(itemId: string): void {
   call('POST', `/maintenance/${encodeURIComponent(itemId)}/done`)

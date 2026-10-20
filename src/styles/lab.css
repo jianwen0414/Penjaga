@@ -137,3 +137,35 @@
   .lab-clock i, .lab-tile .pulse, .lab-count i, .lab-list .dot { animation: none; }
   .spin { animation-duration: 2s; }
 }
+
+/* ---- what if they wait? (LabOutlook.tsx): the house carried forward ---- */
+.lab-outlook .lo-cases { margin-bottom: 12px; }
+.lo-stage { position: relative; height: clamp(320px, 46vh, 520px); border-radius: 12px; overflow: hidden; border: 1px solid var(--edge); background: #ece6dd; }
+.lo-stage .lo-view { position: absolute; inset: 0; } /* beats .has-viewer's relative (app.css) */
+.lo-empty { position: absolute; inset: 0; z-index: 2; display: grid; place-content: center; gap: 6px; text-align: center; padding: 24px; background: var(--panel-2); color: var(--text); }
+.lo-empty p { margin: 0; max-width: 52ch; color: var(--dim); font-size: 13.5px; line-height: 1.5; }
+.lo-empty .lo-why { font-size: 12.5px; }
+.lo-empty .lo-why b { color: var(--text); font-weight: 600; }
+.lo-readout { position: absolute; left: 14px; top: 14px; padding: 12px 14px; border-radius: 12px; background: rgba(18, 21, 19, 0.82); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: var(--text); pointer-events: none; min-width: 220px; }
+.lo-when { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim); font-weight: 700; }
+.lo-figs { display: grid; gap: 6px; margin-top: 6px; }
+.lo-figs div { display: flex; align-items: baseline; gap: 8px; }
+.lo-figs b { font-family: var(--serif); font-weight: 500; font-size: 24px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.lo-figs span { font-size: 12.5px; color: var(--dim); }
+.lo-controls { display: grid; grid-template-columns: 44px 1fr; gap: 14px; align-items: start; margin-top: 14px; }
+.lo-play { width: 44px; height: 44px; border-radius: 50%; padding: 0; display: grid; place-items: center; }
+.lo-track { position: relative; padding-bottom: 62px; }
+.lo-track input[type=range] { width: 100%; margin: 14px 0 0; accent-color: var(--water); height: 18px; }
+.lo-marks { position: absolute; left: 0; right: 0; top: 34px; height: 30px; }
+.lo-marks span.low { top: 15px; } .lo-marks span.low i { height: 22px; margin-top: -14px; }
+.lo-marks span { position: absolute; transform: translateX(-50%); display: grid; justify-items: center; gap: 3px; font-size: 11px; color: var(--faint); white-space: nowrap; transition: color 200ms; }
+.lo-marks span i { width: 1px; height: 8px; background: currentColor; }
+.lo-marks span.past { color: var(--text); }
+.lo-ends { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; font-size: 11.5px; color: var(--faint); }
+.lo-basis { margin: 4px 0 0; font-size: 12.5px; color: var(--dim); line-height: 1.5; }
+.lo-basis b { color: var(--text); font-weight: 600; }
+/* 3D labels of the projection (inside the light 3D view) */
+.focus-label.proj { font-weight: 600; transition: border-color 200ms; }
+.proj-tag { padding: 4px 10px; border-radius: 999px; font: 600 12px var(--sans); white-space: nowrap; pointer-events: none; transform: translateY(-50%); }
+.proj-tag.water { background: #2b7fb8; color: #fff; box-shadow: 0 6px 18px -6px rgba(43, 127, 184, 0.6); }
+.proj-tag.ref { background: rgba(255, 255, 255, 0.85); color: #1f4d40; border: 1px dashed #1f4d40; font-size: 11px; }

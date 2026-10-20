@@ -20,7 +20,7 @@ import re
 import secrets
 from collections.abc import AsyncIterator, Callable, Mapping
 from dataclasses import dataclass
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response, status
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -70,6 +70,10 @@ class IdsRequest(BaseModel):
 
 class DismissRequest(BaseModel):
     reason: str = Field(default="", max_length=300)
+
+
+class ContainRequest(BaseModel):
+    what: Literal["main_stop_valve", "breaker"]
 
 
 class PreviewRequest(BaseModel):
@@ -279,6 +283,18 @@ def _add_case_routes(app: FastAPI, service: ApiService, g: Guards) -> None:
     @app.get(f"{PREFIX}/cases/{{case_id}}")
     async def case(case_id: str, _: Annotated[Role, Depends(g.app)]) -> dict[str, Any]:
         return await service.case(case_id)
+
+    @app.get(f"{PREFIX}/outlook")
+    async def outlooks(_: Annotated[Role, Depends(g.operator)]) -> list[dict[str, Any]]:
+        """The Lab's "what if they wait?": each open case's measurements, carried forward."""
+        return await service.outlooks()
+
+    @app.post(f"{PREFIX}/cases/{{case_id}}/contained")
+    async def contained(
+        case_id: str, body: ContainRequest, role: Annotated[Role, Depends(g.homeowner)]
+    ) -> dict[str, Any]:
+        """The owner shut the supply off in an emergency: the case waits for the repair."""
+        return await service.contain(case_id, body.what, role)
 
     @app.post(f"{PREFIX}/cases/{{case_id}}/dismiss")
     async def dismiss(

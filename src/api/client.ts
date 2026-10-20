@@ -41,6 +41,9 @@ export const api = {
   // Demo house only (dev server): what the owner says they did in an emergency happens in the simulated house too.
   // The stand-in's world has no valves, so there it's a no-op.
   ownerDid: real ? remote.ownerDid : (() => {}) as typeof remote.ownerDid,
+  // The owner says they shut the supply off: the Core API keeps the case open until the repair (the stand-in
+  // has no such state; its cases resolve when the Lab clears the fault).
+  contain: real ? remote.contain : (() => {}) as typeof remote.contain,
   vendors: (category: VendorCategory) => (real ? remote.cachedVendors(category) : undefined) ?? standinVendors(category),
   // The real chat answers in a few seconds (a promise); the stand-in answers at once. Agent.tsx handles both.
   ask: (real ? remote.ask : agent.ask) as (q: string, ctx?: { caseId?: string }) => ChatMessage | Promise<ChatMessage>,

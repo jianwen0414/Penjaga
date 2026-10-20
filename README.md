@@ -40,11 +40,13 @@ The whole stack with the real backend:
 
 ```bash
 uv run python scripts/dev_stack.py             # stream, simulator, detection, evaluation and the Core API (:8705)
+npm ci                                         # once: the app's dependencies, from package-lock.json
 VITE_BACKEND=api npm run dev                   # the homeowner app on the real Core API
 cd apps/portal && npm install && npm run dev   # the management portal (:5181)
 ```
 
-Copy `.env.example` to `.env` for the AI key and to `.env.local` for the app's settings; neither is committed.
+Copy `.env.example` to `.env` for the AI and voice keys and to `.env.local` for the app's settings; neither is
+committed.
 
 ## The homeowner app and 3D home
 
@@ -65,6 +67,22 @@ npm run dev          # http://localhost:5173
 Try it: open `/` and `/lab` side by side → in the Lab, inject a running toilet tank (Bathroom 2) → Penjaga notices it,
 walks you through a guided check to find it, books a plumber, and verifies the fix. Then try the earth-leakage case,
 a management water-disruption notice, and the living-alone check.
+
+### Talking to Penjaga
+
+- **Ask by voice:** tap the mic in the ask bar (or Penjaga's face in the header). Your words fade into the chat as
+  they're heard (the browser's speech recognition: Chrome or Edge), and the answer is said out loud as well as
+  written. Penjaga's voice is Google Cloud Text-to-Speech through the Core API (`GOOGLE_TTS_API_KEY` in `.env`);
+  without a key the browser's own voice is used. The microphone is only on while you see it listening.
+- **Resting:** after a while untouched the panel steps aside, the house turns slowly and Penjaga dozes at the bottom;
+  any touch wakes it, tapping Penjaga wakes it and listens. Add `?idle=10` to the URL to try it after 10 seconds.
+- **Emergencies:** when a case turns urgent, Penjaga speaks first, asks where you are, listens for the answer, and
+  draws the walking route in 3D to the valve or switchboard named in the case's reviewed safety text (routes come
+  from `house.spec.json`: doors, open plan, the stair; `src/nav/route.ts`). Try it in the Lab: *Burst pipe*.
+- **What if they wait? (Lab only):** carry an open case forward with a slider and watch the house: a leak's lost water
+  stands beside it as a cube to scale, rising earth leakage climbs to the safety switch's limits. Only the case's own
+  measurements (`GET /api/v1/outlook`), at the rate measured.
+- `npm test` runs the app's unit tests (Vitest); `/character` (dev server only) shows every mood of the character.
 
 ### How it's built
 

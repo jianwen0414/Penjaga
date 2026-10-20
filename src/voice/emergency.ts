@@ -27,6 +27,8 @@ export interface EmergencyPlan {
   sim?: { close_valves?: string[] };
   /** A reading that shows it worked, watched after they say it's done. */
   verify?: 'water';
+  /** What they shut off, when the action shuts a supply off: the case is contained, not fixed. */
+  contain?: 'main_stop_valve' | 'breaker';
 }
 
 const ACTIVE = new Set(['open', 'monitoring', 'action_pending']);
@@ -52,7 +54,7 @@ export function planFor(c: Case, roomOf: (id: string) => string | null): Emergen
       caseId: c.id, alarm, target: { device: 'valve_main_stop' }, label: 'Main stop valve',
       where: `next to the water meter, in ${the(spot.room)}`,
       action: lines[i], after: rest(i), ask: "Tell me when it's closed.",
-      sim: { close_valves: ['valve_main_stop'] }, verify: 'water',
+      sim: { close_valves: ['valve_main_stop'] }, verify: 'water', contain: 'main_stop_valve',
     };
   }
   // electrical: unplugging comes first when the guidance says so (an overloaded circuit): go to its room
@@ -73,6 +75,8 @@ export function planFor(c: Case, roomOf: (id: string) => string | null): Emergen
       caseId: c.id, alarm, target: { device: 'db_main' }, label: 'Switchboard',
       where: `on the wall in ${the(spot.room)}${front}`,
       action: lines[i], after: rest(i), ask: "Tell me when you're there.",
+      // switching off (or leaving off) a breaker shuts that circuit's supply: contained until the electrician
+      contain: /\b(switch|turn)(ed)? (it )?off\b|\bleave it off\b/i.test(lines[i]) ? 'breaker' : undefined,
     };
   }
   return null;

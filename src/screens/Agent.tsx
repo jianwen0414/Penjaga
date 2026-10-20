@@ -425,6 +425,8 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
     retire(e.askKey);
     engine?.clearRoute();
     if (e.plan.sim) api.ownerDid(e.plan.sim);
+    // the supply is off, not fixed: the case stays open for the repair instead of reading as fixed when it goes quiet
+    if (e.plan.contain) api.contain(e.plan.caseId, e.plan.contain);
     const c = caseById(e.plan.caseId);
     const next = e.plan.after[0];
     const watch = e.plan.verify === 'water' && BACKEND === 'api';
@@ -593,6 +595,15 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
       if (e.actor === 'vendor' && /complete/.test(e.text)) { items.push({ key: `${c.id}:${e.t}:${i}`, t: e.t, who: 'penjaga', tone: 'calm', text: `${c.booking?.vendor_name ?? 'The vendor'} says the job is done. I'll check the readings to make sure.` }); continue; }
       if (/^Verified/.test(e.text) || (c.status === 'resolved' && e.actor === 'penjaga')) continue;
       if (e.text === 'Sent to management') { items.push({ key: `${c.id}:${e.t}:${i}:you`, t: e.t, who: 'you', text: 'Send this to management.' }); items.push({ key: `${c.id}:${e.t}:${i}`, t: e.t + 1, who: 'penjaga', tone: 'calm', text: "Sent. I'll show you their reply here." }); continue; }
+    }
+    if (c.contained && c.status !== 'resolved') {
+      const water = c.contained.what === 'main_stop_valve';
+      items.push({
+        key: `${c.id}:contained`, t: c.contained.at, who: 'penjaga', tone: 'calm', kicker: 'Contained, not fixed',
+        text: water
+          ? <><b className="a-lead">The water is off at the main stop valve.</b> No more is coming in, so the damage stops growing, but the leak is still there until a plumber repairs it. Turning the valve back on before then lets it run again.</>
+          : <><b className="a-lead">That breaker is off, so its circuit is safe for now.</b> The fault is still there until an electrician finds and repairs it. Leave it off until then.</>,
+      });
     }
     if (c.status === 'resolved') {
       items.push({ key: `${c.id}:resolved`, t: c.resolved_at ?? houseNow(), who: 'penjaga', tone: 'ok', kicker: 'Fixed', text: <><b className="a-lead">{c.title}.</b> {c.layer === 'L1' ? 'Your water meter is still again at night. ' : c.layer === 'L2' && /leakage/i.test(c.title) ? 'Earth leakage is back to normal. ' : ''}{c.outcome}. I've added it to your Home Passport.</> });

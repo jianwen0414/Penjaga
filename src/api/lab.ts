@@ -19,6 +19,7 @@ export interface Scenario {
   unit: string;
   where: [string, string][]; // [contract ID, name]; empty for supply-level faults
   durationH?: number; // supply faults end on their own
+  growthPerDay?: number; // a fault that gets worse each day (the simulator's "worsening" progression)
   when: string; // how long until detection is sure, in house time
 }
 
@@ -34,7 +35,8 @@ export const SCENARIOS: Scenario[] = [
     where: [['valve_roof_tank_float', 'Roof tank float valve']] },
   { type: 'W5', group: 'Water', label: 'Burst pipe (urgent)', magnitude: 15, unit: 'L/min', when: 'within an hour',
     where: [['pipe_bath2_cold_supply', 'Bathroom 2 supply pipe'], ['pipe_rising_main', 'Rising main']] },
-  { type: 'E2', group: 'Electrical safety', label: 'Earth leakage rising', magnitude: 1.5, unit: 'mA', when: 'within a day',
+  // rising: the midpoint of the simulator's calibrated growth (faults.toml, E2.growth_per_day: 0.05-0.25 a day)
+  { type: 'E2', group: 'Electrical safety', label: 'Earth leakage rising', magnitude: 1.5, unit: 'mA', growthPerDay: 0.15, when: 'within a day',
     where: [['circ_sockets_living', 'Living room sockets'], ['circ_sockets_kitchen', 'Kitchen sockets'], ['circ_sockets_yard', 'Yard sockets']] },
   { type: 'E1', group: 'Electrical safety', label: 'Circuit overloaded', magnitude: 25, unit: 'A', when: 'within hours',
     where: [['circ_sockets_kitchen', 'Kitchen sockets'], ['circ_sockets_living', 'Living room sockets']] },
@@ -80,7 +82,7 @@ export async function inject(s: Scenario, location: string | null): Promise<void
     fault_type: s.type,
     location_id: location,
     magnitude: { value: s.magnitude, unit: s.unit },
-    progression: { kind: 'constant' },
+    progression: s.growthPerDay ? { kind: 'worsening', growth_per_day: s.growthPerDay } : { kind: 'constant' },
     ...(s.durationH ? { duration_s: s.durationH * 3600 } : {}),
   };
   try {

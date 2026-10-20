@@ -1358,6 +1358,11 @@ def render(
     }
     if t.how:
         doc["impact"]["how"] = t.how
+    if case.contained is not None:
+        doc["contained"] = {
+            "what": case.contained.detail.get("what"),
+            "at": epoch_ms(case.contained.house_time),
+        }
     safety = _safety(ctx) if severity == "urgent" else None
     if safety:
         doc["safety"] = safety

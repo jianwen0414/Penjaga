@@ -30,7 +30,15 @@ from penjaga_api.agent.explain import (
 from penjaga_api.agent.notices import read_notice
 from penjaga_api.agent.openrouter import LLM, LLMUnavailableError
 from penjaga_api.agent.tools import ToolBox
-from penjaga_api.cases import DISMISS, CaseState, build_cases, dismissable, epoch_ms
+from penjaga_api.cases import (
+    CONTAINED,
+    CONTAINED_TEXT,
+    DISMISS,
+    CaseState,
+    build_cases,
+    dismissable,
+    epoch_ms,
+)
 from penjaga_api.costs import DAYS_PER_MONTH, Baseline, CostEstimate, estimate
 from penjaga_api.follower import FindingFollower
 from penjaga_api.ids import validate_ids
@@ -48,6 +56,8 @@ from penjaga_api.notices import (
     reaches_house,
     to_view,
 )
+from penjaga_api.outlook import ACTIVE as OUTLOOK_ACTIVE
+from penjaga_api.outlook import outlook
 from penjaga_api.store import ApiStore, OutboxEvent
 from penjaga_api.tariffs import NoTariffError
 from penjaga_api.templates import (
@@ -357,6 +367,23 @@ class ApiService:
             r.case = self._explained(state, r.case, consent)
         return [r.case for r in rendered]
 
+    async def outlooks(self) -> list[dict[str, Any]]:
+        """What waiting would do, for every case still open: each case's own measurements carried
+        forward (``outlook.py``). The Lab's "what if they wait?" view; operator only."""
+        consent = await self._consent_map()
+        now = await self.house_time()
+        states = [
+            s for s in self._visible(self.case_states(now), consent) if s.status in OUTLOOK_ACTIVE
+        ]
+        costs = await self._costs(states, now)
+        notices = self.notice_docs()
+        out = []
+        for s in states:
+            extras = self._extras(s, notices, consent, now)
+            case = render(s, self.index, self.names, now, costs, extras=extras).case
+            out.append(outlook(s, case, costs.get(s.lead["id"])))
+        return out
+
     async def case(self, case_id: str) -> dict[str, Any]:
         consent = await self._consent_map()
         now = await self.house_time()
@@ -505,6 +532,28 @@ class ApiService:
             actor=TIMELINE_ACTOR[actor],
             house_time=house_time,
             detail={"reason": reason},
+        )
+        self.publish_case_changes()
+        self.notify()
+        return await self.case(case_id)
+
+    async def contain(self, case_id: str, what: str, actor: Role) -> dict[str, Any]:
+        """The owner shut the supply off in an emergency (``what``: the main stop valve or a
+        breaker). The case then waits for the repair instead of resolving when the readings go
+        quiet: they are quiet because the supply is off."""
+        state = self._find(case_id, await self._consent_map())
+        if state.status in ("resolved", "dismissed"):
+            raise CaseActionRefusedError(f"case is {state.status}")
+        if what not in CONTAINED_TEXT:
+            raise CaseActionRefusedError(f"unknown supply {what!r}")
+        run, _ = self._run()
+        self.store.add_case_action(
+            run,
+            case_id,
+            kind=CONTAINED,
+            actor=TIMELINE_ACTOR[actor],
+            house_time=await self.house_time(),
+            detail={"what": what},
         )
         self.publish_case_changes()
         self.notify()

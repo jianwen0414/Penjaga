@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import * as lab from '../api/lab';
 import { Icon } from '../components/ui';
 import '../styles/lab.css';
+import LabOutlook from './LabOutlook';
 
 type Tone = 'water' | 'power' | 'appliance' | 'supply' | 'life';
 const GROUPS: { id: lab.Scenario['group']; tone: Tone; icon: string; blurb: string }[] = [
@@ -127,6 +128,7 @@ export default function RealLab() {
 
       <div className="lab-layout">
         <main className="lab-main">
+          <LabOutlook />
           <div className="lab-groups">
           {GROUPS.map((g) => (
             <section key={g.id} className={`lab-card tone-${g.tone}`}>

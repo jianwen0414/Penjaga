@@ -50,6 +50,10 @@ export interface PenjagaEngine {
    * the destination device glows. Lasts until clearRoute() or clearFocus(). */
   route(r: RouteShape, opts?: { from?: string; to?: string; color?: number }): boolean;
   clearRoute(): void;
+  /** The Lab's "what if they wait?": the case's part glows at the severity reached, with a line; a leak's water stands
+   * beside the house as a cube to scale. Same `key` updates in place; a new key frames the view. */
+  projection(p: { key: string; layer: string; ids: string[]; severity: Severity; label: string; waterM3?: number | null; maxWaterM3?: number | null }): boolean;
+  clearProjection(): void;
   describe(id: string): ElementInfo | null;
   has(id: string): boolean;
   on<K extends keyof Events>(ev: K, f: (data: Events[K]) => void): () => void;

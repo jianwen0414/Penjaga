@@ -44,6 +44,12 @@ describe('an urgent case becomes a place to go and a thing to do', () => {
     expect(p.target).toEqual({ device: 'db_main' });
     expect(p.action).toBe(STANDIN[2]);
   });
+  test('shutting a supply off is containing it, not fixing it; unplugging is not a shut-off', () => {
+    expect(planFor(urgent('L1', BURST), roomOf)!.contain).toBe('main_stop_valve');
+    expect(planFor(urgent('L2', TRIPS), roomOf)!.contain).toBe('breaker'); // "Leave it off"
+    expect(planFor(urgent('L2', STANDIN), roomOf)!.contain).toBe('breaker'); // "switch off the ... breaker"
+    expect(planFor(urgent('L2', OVERLOAD), roomOf)!.contain).toBeUndefined();
+  });
   test('no reviewed guidance, or none naming a place: no route is invented', () => {
     expect(planFor(urgent('L1', undefined), roomOf)).toBeNull();
     expect(planFor(urgent('L2', ['Call an electrician.']), roomOf)).toBeNull();

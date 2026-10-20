@@ -32,7 +32,7 @@ CASE_KEYS = {
     "id", "status", "layer", "severity", "title", "location", "summary", "confidence",
     "confidence_note", "impact", "actions", "evidence", "timeline", "focus", "opened_at",
 }  # fmt: skip
-OPTIONAL_KEYS = {"safety", "guided", "booking", "resolved_at", "outcome"}
+OPTIONAL_KEYS = {"safety", "guided", "booking", "resolved_at", "outcome", "contained"}
 STATUSES = {"open", "monitoring", "action_pending", "resolved", "dismissed"}
 SEVERITIES = ["info", "heads_up", "act_soon", "urgent"]
 ACTION_KINDS = {"guided_check", "book_vendor", "send_management", "dismiss", "show_in_3d"}
@@ -306,6 +306,37 @@ def test_a_dismissed_case_reopens_when_it_becomes_more_serious() -> None:
     (back,) = cases_of([first, worse], [dismiss])
     assert back.status == "open"
     assert "Reopened: this has become more serious" in [e.text for e in back.timeline]
+
+
+def test_a_supply_shut_off_in_an_emergency_waits_for_the_repair() -> None:
+    # The owner closes the main stop valve: the meter goes quiet and the burst finding clears,
+    # but that's the supply being off, not a fix. The case waits for the repair.
+    burst = finding("burst_pipe_suspected", first_seen="2025-11-03T04:00:00+08:00")
+    (state,) = cases_of([burst])
+    shut = CaseAction(
+        1, state.id, "contained", "owner", "2025-11-03T04:20:00+08:00", {"what": "main_stop_valve"}
+    )
+    cleared = revision(
+        {**burst, "status": "cleared", "cleared_at": "2025-11-03T04:40:00+08:00"},
+        2,
+        "2025-11-03T04:40:00+08:00",
+    )
+    (contained,) = cases_of([burst, cleared], [shut])
+    assert contained.status == "action_pending"
+    assert contained.resolved_at is None
+    assert "Shut off the water at the main stop valve" in [e.text for e in contained.timeline]
+    doc = rendered(contained)
+    assert doc["contained"]["what"] == "main_stop_valve"
+    assert "resolved_at" not in doc
+
+    done = CaseAction(
+        2, state.id, "booking_complete", "vendor", "2025-11-04T10:00:00+08:00",
+        {"booking_id": "bkg_1", "vendor_name": "Hafiz Plumbing"},
+    )  # fmt: skip
+    (repaired,) = cases_of([burst, cleared], [shut, done])
+    assert repaired.status == "resolved"
+    assert repaired.outcome == "Repaired by Hafiz Plumbing"
+    assert "contained" not in rendered(repaired)
 
 
 def test_case_ids_are_stable_across_rebuilds() -> None:

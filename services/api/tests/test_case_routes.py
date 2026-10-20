@@ -300,3 +300,22 @@ def test_live_readings_for_the_listening_line(h: Harness) -> None:
     assert r.json()["pressure_bar"] is None
     h.up.readings = {}
     assert h.client.get("/api/v1/live", headers=_h(Role.homeowner)).json()["water_lpm"] is None
+
+
+def test_the_owner_can_say_they_shut_the_supply_off(h: Harness) -> None:
+    h.follow(finding("burst_pipe_suspected"))
+    (case,) = h.view()["cases"]
+    url = f"/api/v1/cases/{case['id']}/contained"
+    body = {"what": "main_stop_valve"}
+    assert h.client.post(url, json=body, headers=_h(Role.management)).status_code == 403
+    assert (
+        h.client.post(url, json={"what": "the cat"}, headers=_h(Role.homeowner)).status_code == 422
+    )
+    r = h.client.post(url, json=body, headers=_h(Role.homeowner))
+    assert r.status_code == 200, r.text
+    assert r.json()["contained"]["what"] == "main_stop_valve"
+    assert r.json()["status"] == "action_pending"
+    unknown = h.client.post(
+        "/api/v1/cases/case_nope/contained", json=body, headers=_h(Role.homeowner)
+    )
+    assert unknown.status_code == 404

@@ -317,6 +317,7 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
     clearFlags();
     clearScan();
     clearRoute();
+    if (proj) { const p = proj; proj = null; p.objects.forEach((o) => o.removeFromParent()); }
     endInspect();
     state.focus = null;
     select(null);
@@ -868,6 +869,122 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
     dirty = true;
   }
 
+  // ---------- projection: "what if they wait?" (Lab) ----------
+  // The case's part glows in the colour of where it has got to, with a line saying how far; a leak's lost water
+  // stands beside the house as one cube, to scale (1 m = 1 m: 1,000 litres is a 1 m cube), next to a 1 m³ cube for
+  // comparison. Called again and again as the slider moves: only what changed is redrawn.
+  let proj = null;
+  function clearProjection() {
+    if (!proj) return;
+    const p = proj;
+    proj = null;
+    p.objects.forEach((o) => { o.removeFromParent(); o.traverse?.((m) => { m.geometry?.dispose(); m.material?.dispose?.(); }); });
+    clearFlags();
+    invalidate(true);
+  }
+  function waterCube(fg) {
+    const g = new THREE.Group();
+    const water = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: 0x2b7fb8, transparent: true, opacity: 0.5, roughness: 0.08, metalness: 0, depthWrite: false }));
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)), new THREE.LineBasicMaterial({ color: 0x9fd3f5, transparent: true, opacity: 0.9 }));
+    const surface = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0xbfe6ff, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide }));
+    surface.position.z = 0.5;
+    g.add(water, edges, surface);
+    g.userData.parts = { water, edges, surface };
+    fg.userData.layers.labels.add(g);
+    return g;
+  }
+  /**
+   * opts: { key, layer, ids, severity, label, waterM3?, maxWaterM3? }. `key` names the case: a new key frames the
+   * view (wide enough for the biggest cube the slider can reach), the same key only updates.
+   */
+  function projection({ key, layer, ids = [], severity = 'heads_up', label = '', waterM3 = null, maxWaterM3 = null } = {}) {
+    const objs = ids.map((id) => house.byId.get(id)).filter(Boolean);
+    if (!proj || proj.key !== key) {
+      clearFocus({ reframe: false });
+      clearProjection();
+      proj = { key, sev: null, label: null, tag: null, cube: null, refCube: null, objects: [], ids };
+      if (layer === 'water' || layer === 'electrical') setLayer(layer, true);
+      if (state.view !== 'split') setView('split', { reframe: false });
+      state.xray = true;
+      const gf = house.floors.GF;
+      if (maxWaterM3 != null) {
+        // the cube stands on the ground to the left of the house (the first floor is on the right in this view)
+        const cube = waterCube(gf);
+        const ref = new THREE.Group();
+        const refEdges = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)), new THREE.LineDashedMaterial({ color: 0x1f4d40, dashSize: 0.12, gapSize: 0.08 }));
+        refEdges.computeLineDistances();
+        ref.add(refEdges);
+        gf.userData.layers.labels.add(ref);
+        const el = document.createElement('div');
+        el.className = 'proj-tag ref';
+        el.textContent = '1 m³ = 1,000 L';
+        const refTag = new CSS2DObject(el);
+        refTag.position.set(0, 0, 0.9);
+        ref.add(refTag);
+        const maxSide = Math.cbrt(Math.max(1, maxWaterM3));
+        cube.userData.maxSide = maxSide;
+        const x = -1.6 - maxSide / 2;
+        cube.position.set(x, spec.meta.depth * 0.42, 0);
+        ref.position.set(x + maxSide / 2 + 0.9, spec.meta.depth * 0.42 - maxSide / 2 - 0.2, 0.5);
+        const tagEl = document.createElement('div');
+        tagEl.className = 'proj-tag water';
+        const tag = new CSS2DObject(tagEl);
+        cube.add(tag);
+        proj.cube = cube; proj.refCube = ref; proj.cubeTag = tag;
+        proj.objects.push(cube, ref);
+      }
+      // frame the part and (for water) the biggest cube the slider can reach
+      scene.updateMatrixWorld(true);
+      const box = new THREE.Box3();
+      objs.forEach((o) => box.expandByObject(o));
+      if (proj.cube) {
+        const s = proj.cube.userData.maxSide, c = proj.cube.position;
+        const lo = house.floors.GF.localToWorld(new THREE.Vector3(c.x - s / 2, c.y - s / 2, 0));
+        const hi = house.floors.GF.localToWorld(new THREE.Vector3(c.x + s / 2, c.y + s / 2, s));
+        box.expandByPoint(lo).expandByPoint(hi);
+        box.expandByObject(house.floors.GF.userData.layers.structure);
+      }
+      if (box.isEmpty()) box.expandByObject(house.floors.GF.userData.layers.structure);
+      const sphere = box.getBoundingSphere(new THREE.Sphere());
+      const vfov = THREE.MathUtils.degToRad(camera.fov);
+      const hfov = 2 * Math.atan(Math.tan(vfov / 2) * camera.aspect);
+      const dist = Math.max(9, (sphere.radius / Math.sin(Math.min(vfov, hfov) / 2)) * 0.82); // the bounding sphere is generous: the corners can go
+      flyTo(sphere.center.clone().add(new THREE.Vector3(0, Math.sin(ELEV), Math.cos(ELEV)).multiplyScalar(dist)), sphere.center, 1.2);
+      state.focus = objs.length ? { objs } : null;
+    }
+    // the part's glow and its line, only when they change
+    if (proj.sev !== severity && objs.length) {
+      clearFlags();
+      flag(ids, severity);
+      proj.sev = severity;
+      if (!proj.tag) {
+        const el = document.createElement('div');
+        el.className = 'focus-label proj';
+        const tag = new CSS2DObject(el);
+        const b = new THREE.Box3().setFromObject(objs[0]);
+        objs[0].worldToLocal(tag.position.set((b.min.x + b.max.x) / 2, b.max.y + 0.2, (b.min.z + b.max.z) / 2));
+        objs[0].add(tag);
+        proj.tag = tag;
+        proj.objects.push(tag);
+      }
+    }
+    if (proj.tag) {
+      proj.tag.element.className = `focus-label proj sev-${severity}`;
+      if (proj.label !== label) { proj.tag.element.textContent = label; proj.label = label; }
+    }
+    if (proj.cube && waterM3 != null) {
+      const s = Math.max(0.001, Math.cbrt(waterM3));
+      proj.cube.scale.set(s, s, s);
+      proj.cube.position.z = s / 2;
+      proj.cube.visible = waterM3 > 0.0005;
+      proj.cubeTag.position.set(0, 0, 0.5 + 0.35 / s); // just above the top face (in the cube's scaled space)
+      const litres = waterM3 * 1000;
+      proj.cubeTag.element.textContent = litres >= 10000 ? `${waterM3.toFixed(waterM3 < 100 ? 1 : 0)} m³ of water` : `${Math.round(litres).toLocaleString('en-MY')} litres`;
+    }
+    invalidate(true);
+    return true;
+  }
+
   // ---------- capture: the stage's visible part as an image, and as a short clip while inspecting ----------
   const ACCENT = '#48d6a6';
   function frameRect() {
@@ -1203,7 +1320,7 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
   return {
     mount, unmount, setInteractive, setAutoRotate, setInsets,
     frame, setView, setLayer, setXray, setDrill, getState,
-    focus, focusRoom, focusId, flag, clearFlags, clearFocus, drillCheck, servicesInWall, scan, inspect, capture, route, clearRoute, trace: (ids, severity) => trace(ids.map((id) => house.byId.get(id)).filter(Boolean), severity), roomOf,
+    focus, focusRoom, focusId, flag, clearFlags, clearFocus, drillCheck, servicesInWall, scan, inspect, capture, route, clearRoute, projection, clearProjection, trace: (ids, severity) => trace(ids.map((id) => house.byId.get(id)).filter(Boolean), severity), roomOf,
     describe: (id) => describe(house.byId.get(id)),
     has: (id) => house.byId.has(id),
     on(ev, f) { (listeners[ev] ||= []).push(f); return () => { listeners[ev] = listeners[ev].filter((x) => x !== f); }; },
