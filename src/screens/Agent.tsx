@@ -2,18 +2,29 @@
 // what it's talking about in the house. The owner acts by replying (or typing), never by hunting through pages.
 // The conversation is rebuilt from case data on every render (so it survives reloads); only the owner's
 // free-form questions and taps on the house are session-only.
-import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import spec from '../../house.spec.json';
 import { useView, api, useLive, houseNow, BACKEND, type Live } from '../api/client';
 import { ViewerSlot, useEngine, type Engine } from '../app/engine';
 import { Icon, Chart, Sheet, SEV_LABEL, fmtDay, fmtTime } from '../components/ui';
 import Character, { moodFor, type Mood } from '../components/Character';
+import LiveCharacter, { type Activity } from '../character/LiveCharacter';
+import Resting from '../components/Resting';
 import NotifyBell from '../components/NotifyBell';
 import MiniOrb from '../components/MiniOrb';
 import { useLiquidGlass } from '../components/LiquidGlass';
 import type { Case, ChatMessage, FocusCommand, Severity, Vendor } from '../api/types';
 import type { ElementInfo, DrillResult, InspectPhase } from '../viewer/engine';
+import { canListen, listen, type ListenEnd, type Listening } from '../voice/listen';
+import * as speech from '../voice/speak';
+import { useVoicePrefs, voicePrefs } from '../voice/prefs';
+import { placeFrom, roomName as placeName, type Place } from '../voice/place';
+import { answerKind, isEmergency, planFor, type EmergencyPlan } from '../voice/emergency';
+import { routeTo, the } from '../nav/route';
+import LiveWords from '../voice/LiveWords';
+import { EmSteps, ListeningLine, MicIcon, WaterCheck } from '../voice/ui';
+import '../styles/voice.css';
 import NoticesPanel from './Notices';
 import SettingsPanel from './Settings';
 
@@ -23,7 +34,18 @@ type Item = {
   kicker?: string; tone?: Severity | 'ok' | 'calm';
   text?: ReactNode; card?: ReactNode; chips?: Chip[];
   focus?: FocusCommand; frame?: boolean;
+  still?: boolean; // arrives without the slide-in (the owner's spoken words, already on screen as they spoke)
 };
+// An emergency in progress: the plan (where to go, what to do), and how far the owner has got.
+type Em = { plan: EmergencyPlan; stage: 'ask' | 'which' | 'route' | 'done'; room?: string; askKey?: string };
+
+// Rest after this long untouched (seconds; ?idle=10 to try it quickly).
+const IDLE_MS = (Number(new URLSearchParams(location.search).get('idle')) || 75) * 1000;
+const HANDLED_KEY = 'penjaga.emergency.handled';
+// rooms to tap when Penjaga asks where you are (the rest come from "Somewhere else")
+const QUICK_ROOMS = ['living', 'kitchen', 'dining', 'bed4', 'master', 'bed2', 'bed3', 'family'];
+const ALL_ROOMS = (spec as unknown as { rooms: { id: string }[] }).rooms.map((r) => r.id);
+const ROOM_FLOOR = new Map((spec as unknown as { rooms: { id: string; floor: string }[] }).rooms.map((r) => [r.id, r.floor]));
 type Flow =
   | { type: 'check'; caseId: string }
   | { type: 'book'; caseId: string; vendor?: Vendor; slot?: number }
@@ -198,6 +220,243 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
       say({ who: 'penjaga', tone: 'calm', text: `${f.label ? `${f.label}: ` : ''}that part isn't in the 3D model of your home yet, so I can't point to it.` });
     }
   };
+
+  // ---------- talking: the owner's voice in (only when they tap the mic, or answering Penjaga in an emergency) ----------
+  const speaker = useSyncExternalStore(speech.subscribe, speech.snapshot);
+  const prefs = useVoicePrefs();
+  const [hearing, setHearing] = useState<{ text: string; settled: string } | null>(null);
+  const listening = useRef<Listening | null>(null);
+  const micLevel = useRef(0);
+  const getMic = useCallback(() => micLevel.current, []);
+  // the mic level drives a few CSS variables (the ring round the mic, the owner's avatar) without re-rendering
+  const setMic = (l: number) => {
+    micLevel.current = l;
+    document.querySelectorAll<HTMLElement>('[data-mic]').forEach((el) => el.style.setProperty('--mic', l.toFixed(3)));
+  };
+  const lastSpoken = useRef('');
+  /** Say something aloud (and keep it, in case the browser held the sound back and the owner taps to hear it). */
+  const speak = (text: string) => {
+    lastSpoken.current = text;
+    return speech.say(text, { browserOnly: BACKEND !== 'api' });
+  };
+  /** Listen once: the words appear in the chat as they're heard; resolves with what was said and why it ended. */
+  const hear = async (opts: { maxMs?: number; noSpeechMs?: number; silenceMs?: number } = {}) => {
+    speech.cancel();
+    listening.current?.abort();
+    setHearing({ text: '', settled: '' });
+    const l = listen({ lang: 'en-GB', maxMs: 20_000, noSpeechMs: 8_000, silenceMs: 1_300, ...opts, onWords: (text, settled) => setHearing({ text, settled }), onLevel: setMic });
+    listening.current = l;
+    const r = await l.done;
+    if (listening.current === l) { listening.current = null; setHearing(null); }
+    return r;
+  };
+  const stopTalking = () => { listening.current?.abort(); listening.current = null; setHearing(null); speech.cancel(); };
+  useEffect(() => () => { listening.current?.abort(); speech.cancel(); }, []);
+  const micTrouble = (end: ListenEnd) => {
+    if (end === 'denied') say({ who: 'penjaga', tone: 'calm', text: "I can't hear you: the microphone is blocked for this page. Allow it in your browser's address bar, or type instead." });
+    else if (end === 'unavailable') say({ who: 'penjaga', tone: 'calm', text: "This browser can't listen. Try Chrome or Edge, or type your question." });
+    else if (end === 'error') say({ who: 'penjaga', tone: 'calm', text: "I couldn't hear that (the speech service didn't answer). Try again, or type instead." });
+  };
+  /** The mic button, or tapping Penjaga: listen for a question, then answer it out loud. Tapping again stops. */
+  async function talk() {
+    if (hearing) { listening.current?.stop(); return; }
+    if (em && (em.stage === 'ask' || em.stage === 'which' || em.stage === 'route')) { void emergencyListen(); return; }
+    if (!canListen()) { micTrouble('unavailable'); return; }
+    if (collapsed) setCollapsed(false);
+    const r = await hear();
+    if (r.text) void ask(r.text, { voice: true });
+    else micTrouble(r.end);
+  }
+
+  // ---------- resting: untouched for a while, the panel steps aside and Penjaga dozes over the house ----------
+  const [rest, setRest] = useState<'off' | 'on' | 'leaving'>('off');
+  const [em, setEmState] = useState<Em | null>(null);
+  const emRef = useRef<Em | null>(null);
+  const setEm = (next: Em | null) => { emRef.current = next; setEmState(next); };
+  const busy = !!(hearing || speaker.speaking || thinking || flow || hud || scanning || drawer || panel || viewer || em || text.trim());
+  useEffect(() => {
+    if (busy || rest !== 'off' || !engine) return;
+    let timer = setTimeout(() => setRest('on'), IDLE_MS);
+    const poke = () => { clearTimeout(timer); timer = setTimeout(() => setRest('on'), IDLE_MS); };
+    const evs = ['pointermove', 'pointerdown', 'keydown', 'wheel', 'touchstart'] as const;
+    evs.forEach((ev) => window.addEventListener(ev, poke, { capture: true, passive: true }));
+    return () => { clearTimeout(timer); evs.forEach((ev) => window.removeEventListener(ev, poke, { capture: true })); };
+  }, [busy, rest, engine]);
+  useEffect(() => {
+    if (!engine || rest !== 'on') return;
+    // the house takes the whole stage and turns slowly
+    unfocus({ reframe: false });
+    engine.setInsets({ left: 0 });
+    engine.frame(1.6, { tight: 0.9 });
+    engine.setAutoRotate(true);
+    return () => { engine.setAutoRotate(false); engine.setInsets({ left: 470 }); engine.frame(1.2); };
+  }, [rest, engine]); // eslint-disable-line react-hooks/exhaustive-deps
+  const wake = useCallback((andTalk = false) => {
+    setRest((r) => (r === 'on' ? 'leaving' : r));
+    setTimeout(() => { setRest('off'); if (andTalk) void talkRef.current(); }, 760);
+  }, []);
+  const talkRef = useRef(talk);
+  talkRef.current = talk;
+
+  // ---------- an emergency: Penjaga speaks first, asks where you are, and walks you to what makes it safe ----------
+  const handled = useRef<Set<string>>((() => { try { return new Set(JSON.parse(localStorage.getItem(HANDLED_KEY) ?? '[]') as string[]); } catch { return new Set<string>(); } })());
+  const markHandled = (id: string) => {
+    handled.current.add(id);
+    try { localStorage.setItem(HANDLED_KEY, JSON.stringify([...handled.current].slice(-100))); } catch { /* this session only */ }
+  };
+  const retire = (key?: string) => { if (key) setSession((s) => s.map((it) => (it.key === key ? { ...it, chips: undefined } : it))); };
+  const sayKey = (it: Omit<Item, 'key' | 't'>) => { const key = `em${Date.now()}${Math.random()}`; setSession((s) => [...s, { key, t: houseNow(), ...it }]); return key; };
+  useEffect(() => {
+    if (!engine || emRef.current) return;
+    const c = v.cases.find((x) => isEmergency(x) && !handled.current.has(x.id));
+    if (!c) return;
+    markHandled(c.id);
+    const plan = planFor(c, (id) => engine.roomOf(id));
+    if (plan) void startEmergency(plan); // no plan: the case's own safety steps show; no destination is invented
+  }, [v.cases, engine]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const roomChips = (rooms: string[], more: boolean): Chip[] => [
+    ...rooms.map((r) => ({ label: placeName(r).replace(/^Flexi-Suite bedroom$/, 'Flexi-Suite'), onClick: () => placeTapped(r) })),
+    ...(more ? [{ label: 'Somewhere else', icon: 'chevron', quiet: true, onClick: () => askWhichOf(ALL_ROOMS.filter((r) => !QUICK_ROOMS.includes(r)), 'room', false) }] : []),
+    { label: "I'm not home", quiet: true, onClick: () => placeTapped('away') },
+  ];
+  async function startEmergency(plan: EmergencyPlan) {
+    stopTalking();
+    if (rest === 'on') wake(false);
+    setFlow(null);
+    setCollapsed(false);
+    const askKey = sayKey({ who: 'penjaga', tone: 'urgent', kicker: 'Urgent · right now', text: <><b className="a-lead">{plan.alarm}</b> Where are you right now?</>, chips: roomChips(QUICK_ROOMS, true) });
+    setEm({ plan, stage: 'ask', askKey });
+    await speak(`${plan.alarm} Where are you right now?`);
+    if (emRef.current?.plan === plan && emRef.current.stage === 'ask') void emergencyListen();
+  }
+  /** Listen for the owner's answer to Penjaga's question (only while the emergency is asking). */
+  async function emergencyListen(tries = 0) {
+    const e = emRef.current;
+    if (!e || !voicePrefs().emergencyListen || !canListen()) return;
+    const asking = e.stage === 'ask' || e.stage === 'which';
+    const r = await hear(asking ? { maxMs: 14_000, noSpeechMs: 9_000 } : { maxMs: 40_000, noSpeechMs: 30_000, silenceMs: 1_100 });
+    const now = emRef.current;
+    if (!now || now.plan !== e.plan) return;
+    if (!r.text) {
+      if (r.end === 'denied' || r.end === 'unavailable' || r.end === 'error') micTrouble(r.end);
+      else if (asking) say({ who: 'penjaga', tone: 'calm', text: "I didn't hear you. Tap where you are, or tap the mic and tell me." });
+      return;
+    }
+    say({ who: 'you', text: r.text, still: true });
+    if (now.stage === 'ask' || now.stage === 'which') placeSaid(placeFrom(r.text), tries);
+    else if (now.stage === 'route') doneSaid(r.text, tries);
+  }
+  function placeSaid(p: Place, tries: number) {
+    const e = emRef.current!;
+    if (p.kind === 'room') { void goRoute(p.room); return; }
+    if (p.kind === 'away') { goAway(); return; }
+    if (p.kind === 'ambiguous') { askWhichOf(p.options, p.what, true); return; }
+    if (tries < 1) {
+      retire(e.askKey);
+      const key = sayKey({ who: 'penjaga', tone: 'urgent', text: 'Sorry, which room are you in?', chips: roomChips(QUICK_ROOMS, true) });
+      setEm({ ...e, askKey: key });
+      void speak('Sorry, which room are you in?').then(() => { if (emRef.current?.askKey === key) void emergencyListen(tries + 1); });
+    } else say({ who: 'penjaga', tone: 'calm', text: 'Tap the room you are in.' });
+  }
+  function askWhichOf(options: string[], what: string, listenAfter: boolean) {
+    const e = emRef.current;
+    if (!e) return;
+    retire(e.askKey);
+    const q = `Which ${what}?`;
+    const key = sayKey({ who: 'penjaga', tone: 'urgent', text: q, chips: roomChips(options, false) });
+    setEm({ ...e, stage: 'which', askKey: key });
+    if (listenAfter) void speak(q).then(() => { if (emRef.current?.askKey === key) void emergencyListen(1); });
+  }
+  function placeTapped(room: string) {
+    const e = emRef.current;
+    if (!e || (e.stage !== 'ask' && e.stage !== 'which')) return;
+    listening.current?.abort();
+    say({ who: 'you', text: room === 'away' ? "I'm not home." : `I'm in ${the(room)}.` });
+    if (room === 'away') goAway(); else void goRoute(room);
+  }
+  async function goRoute(room: string) {
+    const e = emRef.current;
+    if (!e || !engine) return;
+    retire(e.askKey);
+    const { plan } = e;
+    const r = routeTo(room, plan.target);
+    const there = `The ${plan.label.toLowerCase()} is ${plan.where}.`;
+    if (r) engine.route(r, { from: `You · ${placeName(room)}`, to: plan.label });
+    const walk = r?.say ?? '';
+    const key = sayKey({
+      who: 'penjaga', tone: 'urgent', kicker: 'Go now',
+      text: <><b className="a-lead">{walk || there}</b>{walk ? ` ${there}` : ''}</>,
+      card: <div className="a-card"><EmSteps steps={[plan.action, ...plan.after]} /></div>,
+      chips: [
+        { label: plan.verify === 'water' ? "Done, it's closed" : "Done", icon: 'check', primary: true, onClick: () => { listening.current?.abort(); say({ who: 'you', text: 'Done.' }); finish(); } },
+        { label: "I can't find it", onClick: () => { listening.current?.abort(); say({ who: 'you', text: "I can't find it." }); void lost(); } },
+        { label: 'Stop guiding', quiet: true, onClick: () => endEmergency() },
+      ],
+    });
+    setEm({ ...e, stage: 'route', room, askKey: key });
+    await speak(`${walk} ${there} ${plan.action} ${plan.ask}`);
+    if (emRef.current?.askKey === key) void emergencyListen();
+  }
+  function doneSaid(said: string, tries: number) {
+    const kind = answerKind(said);
+    if (kind === 'done') finish();
+    else if (kind === 'lost') void lost();
+    else if (kind === 'wait' && tries < 3) void speak("Okay. Tell me when it's done.").then(() => void emergencyListen(tries + 1));
+    else say({ who: 'penjaga', tone: 'calm', text: "Tap Done when it's done, or tell me." });
+  }
+  async function lost() {
+    const e = emRef.current;
+    if (!e || !engine) return;
+    const focus: FocusCommand = 'device' in e.plan.target
+      ? { layer: e.plan.target.device.startsWith('valve') ? 'water' : 'electrical', object_ids: [e.plan.target.device], severity: 'urgent', label: e.plan.label }
+      : { layer: 'structure', object_ids: [`floor_${ROOM_FLOOR.get(e.plan.target.room)}_${e.plan.target.room}`], severity: 'urgent', label: e.plan.label };
+    const line = `It's ${e.plan.where}. Here's what it looks like.`;
+    say({ who: 'penjaga', tone: 'urgent', text: line });
+    const run = speak(line);
+    const c = caseById(e.plan.caseId);
+    if (c && engine.has(focus.object_ids[0])) await inspectCase(c, focus);
+    await run;
+    if (emRef.current?.plan === e.plan) void emergencyListen(1);
+  }
+  function finish() {
+    const e = emRef.current;
+    if (!e) return;
+    retire(e.askKey);
+    engine?.clearRoute();
+    if (e.plan.sim) api.ownerDid(e.plan.sim);
+    const c = caseById(e.plan.caseId);
+    const next = e.plan.after[0];
+    const watch = e.plan.verify === 'water' && BACKEND === 'api';
+    say({
+      who: 'penjaga', tone: 'calm', kicker: 'Well done',
+      text: <><b className="a-lead">Good.</b> {next ? `Next: ${next}` : "You've made it safe for now."}</>,
+      card: watch ? <WaterCheck onStopped={() => void speak('Your water meter has stopped. No more water is coming in from the mains.')} /> : undefined,
+      chips: c ? caseChips(c).filter((ch) => !ch.quiet) : undefined,
+    });
+    void speak(`Good. ${next ? `Next: ${next}` : ''}`);
+    setEm(null);
+  }
+  function goAway() {
+    const e = emRef.current;
+    if (!e) return;
+    retire(e.askKey);
+    const { plan } = e;
+    const text = `Okay. If anyone is at home, ask them to do this now: ${plan.action} The ${plan.label.toLowerCase()} is ${plan.where}.`;
+    if ('device' in plan.target) show({ layer: plan.target.device.startsWith('valve') ? 'water' : 'electrical', object_ids: [plan.target.device], severity: 'urgent', label: plan.label });
+    const c = caseById(plan.caseId);
+    say({ who: 'penjaga', tone: 'urgent', text, chips: c ? caseChips(c).filter((ch) => !ch.quiet) : undefined });
+    void speak(text);
+    setEm(null);
+  }
+  function endEmergency() {
+    const e = emRef.current;
+    stopTalking();
+    engine?.clearRoute();
+    if (e) retire(e.askKey);
+    setEm(null);
+    say({ who: 'penjaga', tone: 'calm', text: "Okay, I've stopped guiding. The steps are still above if you need them." });
+  }
 
   // ---------- the house talking back: taps and "Can I drill here?" ----------
   useEffect(() => {
@@ -452,7 +711,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
     const w = v.wellbeing;
     others.push({
       key: `wb:${w.id}`, t: houseNow() - 60e3, who: 'penjaga', tone: 'info', kicker: 'Family check',
-      text: <><b className="a-lead">{w.title}.</b> {w.body} I only look at water and power use, never cameras or microphones.</>,
+      text: <><b className="a-lead">{w.title}.</b> {w.body} I only look at water and power use: there are no cameras or microphones in your home.</>,
       focus: { layer: 'structure', object_ids: ['floor_GF_bed4', 'floor_GF_bath4'], severity: 'info', label: "Mak's suite" },
       chips: [
         { label: 'Call Mak', icon: 'phone', primary: true, onClick: () => { api.ackWellbeing(w.id, 'called'); location.href = 'tel:+60123456789'; } },
@@ -517,19 +776,23 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
   const onReady = (e: Engine) => { e.setInteractive(true); e.setAutoRotate(false); e.setInsets({ left: 470 }); lastShown.current = ''; return () => e.setInsets({ left: 0 }); };
 
   // A small thinking orb shows Penjaga working on it until the reply lands.
-  const ask = async (q: string) => {
+  // A spoken question (voice) is answered out loud as well; a typed one only on screen.
+  const ask = async (q: string, opts: { voice?: boolean } = {}) => {
     if (!q.trim() || thinking) return;
     if (collapsed) setCollapsed(false);
-    say({ who: 'you', text: q });
+    if (!opts.voice) speech.cancel();
+    say({ who: 'you', text: q, still: opts.voice });
     setText('');
     setThinking(true);
     setTimeout(() => threadEnd.current?.scrollIntoView({ block: 'end', behavior: 'smooth' }), 60);
     const m = await api.ask(q, { caseId: openCases[0]?.id });
     setThinking(false);
-    reply(m);
+    reply(m, !!opts.voice);
   };
-  // The answer has passed the guardrails before it arrives; it types itself out, then its buttons appear.
-  const reply = (a: ChatMessage) => {
+  // The answer has passed the guardrails before it arrives; it types itself out, then its buttons appear. Asked by
+  // voice, Penjaga also says it (the words on screen are exactly what it says).
+  const reply = (a: ChatMessage, aloud = false) => {
+    if (aloud && voicePrefs().speak) void speak(a.text);
     const key = `r${Date.now()}${Math.random()}`;
     const chips: Chip[] | undefined = a.chips?.map((c) => ({
       label: c.label, icon: c.focus ? 'pin' : undefined,
@@ -552,6 +815,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
       : status === 'attention' ? 'alert'
         : justFixed ? 'happy'
           : hour >= 23 || hour < 6 ? 'sleeping' : 'calm';
+  const activity: Activity = hearing ? 'listening' : speaker.speaking ? 'speaking' : thinking ? 'thinking' : 'idle';
   const suggestions = openCases.length
     ? ['What happens if I wait?', 'How much is this costing me?', "What's wrong at home?"]
     : ['Where does the master bathroom heater get its power?', 'Where are the pipes in Bathroom 2?', 'Where is my water tank?'];
@@ -594,7 +858,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
   const when = (t: number) => (new Date(t).toDateString() === new Date(houseNow()).toDateString() ? fmtTime(t) : fmtDay(t));
 
   return (
-    <div className={`agent ${collapsed ? 'is-collapsed' : ''}`}>
+    <div className={`agent ${collapsed ? 'is-collapsed' : ''} ${rest === 'on' ? 'is-resting' : ''}`}>
       <div className="agent-stage">
         <ViewerSlot label="Your home in 3D. Tap anything and Penjaga will tell you about it." onReady={onReady} />
         <div className="stage-tools-r">
@@ -626,11 +890,19 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
       <section className={`agent-col ${collapsed ? 'collapsed' : ''} ${glass.layers ? 'glass' : ''}`} data-liquid-glass={glass.layers ? glass.mode : undefined} aria-label="Penjaga">
         {glass.layers}
         <header className="agent-head">
-          <Character mood={headMood} size={30} live />
+          {/* Penjaga, alive: it looks at the pointer, listens and talks here. Tap it to talk (or to stop it talking). */}
+          <button className="pj-live" data-active={activity !== 'idle' && activity !== 'thinking' ? activity : undefined} onClick={() => (speaker.speaking ? speech.cancel() : void talk())}
+            aria-label={speaker.speaking ? 'Stop Penjaga talking' : hearing ? 'Stop listening' : canListen() ? 'Talk to Penjaga' : 'Penjaga'}>
+            <LiveCharacter mood={headMood} activity={activity} size={30} voice={speech.level} mic={getMic} track />
+          </button>
           <div className="agent-title">
             <b>Penjaga</b>
             <span className="sep" aria-hidden="true">|</span>
-            <button className="listening" onClick={() => setSensorsOpen((o) => !o)} aria-expanded={sensorsOpen} aria-controls="sensors"><i className={status} />Listening · water {live.water_lpm.toFixed(2)} L/min · power {live.power_kw.toFixed(1)} kW<Icon name="chevron" size={12} /></button>
+            {speaker.speaking
+              ? <span className="speaking-tag" role="status">Speaking<button onClick={() => speech.cancel()}>Stop</button></span>
+              : speaker.blocked && lastSpoken.current
+                ? <button className="hear-btn" style={{ marginTop: 0 }} onClick={() => { speech.unlock(); void speak(lastSpoken.current); }}><Icon name="replay" size={13} />Tap to hear Penjaga</button>
+                : <button className="listening" onClick={() => setSensorsOpen((o) => !o)} aria-expanded={sensorsOpen} aria-controls="sensors"><i className={status} />Listening · water {live.water_lpm.toFixed(2)} L/min · power {live.power_kw.toFixed(1)} kW<Icon name="chevron" size={12} /></button>}
           </div>
           <button className="icon-btn fold" onClick={() => setCollapsed(!collapsed)} aria-expanded={!collapsed} aria-label={collapsed ? 'Open the conversation' : 'Fold the conversation'}><Icon name="chevron" size={16} /></button>
         </header>
@@ -651,7 +923,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
             {thread.map((i, n) => {
               const cont = n > 0 && thread[n - 1].who === i.who && !i.kicker && i.key !== liveKey; // same speaker again: no second avatar
               return (
-                <article key={i.key} id={i.key} className={`a-item ${i.who} ${i.tone ?? ''} ${cont ? 'cont' : ''}`}>
+                <article key={i.key} id={i.key} className={`a-item ${i.who} ${i.tone ?? ''} ${cont ? 'cont' : ''} ${i.still ? 'still' : ''}`}>
                   <span className={`a-avatar ${i.who === 'penjaga' ? 'pj' : 'me'}`} aria-hidden="true">{i.who === 'penjaga' ? <Character mood={moodFor(i.tone)} size={28} live={i.key === preview?.key} /> : 'A'}</span>
                   <div className="a-body">
                     {!cont && <div className="a-meta"><b className="a-name">{i.who === 'penjaga' ? 'Penjaga' : 'You'}</b>{i.kicker && <span className="a-kicker">{i.kicker}</span>}{i.key === liveKey && <span className="live3d"><i aria-hidden="true" />Live in 3D</span>}</div>}
@@ -679,6 +951,16 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
                 <div className="a-body"><MiniOrb size={24} />Penjaga is thinking…</div>
               </div>
             )}
+            {hearing && (
+              // the owner's words as they speak, in their own bubble at the bottom of the conversation
+              <article className="a-item you hearing" aria-label="What you're saying">
+                <span className="a-avatar me mic" data-mic aria-hidden="true"><MicIcon size={14} /></span>
+                <div className="a-body">
+                  <div className="a-meta"><b className="a-name">You</b><span className="a-kicker">Listening</span></div>
+                  <div className="a-text"><LiveWords text={hearing.text} settled={hearing.settled} listening /></div>
+                </div>
+              </article>
+            )}
             <div ref={threadEnd} />
           </div>
         )}
@@ -686,7 +968,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
         <div className="agent-compose">
           {!collapsed && <div className="suggest">{suggestions.map((s) => <button type="button" key={s} onClick={() => void ask(s)} disabled={thinking}>{s}</button>)}</div>}
           {/* the ask pill: a ribbon of colour runs round its rim (faster while typing), a soft glow under it */}
-          <div className="ask-pill" data-typing={text.trim() ? '' : undefined}>
+          <div className="ask-pill" data-typing={text.trim() ? '' : undefined} data-listening={hearing ? '' : undefined}>
             <div className="ask-glow" aria-hidden="true" />
             <div className="ask-surface" aria-hidden="true"><div className="ask-aurora"><i /><i /><i /><i /></div></div>
             <form className="ask-input" onSubmit={(e) => { e.preventDefault(); void ask(text); }} autoComplete="off">
@@ -694,18 +976,35 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
                 <path d="M10 3.5l1.7 4.8 4.8 1.7-4.8 1.7L10 16.5l-1.7-4.8L3.5 10l4.8-1.7L10 3.5z" />
                 <path d="M18 14.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7.7-1.8z" />
               </svg>
-              <input value={text} onChange={(e) => setText(e.target.value)} onFocus={() => { if (collapsed) setCollapsed(false); }} maxLength={300} placeholder="Ask Penjaga about your home" aria-label="Ask Penjaga" spellCheck={false} />
-              <button type="submit" className="ask-send" aria-label="Send" disabled={thinking} data-ready={text.trim() && !thinking ? '' : undefined}>
+              {hearing
+                ? <ListeningLine level={getMic} hint={hearing.text ? 'Listening… tap the mic when you’re done' : 'Listening… say your question'} />
+                : <input value={text} onChange={(e) => { setText(e.target.value); if (speaker.speaking) speech.cancel(); }} onFocus={() => { if (collapsed) setCollapsed(false); }} maxLength={300} placeholder={canListen() ? 'Ask Penjaga, or tap the mic' : 'Ask Penjaga about your home'} aria-label="Ask Penjaga" spellCheck={false} />}
+              {canListen() && !text.trim() && (
+                <button type="button" className="ask-mic" data-mic aria-pressed={!!hearing} aria-label={hearing ? 'Stop listening' : 'Talk to Penjaga'} disabled={thinking && !hearing} onClick={() => void talk()}>
+                  <MicIcon />
+                </button>
+              )}
+              {(!canListen() || text.trim()) && <button type="submit" className="ask-send" aria-label="Send" disabled={thinking} data-ready={text.trim() && !thinking ? '' : undefined}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M12 19V5" />
                   <path d="M5.5 11.5L12 5l6.5 6.5" />
                 </svg>
-              </button>
+              </button>}
             </form>
           </div>
-          {!collapsed && <div className="compose-note">Penjaga acts only after you confirm</div>}
+          {!collapsed && <div className="compose-note">{hearing ? 'Your microphone is on only while you see this' : 'Penjaga acts only after you confirm'}</div>}
         </div>
       </section>
+
+      {rest !== 'off' && (
+        <Resting
+          status={status}
+          line={status === 'all_quiet' ? 'All quiet at home' : status === 'urgent' ? 'Something needs you now' : openCases.length === 1 ? 'One thing needs a look' : `${openCases.length} things need a look`}
+          houseNow={houseNow}
+          leaving={rest === 'leaving'}
+          onWake={wake}
+        />
+      )}
 
       {drawer && (
         <>
@@ -877,7 +1176,8 @@ function ShotViewer({ shot, onClose }: { shot: Shot; onClose: () => void }) {
   );
 }
 
-// What Penjaga listens to: the house's own sensors, live. Nothing here watches people (no cameras, no microphones).
+// What Penjaga listens to: the house's own sensors, live. Nothing in the home watches people (no cameras, no microphones);
+// the phone's microphone is used only while the owner talks to Penjaga.
 function Sensors({ live }: { live: Live }) {
   const real = BACKEND === 'api';
   const fmt = (v: number | null | undefined, d: number, unit: string) => (v == null ? 'No reading yet' : `${v.toFixed(d)} ${unit}`);
@@ -894,7 +1194,7 @@ function Sensors({ live }: { live: Live }) {
   return (
     <div className="sensors" id="sensors">
       {tiles.map(([k, v, hint]) => <div key={k} title={hint}><span className="micro">{k}</span><b>{v}</b></div>)}
-      <p className="tiny muted">Penjaga senses the building, never the people in it: no cameras, no microphones.</p>
+      <p className="tiny muted">Penjaga senses the building, never the people in it: no cameras or microphones in your home. Your phone's microphone is on only while you talk to Penjaga.</p>
     </div>
   );
 }

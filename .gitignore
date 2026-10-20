@@ -55,3 +55,6 @@ coverage/
 # Blender's automatic backups (house_typeB.blend1, …)
 *.blend1
 *.blend2
+
+# browser test artefacts (Playwright MCP)
+.playwright-mcp/

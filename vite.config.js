@@ -40,7 +40,12 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     build: { target: 'es2022', chunkSizeWarningLimit: 1500 },
+    // the dependency scan starts from the app's page only (by default it globs every .html in the repo, .venv included)
+    optimizeDeps: { entries: ['index.html'] },
     server: {
+      // The app's source is src/ and house.spec.json. Watching the Python side (.venv, services, the backend's live
+      // DuckDB files in var/) makes the dev server crawl on Windows and fails on locked files (EBUSY).
+      watch: { ignored: ['**/.venv/**', '**/var/**', '**/services/**', '**/packages/**', '**/ml/**', '**/docs/**', '**/scripts/**', '**/.playwright-mcp/**', '**/.pytest_cache/**', '**/.mypy_cache/**', '**/.ruff_cache/**'] },
       proxy: {
         '/api': { target: api, changeOrigin: true, configure: withToken(() => apiToken(env, 'homeowner')) },
         '/lab/api': {

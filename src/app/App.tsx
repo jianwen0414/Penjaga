@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router';
 import { EngineProvider } from './engine';
 import { useView } from '../api/client';
@@ -6,6 +6,9 @@ import Agent from '../screens/Agent';
 import Tour from '../screens/Tour';
 import Lab from '../screens/Lab';
 import Sdp from '../screens/Sdp';
+
+// Dev server only: the character's tuning page. Not part of production builds.
+const CharacterLab = import.meta.env.DEV ? lazy(() => import('../screens/CharacterLab')) : null;
 
 function Home({ panel }: { panel?: 'notices' | 'settings' | 'record' }) {
   const v = useView();
@@ -30,6 +33,7 @@ export default function App() {
           {/* Operator + pitch surfaces: never linked from the homeowner app (PRD §13) */}
           <Route path="lab" element={<Lab />} />
           <Route path="sdp" element={<Sdp />} />
+          {CharacterLab && <Route path="character" element={<Suspense fallback={null}><CharacterLab /></Suspense>} />}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </EngineProvider>

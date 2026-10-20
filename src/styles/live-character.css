@@ -1,0 +1,5 @@
+/* Penjaga alive (src/character/LiveCharacter.tsx). All motion comes from the rig, frame by frame; nothing here
+   animates. The free-standing version lets its shadow and z's spill outside the box. */
+.lc { display: block; flex: none; overflow: visible; }
+.lc .lc-body { will-change: transform; }
+.lc .lc-fx { pointer-events: none; }

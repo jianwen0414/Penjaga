@@ -247,13 +247,19 @@ export function runGuidedCheck(caseId: string, fixtureId: string): void {
 // proxy). It lasts longer than the check (house time). The Core API itself never calls
 // the simulator; in a real home the owner does it by hand.
 const ACTION_HELD_S = 40 * 60; // longer than a valve check (20 min settle + 10 min watch)
-async function actInSimulator(action: { close_valves?: string[]; switch_off_circuits?: string[] }): Promise<void> {
+async function actInSimulator(action: { close_valves?: string[]; switch_off_circuits?: string[] }, heldS = ACTION_HELD_S): Promise<void> {
   const r = await fetch('/lab/sim/v1/actions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...action, duration_s: ACTION_HELD_S }),
+    body: JSON.stringify({ ...action, duration_s: heldS }),
   });
   if (!r.ok) console.warn('[penjaga] the simulator did not do it', action, r.status, await r.text());
+}
+
+/** The same demo bridge for an emergency: the owner says they closed the main stop valve, so the simulated house
+ * closes it (until a plumber would have come: 6 house hours), and the meter shows whether it worked. */
+export function ownerDid(action: { close_valves?: string[]; switch_off_circuits?: string[] }): void {
+  actInSimulator(action, 6 * 3600).catch((err) => console.warn('[penjaga] the simulator did not do it', err));
 }
 
 // ---------------- "Ask Penjaga" (step 6) ----------------

@@ -10,7 +10,7 @@ const STOPS = [
   { kicker: 'Welcome home, Master', title: 'This is your home, as it was built.', body: 'Representative of a double-storey terrace at The Nine Elmina Green: 4 bedrooms, 4 bathrooms.' },
   { kicker: 'Every room', title: 'Two floors, every wall in place.', body: 'Drag to look around, pinch to zoom, tap anything to see its record.' },
   { kicker: 'The part you never see', title: 'Penjaga knows what runs inside your walls.', body: 'Every pipe and cable, by name. When something goes wrong, it shows you exactly where.' },
-  { kicker: 'Your privacy', title: 'It watches the building, not the people.', body: 'Only your water meter and electrical board. No cameras, no microphones. You can switch any layer off.' },
+  { kicker: 'Your privacy', title: 'It watches the building, not the people.', body: 'Only your water meter and electrical board. No cameras or microphones in your home. You can switch any layer off.' },
 ];
 
 export default function Tour() {

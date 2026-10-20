@@ -1,0 +1,113 @@
+/* Talking with Penjaga: the owner's words arriving in the chat, the mic in the ask pill, Penjaga speaking in the
+   header, the resting screen, and the emergency route's markers in the 3D view. Same tokens as app.css. */
+
+/* ---- the owner's words, as they're heard: each word lifts and fades in; guesses are lighter until they settle ---- */
+.live-words { display: inline; }
+.lw { display: inline-block; white-space: pre; animation: lw-in 260ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.lw.guess { color: var(--muted); }
+.lw.settled { color: var(--ink); transition: color 220ms ease-out; }
+@keyframes lw-in { from { opacity: 0; transform: translateY(5px); filter: blur(3px); } to { opacity: 1; transform: none; filter: none; } }
+.lw-caret { display: inline-block; width: 2px; height: 1.05em; margin-left: 1px; vertical-align: -0.15em; background: var(--accent); border-radius: 1px; animation: caret 0.9s steps(2, jump-none) infinite; }
+.lw-hint { color: var(--muted); font-style: italic; }
+@media (prefers-reduced-motion: reduce) { .lw { animation: none; } .lw-caret { animation: none; } }
+/* the owner's message bubble while listening */
+.a-item.you.hearing .a-text { color: var(--ink); }
+.a-item.you .a-avatar.me.mic { background: var(--accent); color: var(--accent-ink); position: relative; }
+.a-item.you .a-avatar.me.mic::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid var(--accent); opacity: calc(0.15 + var(--mic, 0) * 0.85); transform: scale(calc(1 + var(--mic, 0) * 0.35)); transition: transform 80ms linear, opacity 80ms linear; }
+.a-item.you .a-avatar.me.mic svg { width: 14px; height: 14px; }
+
+/* ---- the mic in the ask pill ---- */
+.ask-mic {
+  width: 36px; height: 36px; flex: none; border-radius: 50%; border: 1px solid var(--line-2); padding: 0; position: relative;
+  display: grid; place-items: center; background: var(--surface); color: var(--ink-2);
+  transition: background 0.2s, color 0.2s, border-color 0.2s, transform 0.15s;
+}
+.ask-mic:hover { background: var(--surface-2); color: var(--ink); }
+.ask-mic:active { transform: scale(0.94); }
+.ask-mic svg { width: 17px; height: 17px; }
+.ask-mic:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ask-mic[aria-pressed="true"] { background: var(--urgent); border-color: var(--urgent); color: #fff; }
+.ask-mic[aria-pressed="true"]::before {
+  content: ''; position: absolute; inset: -5px; border-radius: 50%; border: 2px solid var(--urgent);
+  opacity: calc(0.2 + var(--mic, 0) * 0.8); transform: scale(calc(1 + var(--mic, 0) * 0.3)); transition: transform 70ms linear, opacity 70ms linear;
+}
+/* while listening the pill shows what's happening instead of the input */
+.ask-pill[data-listening] .ask-glow { opacity: 0.55; background: linear-gradient(90deg, rgba(173, 50, 39, 0.28), rgba(var(--pill-water), 0.25) 55%, rgba(173, 50, 39, 0.24)); }
+.ask-listening { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--ink-2); }
+.ask-listening .bars { display: flex; align-items: center; gap: 3px; height: 22px; }
+.ask-listening .bars i { width: 3px; border-radius: 2px; background: var(--urgent); height: calc(4px + var(--h, 0) * 18px); transition: height 70ms linear; }
+.ask-listening .hint { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ask-listening .hint b { font-weight: 600; color: var(--ink); }
+
+/* ---- Penjaga in the header: it grows a little while it listens or talks, with a soft ring ---- */
+.agent-head .pj-live { position: relative; width: 30px; height: 30px; flex: none; display: grid; place-items: center; border: 0; background: none; padding: 0; cursor: pointer; border-radius: 50%; }
+.agent-head .pj-live .lc { transition: transform 420ms cubic-bezier(0.34, 1.4, 0.64, 1); transform-origin: 50% 60%; }
+.agent-head .pj-live[data-active] .lc { transform: scale(1.45); }
+.agent-head .pj-live::after { content: ''; position: absolute; inset: -6px; border-radius: 50%; pointer-events: none; opacity: 0; transition: opacity 300ms; box-shadow: 0 0 0 2px rgba(31, 77, 64, 0.25), 0 0 22px 2px rgba(91, 209, 139, 0.35); }
+.agent-head .pj-live[data-active]::after { opacity: 1; animation: pj-ring 2.4s ease-in-out infinite; }
+.agent-head .pj-live[data-active="listening"]::after { box-shadow: 0 0 0 2px rgba(173, 50, 39, 0.3), 0 0 22px 2px rgba(229, 72, 77, 0.3); }
+@keyframes pj-ring { 50% { transform: scale(1.12); } }
+.agent-head { position: relative; z-index: 2; }
+@media (prefers-reduced-motion: reduce) { .agent-head .pj-live .lc, .agent-head .pj-live::after { transition: none; animation: none; } }
+/* a word under the title while it talks */
+.agent-title .speaking-tag { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--accent); font-weight: 600; }
+.agent-title .speaking-tag button { border: 0; background: none; padding: 0 2px; color: var(--muted); font-size: 11.5px; text-decoration: underline; text-underline-offset: 2px; }
+
+/* ---- "tap to hear": the browser held the sound back ---- */
+.hear-btn { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; border: 1px solid var(--line-2); background: #fff; border-radius: 999px; padding: 4px 11px; font-size: 12.5px; font-weight: 600; }
+
+/* ---- resting: the house turns slowly, Penjaga dozes at the bottom; any touch wakes it ---- */
+.agent .agent-col, .agent .stage-tools-r, .agent .stage-shown { transition: opacity 520ms cubic-bezier(0.2, 0.7, 0.2, 1), transform 520ms cubic-bezier(0.2, 0.7, 0.2, 1), filter 520ms; }
+.agent.is-resting .agent-col { opacity: 0; transform: translateX(-28px) scale(0.985); filter: blur(4px); pointer-events: none; }
+.agent.is-resting .stage-tools-r, .agent.is-resting .stage-shown { opacity: 0; transform: translateY(-10px); pointer-events: none; }
+@media (max-width: 959px) { .agent.is-resting .agent-col { transform: translateY(28px); } }
+.resting { position: absolute; inset: 0; z-index: 8; cursor: default; overflow: hidden; }
+.resting-veil { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(120% 90% at 50% 38%, rgba(236, 230, 221, 0) 40%, rgba(225, 216, 202, 0.55) 100%), linear-gradient(to bottom, rgba(236, 230, 221, 0) 55%, rgba(236, 230, 221, 0.75) 100%); opacity: 0; animation: veil-in 900ms ease-out forwards; }
+@keyframes veil-in { to { opacity: 1; } }
+.resting-clock { position: absolute; left: clamp(20px, 4vw, 48px); top: clamp(20px, 5vh, 52px); color: var(--ink); pointer-events: none; animation: rise-in 900ms 200ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.resting-clock .time { font-family: var(--serif); font-size: clamp(44px, 7vw, 84px); line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.resting-clock .date { margin-top: 6px; font-size: 14px; color: var(--ink-2); }
+.resting-clock .status { margin-top: 14px; display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: rgba(251, 249, 245, 0.75); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 13px; color: var(--ink-2); border: 1px solid var(--line); }
+.resting-clock .status i { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); animation: breathe 3.2s ease-in-out infinite; }
+.resting-clock .status.attention i { background: var(--act); } .resting-clock .status.urgent i { background: var(--urgent); }
+.resting-char { position: absolute; left: 50%; bottom: clamp(16px, 5vh, 56px); transform: translateX(-50%); display: grid; justify-items: center; gap: 10px; animation: rise-in 1100ms 350ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.resting-char button { border: 0; background: none; padding: 0; cursor: pointer; border-radius: 40px; }
+.resting-char button:focus-visible { outline: 2px solid var(--accent); outline-offset: 6px; }
+.resting-hint { font-size: 12.5px; color: var(--ink-2); padding: 5px 12px; border-radius: 999px; background: rgba(251, 249, 245, 0.7); border: 1px solid var(--line); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); animation: hint-breathe 5s ease-in-out infinite; }
+@keyframes hint-breathe { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+@keyframes rise-in { from { opacity: 0; transform: translate(var(--tx, 0), 18px); } to { opacity: 1; transform: translate(var(--tx, 0), 0); } }
+.resting-char { --tx: -50%; }
+/* leaving: everything fades while Penjaga wakes */
+.resting.leaving .resting-veil, .resting.leaving .resting-clock { opacity: 0; transition: opacity 480ms ease-out; animation: none; }
+.resting.leaving .resting-char { opacity: 0; transform: translate(-50%, 24px) scale(0.92); transition: opacity 520ms 260ms ease-in, transform 620ms 220ms cubic-bezier(0.5, 0, 0.75, 0); animation: none; }
+.resting.leaving .resting-hint { opacity: 0; transition: opacity 200ms; animation: none; }
+@media (prefers-reduced-motion: reduce) { .resting-veil, .resting-clock, .resting-char, .resting-hint { animation: none; opacity: 1; } .agent .agent-col, .agent .stage-tools-r { transition: none; } }
+
+/* ---- the emergency route in 3D: "You" and where to go ---- */
+.route-tag { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px 6px 9px; border-radius: 999px; font: 600 12.5px var(--sans); white-space: nowrap; pointer-events: none; transform: translateY(-50%); box-shadow: 0 8px 22px -8px rgba(0, 0, 0, 0.35); animation: tag-pop 420ms cubic-bezier(0.34, 1.4, 0.64, 1) both; }
+.route-tag i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.route-tag.you { background: #fff; color: var(--ink); border: 1px solid var(--line-2); }
+.route-tag.you i { background: #2f9d7a; box-shadow: 0 0 0 4px rgba(47, 157, 122, 0.22); }
+.route-tag.goal { background: var(--urgent); color: #fff; }
+.route-tag.goal i { background: #fff; box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.3); animation: breathe 1.4s ease-in-out infinite; }
+@keyframes tag-pop { from { opacity: 0; transform: translateY(-30%) scale(0.85); } }
+@media (prefers-reduced-motion: reduce) { .route-tag, .route-tag.goal i { animation: none; } }
+
+/* ---- the emergency card in the chat: where to go, step by step ---- */
+.em-steps { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; counter-reset: em; }
+.em-steps li { counter-increment: em; display: grid; grid-template-columns: 22px 1fr; gap: 8px; font-size: 13.5px; line-height: 1.45; color: var(--ink-2); }
+.em-steps li::before { content: counter(em); width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; background: var(--urgent-soft); color: var(--urgent); margin-top: 1px; }
+.em-steps li.now::before { background: var(--urgent); color: #fff; }
+.em-steps li.done { color: var(--muted); }
+.em-steps li.done::before { content: '✓'; background: var(--ok-soft); color: var(--ok); }
+.em-where { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13.5px; color: var(--ink); }
+.em-places { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.em-verify { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 13px; color: var(--ink-2); }
+.em-verify b { font-variant-numeric: tabular-nums; color: var(--ink); }
+.em-verify i { width: 8px; height: 8px; border-radius: 50%; background: var(--water); animation: breathe 1.6s ease-in-out infinite; }
+.em-verify.ok i { background: var(--ok); animation: none; }
+
+/* the owner's spoken words land where they were already showing: no second slide-in */
+.a-item.still { animation: none; }
+.agent-head .pj-live { transition: margin 420ms cubic-bezier(0.34, 1.4, 0.64, 1); }
+.agent-head .pj-live[data-active] { margin: 0 6px 0 4px; } /* room for it to grow without covering the title */

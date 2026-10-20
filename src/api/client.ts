@@ -38,6 +38,9 @@ export const api = {
   // Marking a reminder done needs the Core API (the stand-in's reminders are fixed examples).
   markMaintenanceDone: real ? remote.markMaintenanceDone : undefined,
   markToured: real ? remote.markToured : agent.markToured,
+  // Demo house only (dev server): what the owner says they did in an emergency happens in the simulated house too.
+  // The stand-in's world has no valves, so there it's a no-op.
+  ownerDid: real ? remote.ownerDid : (() => {}) as typeof remote.ownerDid,
   vendors: (category: VendorCategory) => (real ? remote.cachedVendors(category) : undefined) ?? standinVendors(category),
   // The real chat answers in a few seconds (a promise); the stand-in answers at once. Agent.tsx handles both.
   ask: (real ? remote.ask : agent.ask) as (q: string, ctx?: { caseId?: string }) => ChatMessage | Promise<ChatMessage>,

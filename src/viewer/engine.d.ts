@@ -10,6 +10,11 @@ export interface EngineState { view: string; water: boolean; electrical: boolean
 export interface DrillResult { wall: ElementInfo; services: (ElementInfo & { from_m: number; to_m: number })[] }
 type Events = { select: ElementInfo | null; hover: ElementInfo | null; state: EngineState; drill: DrillResult | null; focusDone: { object_ids: string[] } };
 
+export interface RouteShape {
+  legs: { floor: string; points: [number, number][] }[];
+  stair: { foot: [number, number, number]; top: [number, number, number]; up: boolean } | null;
+  to?: { id?: string };
+}
 export type InspectPhase = 'walk' | 'look' | 'xray' | 'found' | 'done';
 export interface Inspection { image: string; video: Blob | null; room: string | null }
 
@@ -41,6 +46,10 @@ export interface PenjagaEngine {
    * (null if it was cancelled, e.g. by clearFocus). Phases: walk, look, xray, found, done. */
   inspect(cmd: FocusCommand, opts?: { onPhase?: (phase: InspectPhase, info: { room?: string | null }) => void; record?: boolean }): Promise<Inspection | null>;
   capture(label?: string): string;
+  /** Draw the walk from where the owner is to where they need to be (src/nav/route.ts), framed, walls see-through;
+   * the destination device glows. Lasts until clearRoute() or clearFocus(). */
+  route(r: RouteShape, opts?: { from?: string; to?: string; color?: number }): boolean;
+  clearRoute(): void;
   describe(id: string): ElementInfo | null;
   has(id: string): boolean;
   on<K extends keyof Events>(ev: K, f: (data: Events[K]) => void): () => void;

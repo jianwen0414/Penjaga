@@ -316,6 +316,7 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
   function clearFocus({ reframe = true } = {}) {
     clearFlags();
     clearScan();
+    clearRoute();
     endInspect();
     state.focus = null;
     select(null);
@@ -680,6 +681,193 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
     });
   }
 
+  // ---------- route: the way from where the owner is to where they need to be (an emergency) ----------
+  // A glowing path on the floors, drawn from the owner's room outwards, with light pulses running along it so the
+  // direction is obvious. It goes through doorways (src/nav/route.ts plans it from the drawings), up or down the
+  // stair, and ends at the thing to reach, which glows. "You" and the destination are marked. The walls go
+  // see-through so the whole walk is visible. Lasts until clearRoute() or clearFocus().
+  let routeRig = null;
+  function clearRoute() {
+    if (!routeRig) return;
+    const rig = routeRig;
+    routeRig = null;
+    rig.tween?.kill();
+    if (rig.flagged) clearFlags();
+    rig.objects.forEach((o) => {
+      o.removeFromParent();
+      o.traverse?.((m) => { m.geometry?.dispose(); if (m.material && !m.material.userData?.shared) m.material.dispose?.(); });
+    });
+    state.xray = rig.prev.xray;
+    invalidate(true);
+    emit('state', getState());
+  }
+  const ROUTE_LIFT = 0.07; // above the floor finish
+  function routeCurve(points) {
+    // no two points in the same place (a zero-length span breaks the centripetal spline), and at least two
+    const pts = points.filter((q, i) => i === 0 || q.distanceTo(points[i - 1]) > 0.01);
+    if (pts.length === 1) pts.push(pts[0].clone().add(new THREE.Vector3(0.02, 0, 0)));
+    return new THREE.CatmullRomCurve3(pts, false, 'centripetal', 0.5);
+  }
+  function routeTag(text, cls) {
+    const el = document.createElement('div');
+    el.className = `route-tag ${cls}`;
+    el.innerHTML = `<i aria-hidden="true"></i><span></span>`;
+    el.querySelector('span').textContent = text;
+    return new CSS2DObject(el);
+  }
+  function routeMarker(color, radius) {
+    const g = new THREE.Group();
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(radius, 40), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.32, depthTest: false, toneMapped: false }));
+    const ring = new THREE.Mesh(new THREE.RingGeometry(radius * 0.92, radius, 48), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95, depthTest: false, toneMapped: false }));
+    const wave = new THREE.Mesh(new THREE.RingGeometry(radius * 0.94, radius, 48), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.6, depthTest: false, toneMapped: false }));
+    wave.userData.wave = true;
+    g.add(disc, ring, wave);
+    g.traverse((m) => { m.renderOrder = 12; m.layers.set(1); });
+    return g;
+  }
+  /**
+   * Show a route: { legs: [{ floor, points: [[x, y], ...] }], stair: { foot, top, up } | null,
+   * from: { room }, to: { id?, room } } in spec metres; opts: { from: 'You · Kitchen', to: 'Main stop valve',
+   * color }. Returns true if drawn.
+   */
+  function route(r, { from: fromText = 'You', to: toText = '', color = GLOW_COLOR.urgent } = {}) {
+    clearFocus({ reframe: false });
+    clearRoute();
+    if (!r?.legs?.length) return false;
+    const objects = [];
+    const curves = [];
+    const prev = { xray: state.xray };
+    const floorsUsed = new Set(r.legs.map((l) => l.floor));
+    if ([...floorsUsed].some((f) => !house.floors[f]?.visible) || floorsUsed.size > 1) setView(floorsUsed.size > 1 ? 'split' : [...floorsUsed][0], { reframe: false });
+    state.xray = true; // the whole walk visible through the walls
+    const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95, depthTest: false, toneMapped: false });
+    const halo = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.18, depthTest: false, toneMapped: false });
+    const addLine = (parent, curve, segs) => {
+      const core = new THREE.Mesh(new THREE.TubeGeometry(curve, segs, 0.05, 10, false), mat);
+      const glowTube = new THREE.Mesh(new THREE.TubeGeometry(curve, segs, 0.14, 10, false), halo);
+      for (const m of [glowTube, core]) { m.renderOrder = 11; m.layers.set(1); parent.add(m); objects.push(m); }
+      curves.push({ curve, core, glowTube, segs, parent });
+    };
+    for (const leg of r.legs) {
+      const fg = house.floors[leg.floor];
+      if (!fg) continue;
+      const z = fg.userData.z + ROUTE_LIFT;
+      const pts = leg.points.map(([x, y]) => new THREE.Vector3(x, y, z));
+      // the climb is part of the ground floor's stair: add it to the ground-floor leg's end (or start, going down)
+      if (r.stair && leg.floor === 'GF') {
+        const [fx, fy, fz] = r.stair.foot, [tx, ty, tz] = r.stair.top;
+        const foot = new THREE.Vector3(fx, fy, fz + ROUTE_LIFT + 0.12), top = new THREE.Vector3(tx, ty, tz + ROUTE_LIFT);
+        if (r.stair.up) pts.push(foot, top); else pts.unshift(top, foot);
+      }
+      const curve = routeCurve(pts);
+      addLine(fg.userData.layers.labels, curve, Math.max(32, Math.round(curve.getLength() * 26)));
+    }
+    // markers: where the owner is, and where they need to get to
+    const start = r.legs[0], end = r.legs[r.legs.length - 1];
+    const place = (leg, [x, y], obj) => { const fg = house.floors[leg.floor]; obj.position.set(x, y, fg.userData.z + ROUTE_LIFT + 0.01); fg.userData.layers.labels.add(obj); objects.push(obj); return obj; };
+    const you = place(start, start.points[0], routeMarker(0x2f9d7a, 0.42));
+    const goal = place(end, end.points[end.points.length - 1], routeMarker(color, 0.48));
+    const youTag = routeTag(fromText, 'you'); youTag.position.set(0, 0, 0.9); you.add(youTag);
+    if (toText) { const goalTag = routeTag(toText, 'goal'); goalTag.position.set(0, 0, 1.1); goal.add(goalTag); }
+    // in the split view the first floor sits beside the ground floor: an arc shows the stair leads there
+    let arc = null;
+    if (r.stair && floorsUsed.size > 1 && state.view === 'split') {
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(ARC_POINTS * 3), 3));
+      arc = new THREE.Line(geo, new THREE.LineDashedMaterial({ color, dashSize: 0.25, gapSize: 0.18, transparent: true, opacity: 0.85, depthTest: false }));
+      arc.renderOrder = 11; arc.layers.set(1);
+      scene.add(arc);
+      objects.push(arc);
+    }
+    if (r.to?.id) flag([r.to.id], 'urgent', { color: SEVERITY_COLOR.urgent });
+    routeRig = { objects, curves, prev, arc, arcAt: null, stair: r.stair, you, goal, flagged: !!r.to?.id, tween: null, t0: performance.now(), grown: reduceMotion ? 1 : 0, pulses: [] };
+    // pulses: little lights travelling the path, start to end, again and again
+    if (!reduceMotion) {
+      for (const c of curves) {
+        const n = Math.max(2, Math.round(c.curve.getLength() / 2.2));
+        for (let i = 0; i < n; i++) {
+          const p = new THREE.Mesh(new THREE.SphereGeometry(0.085, 14, 10), new THREE.MeshBasicMaterial({ color: 0xfff4e0, transparent: true, depthTest: false, toneMapped: false }));
+          p.renderOrder = 13; p.layers.set(1);
+          c.parent.add(p);
+          objects.push(p);
+          routeRig.pulses.push({ mesh: p, c, offset: i / n });
+        }
+      }
+    }
+    const rig = routeRig;
+    const grow = (k) => {
+      for (const c of rig.curves) {
+        const per = c.core.geometry.index.count / c.segs;
+        const upto = Math.max(per, Math.round(k * c.segs) * per);
+        c.core.geometry.setDrawRange(0, upto);
+        c.glowTube.geometry.setDrawRange(0, Math.round(k * c.segs) * (c.glowTube.geometry.index.count / c.segs));
+      }
+      invalidate();
+    };
+    if (reduceMotion) grow(1);
+    else {
+      grow(0);
+      const p = { k: 0 };
+      rig.tween = gsap.to(p, { k: 1, duration: 2.2, ease: 'power2.inOut', delay: 0.6, onUpdate: () => { rig.grown = p.k; grow(p.k); } });
+    }
+    // frame the whole walk, both markers in view
+    scene.updateMatrixWorld(true);
+    const box = new THREE.Box3();
+    objects.forEach((o) => { if (o !== arc) box.expandByObject(o); });
+    const sphere = box.getBoundingSphere(new THREE.Sphere());
+    const vfov = THREE.MathUtils.degToRad(camera.fov);
+    const hfov = 2 * Math.atan(Math.tan(vfov / 2) * camera.aspect);
+    const dist = Math.max(10, (sphere.radius / Math.sin(Math.min(vfov, hfov) / 2)) * 1.08);
+    state.focus = { objs: [you, goal] };
+    flyTo(sphere.center.clone().add(new THREE.Vector3(0, Math.sin(ELEV), Math.cos(ELEV)).multiplyScalar(dist)), sphere.center, 1.4);
+    invalidate(true);
+    emit('state', getState());
+    return true;
+  }
+  const ARC_POINTS = 41;
+  const _a = new THREE.Vector3(), _b2 = new THREE.Vector3(), _m = new THREE.Vector3();
+  function animateRoute(now) {
+    const rig = routeRig;
+    if (!rig) return;
+    const t = Math.max(0, (now - rig.t0) / 1000); // a frame can be stamped just before the route began
+    for (const p of rig.pulses) {
+      const k = Math.min(0.9999, (t * 0.22 + p.offset) % 1);
+      const visible = k <= rig.grown;
+      p.mesh.visible = visible;
+      if (visible) p.mesh.position.copy(p.c.curve.getPointAt(k));
+      p.mesh.material.opacity = Math.sin(Math.min(1, k) * Math.PI) * 0.95;
+    }
+    for (const m of [rig.you, rig.goal]) {
+      m.children.forEach((c) => {
+        if (!c.userData.wave) return;
+        const k = (t * 0.7 + (m === rig.goal ? 0.5 : 0)) % 1;
+        c.scale.setScalar(1 + k * 1.6);
+        c.material.opacity = 0.65 * (1 - k);
+      });
+    }
+    if (rig.arc && rig.stair) {
+      // from the top of the stair on the ground floor to the landing on the first floor, through the air; rebuilt
+      // only when the first floor moves (it slides when the view changes)
+      const gf = house.floors.GF, ff = house.floors.FF;
+      const key = `${ff.position.x.toFixed(3)},${ff.position.y.toFixed(3)},${ff.position.z.toFixed(3)}`;
+      if (rig.arcAt !== key) {
+        rig.arcAt = key;
+        const [tx, ty, tz] = rig.stair.top;
+        gf.localToWorld(_a.set(tx, ty, tz + ROUTE_LIFT));
+        ff.localToWorld(_b2.set(tx, ty + 0.2, ff.userData.z + ROUTE_LIFT));
+        _m.copy(_a).lerp(_b2, 0.5); _m.y += 2.2;
+        const curve = new THREE.QuadraticBezierCurve3(_a.clone(), _m.clone(), _b2.clone());
+        const pos = rig.arc.geometry.attributes.position;
+        curve.getPoints(ARC_POINTS - 1).forEach((q, i) => pos.setXYZ(i, q.x, q.y, q.z));
+        pos.needsUpdate = true;
+        rig.arc.geometry.computeBoundingSphere();
+        rig.arc.computeLineDistances();
+      }
+      rig.arc.material.dashOffset = -t * 0.6;
+    }
+    dirty = true;
+  }
+
   // ---------- capture: the stage's visible part as an image, and as a short clip while inspecting ----------
   const ACCENT = '#48d6a6';
   function frameRect() {
@@ -973,6 +1161,7 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
     controls.update();
     pulseFlags(now);
     spinFans(now);
+    animateRoute(now);
     aoCamera.position.copy(camera.position);
     aoCamera.quaternion.copy(camera.quaternion);
     aoCamera.aspect = camera.aspect;
@@ -1014,7 +1203,7 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
   return {
     mount, unmount, setInteractive, setAutoRotate, setInsets,
     frame, setView, setLayer, setXray, setDrill, getState,
-    focus, focusRoom, focusId, flag, clearFlags, clearFocus, drillCheck, servicesInWall, scan, inspect, capture, trace: (ids, severity) => trace(ids.map((id) => house.byId.get(id)).filter(Boolean), severity), roomOf,
+    focus, focusRoom, focusId, flag, clearFlags, clearFocus, drillCheck, servicesInWall, scan, inspect, capture, route, clearRoute, trace: (ids, severity) => trace(ids.map((id) => house.byId.get(id)).filter(Boolean), severity), roomOf,
     describe: (id) => describe(house.byId.get(id)),
     has: (id) => house.byId.has(id),
     on(ev, f) { (listeners[ev] ||= []).push(f); return () => { listeners[ev] = listeners[ev].filter((x) => x !== f); }; },
