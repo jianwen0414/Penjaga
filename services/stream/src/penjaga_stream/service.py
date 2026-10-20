@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 import math
 import time
 from collections.abc import Callable
@@ -46,6 +47,8 @@ from penjaga_stream.hub import Hub
 from penjaga_stream.registry import QUALITY_CODES, StreamRegistry
 from penjaga_stream.store import ReadingStore
 from penjaga_stream.timeutil import US_PER_S, from_us, seconds_to_us, to_us
+
+log = logging.getLogger("penjaga_stream.service")
 
 
 class QueryError(ValueError):
@@ -88,11 +91,22 @@ class StreamService:
         )
         self.hub = Hub(config.lossless_queue_size, config.lossless_put_timeout_s)
         self.governor = Governor()
-        self.store = ReadingStore(self._store_path(self.clock.episode))
+        self.store = self._new_store(self.clock.episode)
         self.rejected = 0
 
     def _store_path(self, episode: int) -> Path:
         return self.config.data_dir / f"episode-{episode:04d}" / "readings.duckdb"
+
+    def _new_store(self, episode: int) -> ReadingStore:
+        """An empty store for a new episode. A restart numbers episodes from 0 again, so a file an
+        earlier run left at the same path holds another episode's readings for the same house
+        times; kept, every summary would average the two runs together."""
+        path = self._store_path(episode)
+        for stale in (path, path.with_name(f"{path.name}.wal")):
+            if stale.exists():
+                log.warning("episode %d starts empty: removing an old run's %s", episode, stale)
+                stale.unlink()
+        return ReadingStore(path)
 
     # ------------------------------------------------------------------ ingest
 
@@ -164,7 +178,7 @@ class StreamService:
         old = self.store
         self.clock.reset(start_us=start_us, mode=command.mode, speed=command.speed)
         self.registry.reset()
-        self.store = ReadingStore(self._store_path(self.clock.episode))
+        self.store = self._new_store(self.clock.episode)
         await anyio.to_thread.run_sync(old.close)
         notice = ResetNotice(
             episode=self.clock.episode,

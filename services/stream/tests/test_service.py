@@ -112,6 +112,21 @@ async def test_reset_starts_a_clean_episode(make_service, config):
     assert [p.n for p in summary.points] == [1]  # the old episode's data is not mixed in
 
 
+async def test_a_restarted_service_starts_its_episode_empty(make_service):
+    # A restart numbers episodes from 0 again, but it is a new episode (a new id, a new run of the
+    # house): the file an earlier run left at episode-0000 must not be mixed into its readings,
+    # or every summary averages two runs over the same house times.
+    first: StreamService = make_service()
+    await first.ingest(batch_message(batch_doc(CURRENT, at(0), [16.0, 16.0], seq=0)))
+    await first.close()
+    second: StreamService = make_service()
+    assert second.store.path == first.store.path
+    assert second.clock.episode_id != first.clock.episode_id
+    await second.ingest(batch_message(batch_doc(CURRENT, at(0), [1.0, 1.0], seq=0)))
+    summary = await second.summary(CURRENT, at(0), at(60), 60)
+    assert [(p.n, p.mean) for p in summary.points] == [(2, 1.0)]
+
+
 async def test_governor_slows_clock_when_detection_lags(make_service):
     service: StreamService = make_service(speed=600)
     sub = service.hub.add_lossless()
