@@ -1,0 +1,46 @@
+/* "What happens if I wait?" on the 3D stage (FutureOverlay.tsx): a dark glass readout in the corner, like the 3D
+   inspection's, so the house stays the picture. */
+.future {
+  /* top right, under the toolbar: the house's front (the meter, the porch) is at the bottom of the view */
+  position: absolute; z-index: 6; right: 18px; top: 74px; width: min(340px, calc(100% - 36px));
+  padding: 14px 16px 12px; border-radius: 16px; color: #f4efe7;
+  background: rgba(20, 24, 22, 0.78); backdrop-filter: blur(14px) saturate(1.1); -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  border: 1px solid rgba(244, 239, 231, 0.1); box-shadow: 0 20px 44px -18px rgba(0, 0, 0, 0.55);
+  animation: future-in 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@keyframes future-in { from { opacity: 0; transform: translateY(12px) scale(0.98); } }
+.future-head { display: flex; align-items: center; justify-content: space-between; }
+.future-eyebrow { font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700; color: rgba(244, 239, 231, 0.6); }
+.future-x { width: 26px; height: 26px; border-radius: 50%; border: 0; display: grid; place-items: center; background: rgba(244, 239, 231, 0.1); color: #f4efe7; cursor: pointer; }
+.future-x:hover { background: rgba(244, 239, 231, 0.2); }
+.future-when { margin-top: 2px; font-family: var(--serif); font-size: 26px; line-height: 1.15; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.future-figs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+.future-figs div { display: grid; gap: 1px; min-width: 0; }
+.future-figs b { font-size: 18px; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.future-figs span { font-size: 11.5px; color: rgba(244, 239, 231, 0.62); }
+.future-track { position: relative; height: 6px; margin-top: 12px; border-radius: 999px; background: rgba(244, 239, 231, 0.14); }
+.future-track i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: inherit; background: linear-gradient(90deg, #4ea8e6, #e5484d); }
+.future-track span { position: absolute; top: -3px; width: 2px; height: 12px; margin-left: -1px; border-radius: 1px; background: rgba(244, 239, 231, 0.35); }
+.future-track span.past { background: #f4efe7; }
+.future-ends { display: flex; justify-content: space-between; margin-top: 4px; font-size: 11px; color: rgba(244, 239, 231, 0.5); }
+.future-ctl { display: flex; gap: 6px; margin-top: 10px; }
+.future-ctl .a-chip { background: rgba(244, 239, 231, 0.1); border-color: rgba(244, 239, 231, 0.16); color: #f4efe7; }
+.future-ctl .a-chip.primary { background: #f4efe7; border-color: #f4efe7; color: #141816; }
+.future-basis { margin: 8px 0 0; font-size: 11.5px; line-height: 1.45; color: rgba(244, 239, 231, 0.55); }
+/* a phone: under the toolbar, full width */
+/* a phone: the stage is small, so a compact strip along its bottom, and Penjaga's stage character steps back */
+@media (max-width: 959px) {
+  .future { right: 8px; left: 8px; top: auto; bottom: 8px; width: auto; padding: 8px 10px 9px; border-radius: 13px; }
+  .future-eyebrow { font-size: 9.5px; }
+  .future-x { width: 22px; height: 22px; }
+  .future-when { font-size: 17px; margin-top: 0; }
+  .future-figs { margin-top: 3px; gap: 8px; }
+  .future-figs b { font-size: 14px; }
+  .future-figs span { font-size: 10.5px; }
+  .future-track { margin-top: 6px; height: 4px; }
+  .future-ends, .future-basis { display: none; }
+  .future-ctl { margin-top: 7px; }
+  .future-ctl .a-chip { min-height: 26px; font-size: 12px; padding: 0 10px; }
+  .agent-stage:has(.future) .stage-buddy { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .future { animation: none; } }

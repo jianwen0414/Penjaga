@@ -79,9 +79,13 @@ a management water-disruption notice, and the living-alone check.
 - **Emergencies:** when a case turns urgent, Penjaga speaks first, asks where you are, listens for the answer, and
   draws the walking route in 3D to the valve or switchboard named in the case's reviewed safety text (routes come
   from `house.spec.json`: doors, open plan, the stair; `src/nav/route.ts`). Try it in the Lab: *Burst pipe*.
-- **What if they wait? (Lab only):** carry an open case forward with a slider and watch the house: a leak's lost water
-  stands beside it as a cube to scale, rising earth leakage climbs to the safety switch's limits. Only the case's own
-  measurements (`GET /api/v1/outlook`), at the rate measured.
+- **What happens if I wait?** Ask it (or tap *What if I wait?* on a case) and Penjaga plays the case's future in the
+  house: a leak's lost water piles up beside it as a cube to scale, rising earth leakage climbs to the safety switch's
+  limits, with a readout counting up (pause, play again, *Back to now*). Two weeks ahead for a burst, a year for a slow
+  leak. Only the case's own measurements (`GET /api/v1/outlook`), at the rate measured.
+- **Driving it from the Lab:** the Lab's *What if they wait?* slider has *Show on the homeowner's screen*: switched
+  on, the homeowner app tab (same browser) plays the same future as you drag, so the audience watches the app while
+  you steer. Switching it off, or closing the Lab tab, puts the app back to now.
 - `npm test` runs the app's unit tests (Vitest); `/character` (dev server only) shows every mood of the character.
 
 ### How it's built

@@ -317,7 +317,7 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
     clearFlags();
     clearScan();
     clearRoute();
-    if (proj) { const p = proj; proj = null; p.objects.forEach((o) => { dropLabels(o); o.removeFromParent(); }); }
+    dropProjection();
     endInspect();
     state.focus = null;
     select(null);
@@ -366,6 +366,7 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
   //   3. reveal the service layer, 4. pulse the affected objects in the severity colour, 5. anchor a label.
   // Interruptible, and a straight cut under prefers-reduced-motion. Unknown IDs are ignored.
   function focus({ layer, object_ids = [], severity = 'heads_up', label } = {}) {
+    dropProjection(); // something else takes the stage: the future it was showing goes
     clearFlags();
     const objs = object_ids.map((id) => house.byId.get(id)).filter(Boolean);
     if (!objs.length) return false;
@@ -471,6 +472,7 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
     setLayer('electrical', prev.electrical);
   }
   function scan(rooms = {}) {
+    dropProjection();
     clearFlags();
     clearScan();
     select(null, { silent: true });
@@ -882,13 +884,18 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
   // stands beside the house as one cube, to scale (1 m = 1 m: 1,000 litres is a 1 m cube), next to a 1 m³ cube for
   // comparison. Called again and again as the slider moves: only what changed is redrawn.
   let proj = null;
-  function clearProjection() {
-    if (!proj) return;
+  // Taken off the stage by something else (a focus, a scan, a route): its objects go, the new focus's flags stay.
+  function dropProjection() {
+    if (!proj) return false;
     const p = proj;
     proj = null;
     p.objects.forEach((o) => { dropLabels(o); o.removeFromParent(); o.traverse?.((m) => { m.geometry?.dispose(); m.material?.dispose?.(); }); });
-    clearFlags();
     invalidate(true);
+    return true;
+  }
+  /** Put the projection away (and its glow). A no-op if something else already took the stage. */
+  function clearProjection() {
+    if (dropProjection()) clearFlags();
   }
   function waterCube(fg) {
     const g = new THREE.Group();
@@ -902,17 +909,21 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
     return g;
   }
   /**
-   * opts: { key, layer, ids, severity, label, waterM3?, maxWaterM3? }. `key` names the case: a new key frames the
-   * view (wide enough for the biggest cube the slider can reach), the same key only updates.
+   * opts: { key, layer, ids, severity, label, waterM3?, maxWaterM3?, fit? }. `key` names the case: a new key frames the
+   * view (wide enough for the biggest cube the slider can reach), the same key only updates. `fit` scales the framing
+   * distance (below 1 is tighter: a small viewer; 1 leaves room around it for the app's panels).
    */
-  function projection({ key, layer, ids = [], severity = 'heads_up', label = '', waterM3 = null, maxWaterM3 = null } = {}) {
+  function projection({ key, layer, ids = [], severity = 'heads_up', label = '', waterM3 = null, maxWaterM3 = null, fit = 1 } = {}) {
     const objs = ids.map((id) => house.byId.get(id)).filter(Boolean);
     if (!proj || proj.key !== key) {
       clearFocus({ reframe: false });
       clearProjection();
       proj = { key, sev: null, label: null, tag: null, cube: null, refCube: null, objects: [], ids };
       if (layer === 'water' || layer === 'electrical') setLayer(layer, true);
-      if (state.view !== 'split') setView('split', { reframe: false });
+      // only the floor it is on (a lost water's cube stands by the ground floor), both if it spans them
+      const floors = [...new Set(objs.map((o) => o.userData.floor).filter((f) => f === 'GF' || f === 'FF'))];
+      const view = floors.length === 1 && (floors[0] === 'GF' || maxWaterM3 == null) ? floors[0] : 'split';
+      if (state.view !== view) setView(view, { reframe: false });
       state.xray = true;
       const gf = house.floors.GF;
       if (maxWaterM3 != null) {
@@ -941,7 +952,10 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
         proj.cube = cube; proj.refCube = ref; proj.cubeTag = tag;
         proj.objects.push(cube, ref);
       }
-      // frame the part and (for water) the biggest cube the slider can reach
+      // frame the part and (for water) the biggest cube the slider can reach; the first floor may still be sliding
+      // into place after the view change, so measure where it is going, not where it is
+      const ffPos = house.floors.FF.position, ffNow = ffPos.clone();
+      ffPos.copy(state.view === 'split' ? FF_SPLIT : new THREE.Vector3());
       scene.updateMatrixWorld(true);
       const box = new THREE.Box3();
       objs.forEach((o) => box.expandByObject(o));
@@ -953,10 +967,12 @@ export async function createEngine(spec, { onProgress, lite = false } = {}) {
         box.expandByObject(house.floors.GF.userData.layers.structure);
       }
       if (box.isEmpty()) box.expandByObject(house.floors.GF.userData.layers.structure);
+      ffPos.copy(ffNow);
+      scene.updateMatrixWorld(true);
       const sphere = box.getBoundingSphere(new THREE.Sphere());
       const vfov = THREE.MathUtils.degToRad(camera.fov);
       const hfov = 2 * Math.atan(Math.tan(vfov / 2) * camera.aspect);
-      const dist = Math.max(9, (sphere.radius / Math.sin(Math.min(vfov, hfov) / 2)) * 0.82); // the bounding sphere is generous: the corners can go
+      const dist = Math.max(9, (sphere.radius / Math.sin(Math.min(vfov, hfov) / 2)) * fit);
       flyTo(sphere.center.clone().add(new THREE.Vector3(0, Math.sin(ELEV), Math.cos(ELEV)).multiplyScalar(dist)), sphere.center, 1.2);
       state.focus = objs.length ? { objs } : null;
     }

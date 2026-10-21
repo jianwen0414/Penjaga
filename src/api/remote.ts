@@ -7,6 +7,7 @@
 import type { ChatMessage, Notice, Vendor, VendorCategory } from './types';
 import type { View } from '../standin/agent';
 import { toSpecFocus } from './spec-ids';
+import type { Outlook } from '../outlook/project';
 
 const BASE = '/api/v1';
 const REFRESH_MS = 30_000;
@@ -224,6 +225,11 @@ export function book(caseId: string, vendorId: string, slot: number): void {
     })
     .catch((err) => console.warn('[penjaga] booking not made', err))
     .finally(loadSoon);
+}
+
+/** Each open case's own measurements, carried forward ("what happens if I wait?"; services/api outlook.py). */
+export function outlooks(): Promise<Outlook[]> {
+  return call<Outlook[]>('GET', '/outlook').then((list) => list.map((o) => ({ ...o, focus: toSpecFocus(o.focus) })));
 }
 
 /** The owner shut the supply off in an emergency (the main stop valve, a breaker): the case waits for the repair. */

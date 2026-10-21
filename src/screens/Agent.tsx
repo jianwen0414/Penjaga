@@ -12,6 +12,9 @@ import Character, { moodFor, type Mood } from '../components/Character';
 import LiveCharacter, { type Activity } from '../character/LiveCharacter';
 import Resting from '../components/Resting';
 import StageBuddy from '../components/StageBuddy';
+import FutureOverlay, { type FutureMode } from '../components/FutureOverlay';
+import { asksAboutWaiting, narrate, pickOutlook, type Outlook } from '../outlook/project';
+import { openFutureChannel } from '../outlook/channel';
 import NotifyBell from '../components/NotifyBell';
 import MiniOrb from '../components/MiniOrb';
 import { useLiquidGlass } from '../components/LiquidGlass';
@@ -124,7 +127,11 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
   // What the 3D view is pointing at right now, so the owner can always put it away again.
   const [shown, setShown] = useState<string | null>(null);
   const [liveKey, setLiveKey] = useState<string | null>(null); // the message the 3D view is showing
+  // "What happens if I wait?": the case's future playing in the house (asked by the owner, or mirrored from the Lab)
+  const [future, setFuture] = useState<{ outlook: Outlook; mode: FutureMode } | null>(null);
+  const [outlookList, setOutlookList] = useState<Outlook[]>([]);
   const focusOn = (f: FocusCommand) => {
+    setFuture(null); // something else takes the stage
     const ok = !!engine?.focus(f);
     setShown(ok ? f.label ?? 'This part' : null);
     return ok;
@@ -142,6 +149,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
   const [scanning, setScanning] = useState(false);
   async function scanHome() {
     if (!engine || scanning) return;
+    setFuture(null);
     setScanning(true);
     setShown(null);
     const live = v.cases.filter((c) => c.status !== 'resolved' && c.status !== 'dismissed');
@@ -183,6 +191,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
   const inspecting = useRef(0);
   async function inspectCase(c: Case, focus: FocusCommand = c.focus) {
     if (!engine) return;
+    setFuture(null);
     if (!focus.object_ids.some((id) => engine.has(id))) { show(focus); return; } // says it isn't in the model
     // not pinpointed yet (e.g. "somewhere after your water meter"): a picture of the meter tells the owner nothing,
     // so just show where it was measured; the guided check finds the spot, and then it is worth inspecting
@@ -274,7 +283,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
   const [em, setEmState] = useState<Em | null>(null);
   const emRef = useRef<Em | null>(null);
   const setEm = (next: Em | null) => { emRef.current = next; setEmState(next); };
-  const busy = !!(hearing || speaker.speaking || thinking || flow || hud || scanning || drawer || panel || viewer || em || text.trim());
+  const busy = !!(hearing || speaker.speaking || thinking || flow || hud || scanning || drawer || panel || viewer || em || future || text.trim());
   useEffect(() => {
     if (busy || rest !== 'off' || !engine) return;
     let timer = setTimeout(() => setRest('on'), IDLE_MS);
@@ -286,6 +295,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
   useEffect(() => {
     if (!engine || rest !== 'on') return;
     // the house takes the whole stage and turns slowly
+    setFuture(null);
     unfocus({ reframe: false });
     engine.setInsets({ left: 0 });
     engine.frame(1.6, { tight: 0.9 });
@@ -323,6 +333,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
   ];
   async function startEmergency(plan: EmergencyPlan) {
     stopTalking();
+    setFuture(null);
     if (rest === 'on') wake(false);
     setFlow(null);
     setCollapsed(false);
@@ -550,6 +561,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
     const out: Chip[] = [...main];
     if (rest.length === 1) out.push(rest[0]); // one extra: no point hiding it behind another button
     else if (rest.length) out.push(...(more ? rest : []), { label: more ? 'Fewer options' : `More options (${rest.length})`, icon: 'chevron', quiet: true, flip: more, onClick: () => setOpen((o) => ({ ...o, [`opts:${c.id}`]: !o[`opts:${c.id}`] })) });
+    if (outlookList.some((o) => o.case_id === c.id && o.projectable)) out.push({ label: 'What if I wait?', quiet: true, onClick: () => { say({ who: 'you', text: 'What happens if I wait?' }); void showFuture(c.id); } });
     out.push({ label: open[`ev:${c.id}`] ? 'Hide the evidence' : 'Why do you think so?', quiet: true, onClick: () => setOpen((o) => ({ ...o, [`ev:${c.id}`]: !o[`ev:${c.id}`] })) });
     if (c.impact.how) out.push({ label: 'How did you get the cost?', quiet: true, onClick: () => setOpen((o) => ({ ...o, [`cost:${c.id}`]: !o[`cost:${c.id}`] })) });
     return out;
@@ -798,6 +810,69 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
 
   const onReady = (e: Engine) => { e.setInteractive(true); e.setAutoRotate(false); e.setInsets({ left: 470 }); lastShown.current = ''; return () => e.setInsets({ left: 0 }); };
 
+  // ---------- "what happens if I wait?": the future of a case, played in the house ----------
+  // The open cases' outlooks (their own measurements, carried forward), refreshed as the cases change.
+  useEffect(() => {
+    if (!api.outlooks) return;
+    let alive = true;
+    api.outlooks().then((l) => { if (alive) setOutlookList(l); }).catch(() => { /* the chips just don't offer it */ });
+    return () => { alive = false; };
+  }, [v.cases]); // eslint-disable-line react-hooks/exhaustive-deps
+  const outlookRef = useRef(outlookList);
+  outlookRef.current = outlookList;
+  /** Play a case's future: the one asked about, else the most serious one that can be carried forward. Resolves false
+   * when there is nothing to carry forward (the chat then answers the question). */
+  async function showFuture(caseId?: string, aloud = false): Promise<boolean> {
+    if (!api.outlooks || !engine) return false;
+    let list = outlookRef.current;
+    try { list = await api.outlooks(); setOutlookList(list); } catch { if (!list.length) return false; }
+    const asked = caseId ? list.find((o) => o.case_id === caseId) : undefined;
+    if (asked && !asked.projectable) { say({ who: 'penjaga', tone: 'calm', text: asked.why_not ?? "There's nothing measured to carry forward yet." }); return true; }
+    const o = pickOutlook(list, caseId);
+    if (!o) return false;
+    unfocus({ reframe: false });
+    const words = narrate(o);
+    say({ who: 'penjaga', tone: o.severity, kicker: 'If you wait', text: <><b className="a-lead">{o.title}.</b> {words}</> });
+    setFuture({ outlook: o, mode: { kind: 'play' } });
+    if (aloud && voicePrefs().speak) void speak(words);
+    return true;
+  }
+  const closeFuture = () => { setFuture(null); unfocus(); };
+  // The Lab's slider, mirrored: the presenter drives the same future in this house (same browser, src/outlook/channel.ts)
+  const remoteSaid = useRef<string | null>(null);
+  // the listener lives as long as the screen: it reads the current future and engine through refs
+  const futureRef = useRef(future);
+  futureRef.current = future;
+  const unfocusRef = useRef(unfocus);
+  unfocusRef.current = unfocus;
+  useEffect(() => {
+    if (!api.outlooks) return;
+    const ch = openFutureChannel((m) => {
+      if (m.type === 'end') {
+        if (futureRef.current?.mode.kind !== 'remote') return; // the owner's own future isn't the Lab's to end
+        remoteSaid.current = null;
+        setFuture(null);
+        unfocusRef.current();
+        return;
+      }
+      const use = (o: Outlook | undefined) => {
+        if (!o?.projectable) return;
+        // a new future takes the stage: whatever it was showing (and its "Showing …" pill) goes
+        if (futureRef.current?.outlook.case_id !== o.case_id) unfocusRef.current({ reframe: false });
+        setFuture((f) =>(f?.mode.kind === 'remote' && f.outlook.case_id === o.case_id ? { ...f, mode: { kind: 'remote', x: m.x } } : { outlook: o, mode: { kind: 'remote', x: m.x } }));
+        if (remoteSaid.current !== o.case_id) { // say once what is being shown, so the conversation explains the house
+          remoteSaid.current = o.case_id;
+          setHud(null);
+          say({ who: 'penjaga', tone: o.severity, kicker: 'If this keeps going', text: <><b className="a-lead">{o.title}.</b> {narrate(o)}</> });
+        }
+      };
+      const known = outlookRef.current.find((o) => o.case_id === m.case_id);
+      if (known) use(known);
+      else api.outlooks?.().then((l) => { setOutlookList(l); use(l.find((o) => o.case_id === m.case_id)); }).catch(() => {});
+    });
+    return () => ch.close();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // A small thinking orb shows Penjaga working on it until the reply lands.
   // A spoken question (voice) is answered out loud as well; a typed one only on screen.
   const ask = async (q: string, opts: { voice?: boolean } = {}) => {
@@ -806,6 +881,8 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
     if (!opts.voice) speech.cancel();
     say({ who: 'you', text: q, still: opts.voice });
     setText('');
+    // "what happens if I wait?": the case's own numbers, played in the house (else the chat answers it)
+    if (asksAboutWaiting(q) && (await showFuture(undefined, !!opts.voice))) return;
     setThinking(true);
     setTimeout(() => threadEnd.current?.scrollIntoView({ block: 'end', behavior: 'smooth' }), 60);
     const m = await api.ask(q, { caseId: openCases[0]?.id });
@@ -842,7 +919,7 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
   // Penjaga steps out beside the panel while it listens, talks or guides an emergency (StageBuddy)
   const headAvatar = useRef<HTMLButtonElement>(null);
   const [buddyOut, setBuddyOut] = useState(false);
-  const buddyCaption = hearing ? 'Listening · tap to stop' : speaker.speaking ? 'Talking · tap to stop' : em ? 'Guiding you' : 'Penjaga';
+  const buddyCaption = hearing ? 'Listening · tap to stop' : speaker.speaking ? 'Talking · tap to stop' : em ? 'Guiding you' : future ? 'Showing what happens' : 'Penjaga';
   const suggestions = openCases.length
     ? ['What happens if I wait?', 'How much is this costing me?', "What's wrong at home?"]
     : ['Where does the master bathroom heater get its power?', 'Where are the pipes in Bathroom 2?', 'Where is my water tank?'];
@@ -905,15 +982,16 @@ export default function Agent({ panel: routePanel }: { panel?: 'notices' | 'sett
           <button className="round" onClick={() => unfocus()} aria-label="Whole house"><Icon name="house3d" size={17} /></button>
         </div>
         {hud && <InspectHud hud={hud} />}
+        {future && <FutureOverlay outlook={future.outlook} mode={future.mode} onClose={closeFuture} />}
         <StageBuddy
-          present={!!(hearing || speaker.speaking || em) && rest === 'off'}
-          mood={em ? 'concerned' : headMood}
+          present={!!(hearing || speaker.speaking || em || future) && rest === 'off'}
+          mood={em || future?.outlook.severity === 'urgent' ? 'concerned' : future ? 'alert' : headMood}
           activity={activity}
           voice={speech.level}
           mic={getMic}
           home={() => headAvatar.current}
           caption={buddyCaption}
-          onTap={() => { if (speaker.speaking) speech.cancel(); else if (hearing) listening.current?.stop(); else void talk(); }}
+          onTap={() => { if (speaker.speaking) speech.cancel(); else if (hearing) listening.current?.stop(); else if (future) closeFuture(); else void talk(); }}
           onAway={setBuddyOut}
         />
         {shown && (

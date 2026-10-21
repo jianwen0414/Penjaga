@@ -2,15 +2,18 @@
 // where it gets to. Only cases whose finding measured something that adds up can be carried forward (a leak's litres
 // a day, an appliance's extra energy, rising earth leakage, a draining tank); the others say why not. The numbers
 // come from the Core API (GET /api/v1/outlook: the case's own measurements and cost of waiting); this only carries
-// them forward. Operator only: the homeowner app never shows a slider into the future.
+// them forward. The homeowner never sees this slider; switched on, the homeowner app tab plays the same future in its
+// own house as the slider moves (src/outlook/channel.ts), so the presenter drives what the audience watches.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ViewerSlot, useEngine, type Engine } from '../app/engine';
 import { Icon } from '../components/ui';
 import { toSpecIds } from '../api/spec-ids';
-import { milestones, project, when, type Outlook } from '../lab/outlook';
+import { milestones, project, when, type Outlook } from '../outlook/project';
+import { openFutureChannel } from '../outlook/channel';
 
 const POLL_MS = 5000;
 const PLAY_MS = 8000;
+const MIRROR_KEY = 'penjaga.lab.mirror';
 
 export default function LabOutlook() {
   const { engine } = useEngine();
@@ -20,6 +23,17 @@ export default function LabOutlook() {
   const [s, setS] = useState(0); // slider position 0..1 (time grows with its square: fine control early on)
   const [playing, setPlaying] = useState(false);
   const raf = useRef(0);
+  // mirror to the homeowner app tab (remembered on this machine)
+  const [mirror, setMirrorState] = useState(() => { try { return localStorage.getItem(MIRROR_KEY) === '1'; } catch { return false; } });
+  const setMirror = (on: boolean) => { setMirrorState(on); try { localStorage.setItem(MIRROR_KEY, on ? '1' : '0'); } catch { /* this session only */ } };
+  const channel = useRef<ReturnType<typeof openFutureChannel> | null>(null);
+  useEffect(() => {
+    channel.current = openFutureChannel();
+    // closing or reloading the Lab tab doesn't unmount React: tell the app to go back to now then as well
+    const bye = () => channel.current?.post({ type: 'end' });
+    addEventListener('pagehide', bye);
+    return () => { removeEventListener('pagehide', bye); bye(); channel.current?.close(); channel.current = null; };
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -49,9 +63,14 @@ export default function LabOutlook() {
   useEffect(() => {
     if (!engine) return;
     if (!sel || !p) { engine.clearProjection(); return; }
-    engine.projection({ key: sel.case_id, layer: sel.focus.layer, ids, severity: p.severity, label: p.label, waterM3: p.waterM3, maxWaterM3: maxWater });
+    engine.projection({ key: sel.case_id, layer: sel.focus.layer, ids, severity: p.severity, label: p.label, waterM3: p.waterM3, maxWaterM3: maxWater, fit: 0.82 }); // a small viewer: tight
   }, [engine, sel?.case_id, p?.label, p?.severity, p?.waterM3]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => { engine?.clearProjection(); }, [engine]);
+  // the homeowner app follows the slider while mirroring is on, and goes back to now when it's switched off
+  useEffect(() => {
+    if (mirror && sel) channel.current?.post({ type: 'show', case_id: sel.case_id, x });
+    else channel.current?.post({ type: 'end' });
+  }, [mirror, sel?.case_id, x]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // play: run the slider to the end (or from the start if it's already there)
   useEffect(() => {
@@ -133,9 +152,15 @@ export default function LabOutlook() {
         </div>
       )}
       {sel && (
+        <label className="lo-mirror">
+          <button type="button" role="switch" aria-checked={mirror} className={`lo-switch ${mirror ? 'on' : ''}`} onClick={() => setMirror(!mirror)}><i /></button>
+          <span><b>Show on the homeowner's screen</b><small>The app tab (open in this browser) plays the same future in its house as you move the slider.</small></span>
+        </label>
+      )}
+      {sel && (
         <p className="lo-basis">
           <b>{sel.title}</b> · {sel.location}. {sel.basis}
-          {sel.cost?.how ? <> Cost: {sel.cost.how}</> : sel.cost?.why_not ? <> No ringgit figure: {sel.cost.why_not}</> : null}
+          {sel.cost?.how ? <> Cost: {sel.cost.how}</> : sel.cost?.why_not ? <> {sel.cost.why_not}</> : null}
         </p>
       )}
     </section>

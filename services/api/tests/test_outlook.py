@@ -61,12 +61,20 @@ def h(tmp_path: Path) -> Iterator[Harness]:
     harness.store.close()
 
 
-def test_only_the_lab_sees_it(h: Harness) -> None:
+def test_the_app_and_the_lab_see_it_management_does_not(h: Harness) -> None:
+    # the household's own cases carried forward: the homeowner app and the Lab, never management
     h.follow(finding("running_cistern_suspected"))
-    for role in (Role.homeowner, Role.management):
-        assert h.client.get("/api/v1/outlook", headers=_h(role)).status_code == 403
+    assert h.client.get("/api/v1/outlook", headers=_h(Role.management)).status_code == 403
     assert h.client.get("/api/v1/outlook").status_code == 401
-    assert h.client.get("/api/v1/outlook", headers=_h(Role.operator)).status_code == 200
+    for role in (Role.homeowner, Role.operator):
+        assert h.client.get("/api/v1/outlook", headers=_h(role)).status_code == 200
+
+
+def test_a_burst_looks_two_weeks_ahead_a_slow_leak_a_year(h: Harness) -> None:
+    h.follow(finding("burst_pipe_suspected"))
+    o = h.outlook()["burst_pipe_suspected"]
+    assert o["kind"] == "water"
+    assert o["horizon"] == {"unit": "day", "max": 14}
 
 
 def test_a_leak_carries_its_litres_a_day_and_its_cost(h: Harness) -> None:

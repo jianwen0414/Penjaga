@@ -285,8 +285,8 @@ def _add_case_routes(app: FastAPI, service: ApiService, g: Guards) -> None:
         return await service.case(case_id)
 
     @app.get(f"{PREFIX}/outlook")
-    async def outlooks(_: Annotated[Role, Depends(g.operator)]) -> list[dict[str, Any]]:
-        """The Lab's "what if they wait?": each open case's measurements, carried forward."""
+    async def outlooks(_: Annotated[Role, Depends(g.app)]) -> list[dict[str, Any]]:
+        """Each open case's measurements carried forward ("what if they wait?"), app and Lab."""
         return await service.outlooks()
 
     @app.post(f"{PREFIX}/cases/{{case_id}}/contained")

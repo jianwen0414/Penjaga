@@ -15,7 +15,11 @@ guess about damage or failure. Each case says which of these it is:
   current draw.
 
 Cases with nothing to carry forward (an overload, repeated trips: a risk now, not something that
-accumulates) say why instead. Operator only: a Lab view, not something the homeowner app shows.
+accumulates) say why instead. How far ahead to look is the case's own scale: a burst gets fixed
+within days (its cost is quoted per day), a slow leak runs for months.
+
+Read by the Lab's slider and by the homeowner app ("what happens if I wait?"): it is the
+household's own case data, carried forward.
 """
 
 from __future__ import annotations
@@ -28,6 +32,9 @@ from penjaga_api.costs import CostEstimate
 # of the rated residual current: IEC 61008-1's non-operating limit (detection uses the same)
 NON_OPERATING = 0.5
 ACTIVE = frozenset({"open", "monitoring", "action_pending"})
+# Water losses that are fixed within days, not left for months: two weeks ahead is the scale
+SHORT_LIVED = frozenset({"burst_pipe_suspected"})
+SHORT_HORIZON_DAYS = 14
 
 
 def _evidence(doc: dict[str, Any]) -> dict[str, float]:
@@ -143,7 +150,10 @@ def outlook(
             "why_not": None if litres > 0 else "No water is being lost now.",
             "water": {"litres_per_day": litres},
             "cost": _cost(cost),
-            "horizon": {"unit": "day", "max": 365},
+            "horizon": {
+                "unit": "day",
+                "max": SHORT_HORIZON_DAYS if lead["type"] in SHORT_LIVED else 365,
+            },
             "basis": "The flow measured at your meter, carried forward at the same rate.",
         }
     kwh = _qty(lead, "extra_energy_kwh_per_day")

@@ -52,7 +52,7 @@ export interface PenjagaEngine {
   clearRoute(): void;
   /** The Lab's "what if they wait?": the case's part glows at the severity reached, with a line; a leak's water stands
    * beside the house as a cube to scale. Same `key` updates in place; a new key frames the view. */
-  projection(p: { key: string; layer: string; ids: string[]; severity: Severity; label: string; waterM3?: number | null; maxWaterM3?: number | null }): boolean;
+  projection(p: { key: string; layer: string; ids: string[]; severity: Severity; label: string; waterM3?: number | null; maxWaterM3?: number | null; fit?: number }): boolean;
   clearProjection(): void;
   describe(id: string): ElementInfo | null;
   has(id: string): boolean;

@@ -1,5 +1,6 @@
-// "What if they wait?" for the Lab: a case's own measurements (GET /api/v1/outlook, services/api outlook.py) carried
-// forward to a moment in the future. Nothing here is invented: litres a day times days, the case's own ringgit a
+// "What if they wait?": a case's own measurements (GET /api/v1/outlook, services/api outlook.py) carried forward to a
+// moment in the future. Used by the homeowner app (Penjaga plays the future in the house when asked) and by the Lab
+// (the presenter's slider, mirrored to the app). Nothing here is invented: litres a day times days, the case's own ringgit a
 // month, the measured trend of the leakage or of an appliance's efficiency gap, the tank's own hours. Where the
 // projection rests on an assumption (the rate stays the same), the basis says so.
 import type { FocusCommand, Severity } from '../api/types';
@@ -36,7 +37,9 @@ export const when = (x: number, unit: 'day' | 'hour') => {
   if (x < 1) return `${Math.round(x * 24)} h`;
   if (x < 14) return `${n1(x)} days`;
   if (x < 60) return `${n1(x / 7)} weeks`;
-  return `${n1(x / 30)} months`;
+  if (x < 330) return `${n1(x / 30)} months`;
+  const years = Math.round((x / 365) * 10) / 10;
+  return Number.isInteger(years) ? `${years} year${years === 1 ? '' : 's'}` : `${years} years`;
 };
 
 /** Extra kWh used over `days`: constant, or along the measured growth of the efficiency gap (linear in weeks). */
@@ -119,4 +122,48 @@ export function milestones(o: Outlook): [number, string][] {
   }
   if (o.kind === 'tank' && o.tank) out.push([o.tank.hours_left, 'Roof tank empty']);
   return out.filter(([x]) => x > 0 && x <= max).sort((a, b) => a[0] - b[0]);
+}
+
+/** "What happens if I wait?" and the ways people say it ("what if I leave it", "if we don't fix it"); not every
+ * question with "wait" in it ("what time should I wait for the plumber"). */
+export const asksAboutWaiting = (q: string): boolean =>
+  /\bwhat happens if\b|\bif (i|we)\b.*\b(wait|leave it|ignore it|don'?t fix|do nothing)\b/i.test(q);
+
+const SEV_RANK: Record<Severity, number> = { info: 0, heads_up: 1, act_soon: 2, urgent: 3 };
+/** The case to carry forward: the one asked about if it can be, else the most serious open one that can. */
+export function pickOutlook(list: Outlook[], caseId?: string): Outlook | null {
+  const ready = list.filter((o) => o.projectable && o.horizon && o.kind);
+  return ready.find((o) => o.case_id === caseId) ?? [...ready].sort((a, b) => SEV_RANK[b.severity] - SEV_RANK[a.severity])[0] ?? null;
+}
+
+const litres = (v: number) => `${n0(v)} litres`;
+const m3 = (v: number) => `${n0(v / 1000)} cubic metres`;
+/** What Penjaga says while the future plays: the case's own numbers at the moments that matter, nothing more. */
+export function narrate(o: Outlook): string {
+  if (!o.projectable || !o.kind) return o.why_not ?? '';
+  if (o.kind === 'water' && o.water) {
+    const lpd = o.water.litres_per_day;
+    const rmAt = (d: number) => (o.cost?.rm_per_month != null ? rm((o.cost.rm_per_month * d) / 30) : null);
+    if ((o.horizon?.max ?? 365) <= 31) {
+      const cost = rmAt(14);
+      return `If it keeps running at this rate, that's ${litres(lpd)} a day: ${litres(lpd * 7)} in a week and ${litres(lpd * 14)} in two weeks${cost ? `, about ${cost} on the water bill` : ''}. Watch it pile up beside your house.`;
+    }
+    const month = rmAt(30), year = rmAt(365);
+    return `If nothing changes, this loses about ${litres(lpd)} a day: ${litres(lpd * 30)} in a month and about ${m3(lpd * 365)} in a year${month && year ? `, about ${month} a month and ${year} a year on the water bill` : ''}. Watch it pile up beside your house.`;
+  }
+  if (o.kind === 'energy' && o.energy) {
+    const month = project(o, 30).figures, year = project(o, 365).figures;
+    const cost = month[1][0] !== 'n/a' ? `, about ${month[1][0]} a month and ${year[1][0]} a year on the power bill` : '';
+    const growing = o.energy.gap_trend_pct_per_week ? ' The gap is growing, so it costs a little more each week.' : '';
+    return `If nothing changes, it uses about ${month[0][0]} extra in a month and ${year[0][0]} in a year${cost}.${growing}`;
+  }
+  if (o.kind === 'leakage' && o.leakage) {
+    const L = o.leakage;
+    const parts: string[] = [];
+    if (L.days_to_limit != null && L.days_to_limit > 0) parts.push(`reaches ${n0(L.limit_ma)} milliamps in about ${when(L.days_to_limit, 'day')}, when your safety switch may trip at any moment`);
+    if (L.days_to_rated != null) parts.push(`${n0(L.rated_ma)} in about ${when(L.days_to_rated, 'day')}, when it trips and cuts the power to those circuits`);
+    return parts.length ? `At the rate it's rising, the leakage ${parts.join(', and ')}.` : (o.why_not ?? '');
+  }
+  if (o.kind === 'tank' && o.tank) return `At the rate the house is using it, your roof tank runs dry in about ${when(o.tank.hours_left, 'hour')}.`;
+  return '';
 }

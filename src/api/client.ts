@@ -44,6 +44,9 @@ export const api = {
   // The owner says they shut the supply off: the Core API keeps the case open until the repair (the stand-in
   // has no such state; its cases resolve when the Lab clears the fault).
   contain: real ? remote.contain : (() => {}) as typeof remote.contain,
+  // "What happens if I wait?": the Core API carries each open case forward; the stand-in has no outlook, so there the
+  // question goes to the chat as usual.
+  outlooks: real ? remote.outlooks : undefined,
   vendors: (category: VendorCategory) => (real ? remote.cachedVendors(category) : undefined) ?? standinVendors(category),
   // The real chat answers in a few seconds (a promise); the stand-in answers at once. Agent.tsx handles both.
   ask: (real ? remote.ask : agent.ask) as (q: string, ctx?: { caseId?: string }) => ChatMessage | Promise<ChatMessage>,
